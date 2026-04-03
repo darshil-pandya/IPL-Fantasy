@@ -50,6 +50,10 @@ npx gh-pages -d dist/IPL-Fantasy
 
 If you rename the repository, update **both** `vite.config.ts` (`REPO` and `base`) **and** move data to `public/<new-repo-name>/data/` so URLs stay consistent.
 
+## Firebase (optional — shared waivers)
+
+Firestore syncs **waiver rounds** only; league JSON stays in this repo. Setup: **[docs/firebase-waiver-setup.md](docs/firebase-waiver-setup.md)**. For GitHub Pages, add repository **Actions secrets** `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, and `VITE_FIREBASE_PROJECT_ID` (see that doc). Local dev uses `.env.local`.
+
 ## Updating league data (no code changes)
 
 | File | Purpose |

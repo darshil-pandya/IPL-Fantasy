@@ -8,8 +8,24 @@ const DOC_PATH = "iplFantasy/waiverState";
 export function isFirebaseWaiverConfigured(): boolean {
   return Boolean(
     import.meta.env.VITE_FIREBASE_API_KEY &&
+      import.meta.env.VITE_FIREBASE_AUTH_DOMAIN &&
       import.meta.env.VITE_FIREBASE_PROJECT_ID,
   );
+}
+
+function firebaseConfig(): { apiKey: string; authDomain: string; projectId: string } {
+  const apiKey = import.meta.env.VITE_FIREBASE_API_KEY;
+  const authDomain = import.meta.env.VITE_FIREBASE_AUTH_DOMAIN;
+  const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID;
+  if (!apiKey || !authDomain || !projectId) {
+    throw new Error("Firebase env incomplete");
+  }
+  return { apiKey, authDomain, projectId };
+}
+
+async function getWaiverApp() {
+  const { initializeApp, getApp, getApps } = await import("firebase/app");
+  return getApps().length ? getApp() : initializeApp(firebaseConfig());
 }
 
 export type Unsub = () => void;
@@ -20,15 +36,8 @@ export async function subscribeWaiverRemote(
 ): Promise<Unsub | null> {
   if (!isFirebaseWaiverConfigured()) return null;
   try {
-    const { initializeApp, getApps } = await import("firebase/app");
     const { getFirestore, doc, onSnapshot } = await import("firebase/firestore");
-
-    const config = {
-      apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-      authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-      projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-    };
-    const app = getApps().length ? getApps()[0]! : initializeApp(config);
+    const app = await getWaiverApp();
     const db = getFirestore(app);
     const [col, id] = DOC_PATH.split("/");
     const d = doc(db, col, id);
@@ -48,16 +57,10 @@ export async function subscribeWaiverRemote(
 
 export async function pushWaiverRemote(payload: unknown): Promise<void> {
   if (!isFirebaseWaiverConfigured()) return;
-  const { initializeApp, getApps } = await import("firebase/app");
   const { getFirestore, doc, setDoc, serverTimestamp } = await import(
     "firebase/firestore"
   );
-  const config = {
-    apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  };
-  const app = getApps().length ? getApps()[0]! : initializeApp(config);
+  const app = await getWaiverApp();
   const db = getFirestore(app);
   const [col, id] = DOC_PATH.split("/");
   await setDoc(

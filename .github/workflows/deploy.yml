@@ -27,7 +27,13 @@ jobs:
         with:
           node-version: "22"
       - run: npm install
-      - run: npm run build
+      - name: Build
+        run: npm run build
+        env:
+          # Optional: add these in Repo → Settings → Secrets and variables → Actions
+          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
       # Fails with "Get Pages site failed" until repo Settings → Pages → Source = GitHub Actions
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v4
