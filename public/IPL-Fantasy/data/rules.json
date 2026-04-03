@@ -1,0 +1,38 @@
+{
+  "teamComposition": {
+    "title": "Team composition (placeholder)",
+    "bullets": [
+      "Replace this block with your league rules: squad size, overseas cap, role minimums, etc.",
+      "You can paste the same text your group agrees on - it renders as readable sections below."
+    ]
+  },
+  "scoring": {
+    "title": "Fantasy scoring (placeholder)",
+    "sections": [
+      {
+        "heading": "Batting",
+        "rows": [
+          { "action": "Run scored", "points": "+1 per run (example)" },
+          { "action": "Boundary bonus", "points": "TBD" },
+          { "action": "Half-century / Century", "points": "TBD" }
+        ]
+      },
+      {
+        "heading": "Bowling",
+        "rows": [
+          { "action": "Wicket", "points": "TBD" },
+          { "action": "Maiden over", "points": "TBD" },
+          { "action": "Economy milestones", "points": "TBD" }
+        ]
+      },
+      {
+        "heading": "Fielding & other",
+        "rows": [
+          { "action": "Catch / run-out / stumping", "points": "TBD" },
+          { "action": "Captain / vice-captain multipliers", "points": "TBD" }
+        ]
+      }
+    ],
+    "footer": "When you send your real scoring table, we will mirror it here. After each match, open the match on Cricbuzz, note each relevant stat for your players, and add a byMatch row plus update seasonTotal in players.json."
+  }
+}

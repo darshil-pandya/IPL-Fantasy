@@ -1,0 +1,151 @@
+{
+  "franchises": [
+    {
+      "owner": "Darshil",
+      "teamName": "Darshil XI",
+      "playerIds": [
+        "anshul-kamboj",
+        "blessing-muzarabani",
+        "kagiso-rabada",
+        "rachin-ravindra",
+        "mohammed-siraj",
+        "nitish-rana",
+        "pathum-nissanka",
+        "phil-salt",
+        "ravi-bishnoi",
+        "rishabh-pant",
+        "shardul-thakur",
+        "travis-head",
+        "venkatesh-iyer",
+        "xavier-bartlett",
+        "yashasvi-jaiswal"
+      ]
+    },
+    {
+      "owner": "Bhavya",
+      "teamName": "Bhavya XI",
+      "playerIds": [
+        "auqib-nabi",
+        "david-miller",
+        "dhruv-jurel",
+        "jacob-duffy",
+        "mohammed-shami",
+        "naman-dhir",
+        "nandre-burger",
+        "rinku-singh",
+        "romario-shepherd",
+        "shimron-hetmyer",
+        "shivam-dube",
+        "shubman-gill",
+        "tristan-stubbs",
+        "virat-kohli",
+        "yuzvendra-chahal"
+      ]
+    },
+    {
+      "owner": "Prajin",
+      "teamName": "Prajin XI",
+      "playerIds": [
+        "aiden-markram",
+        "finn-allen",
+        "hardik-pandya",
+        "heinrich-klaasen",
+        "jos-buttler",
+        "deepak-chahar",
+        "kl-rahul",
+        "marco-jansen",
+        "mohsin-khan",
+        "mukesh-kumar",
+        "rajat-patidar",
+        "ravindra-jadeja",
+        "riyan-parag",
+        "ryan-rickelton",
+        "sunil-narine"
+      ]
+    },
+    {
+      "owner": "Sanket",
+      "teamName": "Sanket XI",
+      "playerIds": [
+        "angkrish-raghuvanshi",
+        "dewald-brevis",
+        "harshal-patel",
+        "josh-hazlewood",
+        "kuldeep-yadav",
+        "mitchell-marsh",
+        "nehal-wadhera",
+        "nicholas-pooran",
+        "noor-ahmad",
+        "prabhsimran-singh",
+        "priyansh-arya",
+        "rashid-khan",
+        "rohit-sharma",
+        "ruturaj-gaikwad",
+        "vaibhav-sooryavanshi"
+      ]
+    },
+    {
+      "owner": "Hersh",
+      "teamName": "Hersh XI",
+      "playerIds": [
+        "abhishek-porel",
+        "arshdeep-singh",
+        "avesh-kumar",
+        "bhuvneshwar-kumar",
+        "cooper-connolly",
+        "ishan-kishan",
+        "jason-holder",
+        "kartik-sharma",
+        "mitchell-santner",
+        "sai-sudharsan",
+        "sandeep-sharma",
+        "sanju-samson",
+        "trent-boult",
+        "vaibhav-arora",
+        "will-jacks"
+      ]
+    },
+    {
+      "owner": "Jash",
+      "teamName": "Jash XI",
+      "playerIds": [
+        "abhishek-sharma",
+        "aniket-verma",
+        "axar-patel",
+        "ayush-badoni",
+        "ayush-mhatre",
+        "glenn-phillips",
+        "jitesh-sharma",
+        "jofra-archer",
+        "krunal-pandya",
+        "lungi-ngidi",
+        "matt-henry",
+        "mitchell-starc",
+        "prasidh-krishna",
+        "shashank-singh",
+        "varun-chakravarthy"
+      ]
+    },
+    {
+      "owner": "Karan",
+      "teamName": "Karan XI",
+      "playerIds": [
+        "ajinkya-rahane",
+        "cameron-green",
+        "devdutt-padikkal",
+        "digvesh-rathi",
+        "jamie-overton",
+        "jasprit-bumrah",
+        "nitish-kumar-reddy",
+        "pat-cummins",
+        "sameer-rizvi",
+        "shreyas-iyer",
+        "suryakumar-yadav",
+        "t-natarajan",
+        "tilak-varma",
+        "vijaykumar-vyshak",
+        "washington-sundar"
+      ]
+    }
+  ]
+}

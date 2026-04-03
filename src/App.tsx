@@ -1,0 +1,64 @@
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { ErrorState } from "./components/ErrorState";
+import { Layout } from "./components/Layout";
+import { LoadingState } from "./components/LoadingState";
+import { LeagueProvider, useLeague } from "./context/LeagueContext";
+import { Auction } from "./pages/Auction";
+import { Home } from "./pages/Home";
+import { Players } from "./pages/Players";
+import { Rules } from "./pages/Rules";
+import { TeamDetail } from "./pages/TeamDetail";
+import { MatchPoints } from "./pages/MatchPoints";
+import { Teams } from "./pages/Teams";
+
+function routerBasename(): string {
+  let b = import.meta.env.BASE_URL;
+  if (b.endsWith("/")) b = b.slice(0, -1);
+  return b === "" ? "/" : b;
+}
+
+function DataRoutes() {
+  const { loading, error, refresh, bundle } = useLeague();
+
+  if (loading) return <LoadingState />;
+  if (error)
+    return (
+      <div className="mx-auto max-w-lg px-4 pt-16">
+        <ErrorState message={error} onRetry={() => void refresh()} />
+      </div>
+    );
+  if (!bundle)
+    return (
+      <div className="mx-auto max-w-lg px-4 pt-16">
+        <ErrorState
+          message="League data is empty."
+          onRetry={() => void refresh()}
+        />
+      </div>
+    );
+
+  return (
+    <Routes>
+      <Route element={<Layout />}>
+        <Route index element={<Home />} />
+        <Route path="teams" element={<Teams />} />
+        <Route path="teams/:ownerSlug" element={<TeamDetail />} />
+        <Route path="players" element={<Players />} />
+        <Route path="matches" element={<MatchPoints />} />
+        <Route path="auction" element={<Auction />} />
+        <Route path="rules" element={<Rules />} />
+      </Route>
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
+}
+
+export default function App() {
+  return (
+    <BrowserRouter basename={routerBasename()}>
+      <LeagueProvider>
+        <DataRoutes />
+      </LeagueProvider>
+    </BrowserRouter>
+  );
+}

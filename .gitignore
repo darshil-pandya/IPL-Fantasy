@@ -1,0 +1,5 @@
+node_modules
+dist
+preview-embed.json
+*.local
+.DS_Store
