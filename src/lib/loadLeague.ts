@@ -9,6 +9,16 @@ import type {
 } from "../types";
 import { buildStandings, playerMapFromList } from "./buildStandings";
 
+/**
+ * JSON lives under `public/<repo>/data/` (same segment as Vite `base` / GitHub repo name),
+ * so deployed URLs are `/IPL-Fantasy/IPL-Fantasy/data/...`, not `/IPL-Fantasy/data/...`.
+ */
+function leagueDataPrefix(): string {
+  const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+  const repo = basePath.slice(basePath.lastIndexOf("/") + 1) || "IPL-Fantasy";
+  return `${repo}/data`;
+}
+
 async function fetchJson<T>(path: string): Promise<T> {
   const base = import.meta.env.BASE_URL;
   const url = `${base}${path.replace(/^\//, "")}`;
@@ -18,14 +28,15 @@ async function fetchJson<T>(path: string): Promise<T> {
 }
 
 export async function loadLeagueBundle(): Promise<LeagueBundle> {
+  const d = leagueDataPrefix();
   const [meta, franchiseFile, playerFile, auction, rules, predictions] =
     await Promise.all([
-      fetchJson<LeagueMeta>("data/meta.json"),
-      fetchJson<{ franchises: Franchise[] }>("data/franchises.json"),
-      fetchJson<{ players: Player[] }>("data/players.json"),
-      fetchJson<AuctionState>("data/auction.json"),
-      fetchJson<LeagueRules>("data/rules.json"),
-      fetchJson<PredictionsState>("data/predictions.json"),
+      fetchJson<LeagueMeta>(`${d}/meta.json`),
+      fetchJson<{ franchises: Franchise[] }>(`${d}/franchises.json`),
+      fetchJson<{ players: Player[] }>(`${d}/players.json`),
+      fetchJson<AuctionState>(`${d}/auction.json`),
+      fetchJson<LeagueRules>(`${d}/rules.json`),
+      fetchJson<PredictionsState>(`${d}/predictions.json`),
     ]);
 
   return {
