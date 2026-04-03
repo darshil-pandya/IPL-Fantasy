@@ -37,8 +37,8 @@ Source fragments: `preview-head.html`, `preview-app.js`, generated `preview-embe
 ## Deploy to GitHub Pages
 
 1. Push this repository to GitHub (repo name should match the `REPO` constant in `vite.config.ts`, default `IPL-Fantasy`).
-2. In the repo: **Settings → Pages → Build and deployment → Source: GitHub Actions**.
-3. Push to `main`; the workflow in `.github/workflows/deploy.yml` builds and publishes the `dist/IPL-Fantasy` folder.
+2. **Turn on Pages (required once):** In the repo go to **Settings → Pages**. Under **Build and deployment**, set **Source** to **GitHub Actions** (not “Deploy from a branch” and not “Disabled”). If this step is skipped, Actions will fail with **“Get Pages site failed” / HttpError: Not Found** on `configure-pages`.
+3. Push to `main`; the workflow in `.github/workflows/deploy.yml` builds and publishes the `dist/IPL-Fantasy` folder. You can re-run a failed workflow from the **Actions** tab after fixing step 2.
 
 Alternatively, after `npm run build`:
 

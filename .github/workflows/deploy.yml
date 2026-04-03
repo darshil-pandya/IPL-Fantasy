@@ -28,6 +28,7 @@ jobs:
           node-version: "22"
       - run: npm install
       - run: npm run build
+      # Fails with "Get Pages site failed" until repo Settings → Pages → Source = GitHub Actions
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v4
         with:
