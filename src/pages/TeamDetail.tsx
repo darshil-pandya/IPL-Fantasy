@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { useLeague } from "../context/LeagueContext";
+import { IplTeamPill } from "../components/IplTeamPill";
+import { OwnerBadge } from "../components/OwnerBadge";
+import { useLeagueStandings } from "../context/WaiverContext";
 import { franchiseBySlug, ownerSlug } from "../lib/slug";
 import type { Player } from "../types";
 
@@ -42,7 +44,7 @@ function MatchBreakdown({ player }: { player: Player }) {
 
 export function TeamDetail() {
   const { ownerSlug: slug } = useParams<{ ownerSlug: string }>();
-  const { summary } = useLeague();
+  const summary = useLeagueStandings();
 
   const row = useMemo(() => {
     if (!summary || !slug) return null;
@@ -74,7 +76,9 @@ export function TeamDetail() {
           ← All teams
         </Link>
         <h2 className="mt-2 text-2xl font-bold text-white">{row.teamName}</h2>
-        <p className="text-slate-400">{row.owner}</p>
+        <div className="mt-2">
+          <OwnerBadge owner={row.owner} />
+        </div>
         <p className="mt-3 text-3xl font-bold tabular-nums text-emerald-300">
           {row.totalPoints.toFixed(1)}{" "}
           <span className="text-lg font-normal text-slate-500">season pts</span>
@@ -110,8 +114,9 @@ export function TeamDetail() {
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <div>
                     <p className="font-semibold text-white">{p.name}</p>
-                    <p className="text-xs text-slate-500">
-                      {p.iplTeam} · {p.role}
+                    <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                      <IplTeamPill code={p.iplTeam} />
+                      <span>{p.role}</span>
                     </p>
                   </div>
                   <p className="text-lg font-bold tabular-nums text-emerald-300">

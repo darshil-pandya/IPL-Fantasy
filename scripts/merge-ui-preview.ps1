@@ -10,12 +10,14 @@ $fr = Get-Content "$data\franchises.json" -Raw -Encoding UTF8 | ConvertFrom-Json
 $pl = Get-Content "$data\players.json" -Raw -Encoding UTF8 | ConvertFrom-Json
 $auction = Get-Content "$data\auction.json" -Raw -Encoding UTF8 | ConvertFrom-Json
 $rules = Get-Content "$data\rules.json" -Raw -Encoding UTF8 | ConvertFrom-Json
+$predictions = Get-Content "$data\predictions.json" -Raw -Encoding UTF8 | ConvertFrom-Json
 $bundle = [ordered]@{
   meta        = $meta
   franchises  = $fr.franchises
   players     = $pl.players
   auction     = $auction
   rules       = $rules
+  predictions = $predictions
 }
 $json = $bundle | ConvertTo-Json -Depth 20 -Compress
 $utf8 = New-Object System.Text.UTF8Encoding $false

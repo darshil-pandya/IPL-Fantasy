@@ -76,10 +76,32 @@ export interface FranchiseStanding extends Franchise {
   missingPlayerIds: string[];
 }
 
+export interface PredictionActuals {
+  winner: string | null;
+  runnerUp: string | null;
+  orangeCap: string | null;
+  purpleCap: string | null;
+}
+
+export interface PredictionPick {
+  owner: string;
+  winner: string;
+  runnerUp: string;
+  orangeCap: string;
+  purpleCap: string;
+}
+
+export interface PredictionsState {
+  pointsPerCorrect: number;
+  actuals: PredictionActuals;
+  picks: PredictionPick[];
+}
+
 export interface LeagueBundle {
   meta: LeagueMeta;
   franchises: Franchise[];
   players: Player[];
   auction: AuctionState;
   rules: LeagueRules;
+  predictions: PredictionsState;
 }

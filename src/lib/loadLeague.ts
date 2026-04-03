@@ -5,6 +5,7 @@ import type {
   LeagueMeta,
   LeagueRules,
   Player,
+  PredictionsState,
 } from "../types";
 import { buildStandings, playerMapFromList } from "./buildStandings";
 
@@ -17,13 +18,15 @@ async function fetchJson<T>(path: string): Promise<T> {
 }
 
 export async function loadLeagueBundle(): Promise<LeagueBundle> {
-  const [meta, franchiseFile, playerFile, auction, rules] = await Promise.all([
-    fetchJson<LeagueMeta>("data/meta.json"),
-    fetchJson<{ franchises: Franchise[] }>("data/franchises.json"),
-    fetchJson<{ players: Player[] }>("data/players.json"),
-    fetchJson<AuctionState>("data/auction.json"),
-    fetchJson<LeagueRules>("data/rules.json"),
-  ]);
+  const [meta, franchiseFile, playerFile, auction, rules, predictions] =
+    await Promise.all([
+      fetchJson<LeagueMeta>("data/meta.json"),
+      fetchJson<{ franchises: Franchise[] }>("data/franchises.json"),
+      fetchJson<{ players: Player[] }>("data/players.json"),
+      fetchJson<AuctionState>("data/auction.json"),
+      fetchJson<LeagueRules>("data/rules.json"),
+      fetchJson<PredictionsState>("data/predictions.json"),
+    ]);
 
   return {
     meta,
@@ -31,6 +34,7 @@ export async function loadLeagueBundle(): Promise<LeagueBundle> {
     players: playerFile.players,
     auction,
     rules,
+    predictions,
   };
 }
 

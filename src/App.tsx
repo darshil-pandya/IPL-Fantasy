@@ -3,13 +3,18 @@ import { ErrorState } from "./components/ErrorState";
 import { Layout } from "./components/Layout";
 import { LoadingState } from "./components/LoadingState";
 import { LeagueProvider, useLeague } from "./context/LeagueContext";
+import { WaiverProvider } from "./context/WaiverContext";
 import { Auction } from "./pages/Auction";
+import { Franchises } from "./pages/Franchises";
 import { Home } from "./pages/Home";
+import { Leaderboard } from "./pages/Leaderboard";
+import { MatchPoints } from "./pages/MatchPoints";
 import { Players } from "./pages/Players";
+import { Predictions } from "./pages/Predictions";
 import { Rules } from "./pages/Rules";
 import { TeamDetail } from "./pages/TeamDetail";
-import { MatchPoints } from "./pages/MatchPoints";
 import { Teams } from "./pages/Teams";
+import { Waivers } from "./pages/Waivers";
 
 function routerBasename(): string {
   let b = import.meta.env.BASE_URL;
@@ -38,18 +43,24 @@ function DataRoutes() {
     );
 
   return (
-    <Routes>
-      <Route element={<Layout />}>
-        <Route index element={<Home />} />
-        <Route path="teams" element={<Teams />} />
-        <Route path="teams/:ownerSlug" element={<TeamDetail />} />
-        <Route path="players" element={<Players />} />
-        <Route path="matches" element={<MatchPoints />} />
-        <Route path="auction" element={<Auction />} />
-        <Route path="rules" element={<Rules />} />
-      </Route>
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+    <WaiverProvider>
+      <Routes>
+        <Route element={<Layout />}>
+          <Route index element={<Home />} />
+          <Route path="leaderboard" element={<Leaderboard />} />
+          <Route path="franchises" element={<Franchises />} />
+          <Route path="teams" element={<Teams />} />
+          <Route path="teams/:ownerSlug" element={<TeamDetail />} />
+          <Route path="players" element={<Players />} />
+          <Route path="matches" element={<MatchPoints />} />
+          <Route path="predictions" element={<Predictions />} />
+          <Route path="waivers" element={<Waivers />} />
+          <Route path="auction" element={<Auction />} />
+          <Route path="rules" element={<Rules />} />
+        </Route>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </WaiverProvider>
   );
 }
 

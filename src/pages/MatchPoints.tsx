@@ -1,36 +1,15 @@
 import { useMemo, useState } from "react";
+import { IplTeamPill } from "../components/IplTeamPill";
+import { OwnerBadge } from "../components/OwnerBadge";
 import { useLeague } from "../context/LeagueContext";
-import { buildStandings } from "../lib/buildStandings";
+import { useLeagueStandings } from "../context/WaiverContext";
 import {
   matchColumnsFromPlayers,
   pointsInMatch,
   type MatchColumn,
 } from "../lib/matchColumns";
-import type { FranchiseStanding, Player, PlayerNationality, PlayerRole } from "../types";
-
-function roleBadgeClass(role: PlayerRole): string {
-  const base =
-    "inline-flex shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide";
-  switch (role) {
-    case "BAT":
-      return `${base} bg-sky-600/35 text-sky-200 ring-1 ring-sky-500/40`;
-    case "BOWL":
-      return `${base} bg-rose-700/35 text-rose-100 ring-1 ring-rose-500/40`;
-    case "AR":
-      return `${base} bg-emerald-700/35 text-emerald-100 ring-1 ring-emerald-500/40`;
-    case "WK":
-      return `${base} bg-amber-600/35 text-amber-100 ring-1 ring-amber-500/40`;
-  }
-}
-
-function natBadgeClass(n?: PlayerNationality): string | null {
-  if (!n) return null;
-  const base =
-    "inline-flex shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide";
-  return n === "IND"
-    ? `${base} bg-emerald-800/40 text-emerald-100 ring-1 ring-emerald-600/35`
-    : `${base} bg-violet-800/40 text-violet-100 ring-1 ring-violet-500/35`;
-}
+import { natBadgeClass, roleBadgeClass } from "../lib/playerBadges";
+import type { FranchiseStanding, Player } from "../types";
 
 function FranchiseMatchTable({
   standing,
@@ -163,15 +142,13 @@ function PlayerRow({ player, columns }: { player: Player; columns: MatchColumn[]
       <td className="px-2 py-2.5">
         <span className={roleBadgeClass(player.role)}>{player.role}</span>
       </td>
-      <td className="px-2 py-2.5 text-slate-400">{player.iplTeam}</td>
       <td className="px-2 py-2.5">
-        {player.nationality ? (
-          <span className={natBadgeClass(player.nationality)!}>
-            {player.nationality}
-          </span>
-        ) : (
-          <span className="text-slate-600">—</span>
-        )}
+        <IplTeamPill code={player.iplTeam} />
+      </td>
+      <td className="px-2 py-2.5">
+        <span className={natBadgeClass(player.nationality)}>
+          {player.nationality ?? "—"}
+        </span>
       </td>
       {columns.map((c) => {
         const pts = pointsInMatch(player, c.id);
@@ -193,12 +170,12 @@ function PlayerRow({ player, columns }: { player: Player; columns: MatchColumn[]
 
 export function MatchPoints() {
   const { bundle } = useLeague();
+  const displaySummary = useLeagueStandings();
   const [franchise, setFranchise] = useState<string>("all");
 
   const standings = useMemo(() => {
-    if (!bundle) return [];
-    return buildStandings(bundle.franchises, bundle.players);
-  }, [bundle]);
+    return displaySummary?.standings ?? [];
+  }, [displaySummary]);
 
   const columns = useMemo(() => {
     if (!bundle) return [];
@@ -210,15 +187,15 @@ export function MatchPoints() {
     return standings.filter((s) => s.owner === franchise);
   }, [standings, franchise]);
 
-  if (!bundle) return null;
+  if (!bundle || !displaySummary) return null;
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-white">Match-wise points</h2>
+          <h2 className="text-lg font-semibold text-white">Match Center</h2>
           <p className="mt-1 text-sm text-slate-400">
-            Matrix of fantasy points per IPL match. Scroll horizontally on mobile.
+            Match-by-match fantasy matrix. Scroll horizontally on mobile.
           </p>
         </div>
         <label className="flex flex-col gap-1 text-sm text-slate-300">
@@ -242,13 +219,11 @@ export function MatchPoints() {
 
       {filteredStandings.map((s) => (
         <section key={s.owner} className="space-y-3">
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h3 className="text-base font-semibold text-white">
-              {s.teamName}
-              <span className="ml-2 text-sm font-normal text-slate-500">
-                {s.owner}
-              </span>
-            </h3>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-base font-semibold text-white">{s.teamName}</h3>
+              <OwnerBadge owner={s.owner} />
+            </div>
             <span className="rounded-full border border-slate-700 bg-slate-800/60 px-3 py-1 text-xs text-slate-300">
               Season total (from data): {s.totalPoints.toFixed(1)} pts
             </span>

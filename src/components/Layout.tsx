@@ -2,9 +2,13 @@ import { NavLink, Outlet } from "react-router-dom";
 
 const nav = [
   { to: "/", label: "Home", end: true },
+  { to: "/leaderboard", label: "Leaderboard" },
+  { to: "/franchises", label: "Franchises" },
   { to: "/teams", label: "Teams" },
+  { to: "/matches", label: "Match Center" },
+  { to: "/predictions", label: "Predictions" },
   { to: "/players", label: "Players" },
-  { to: "/matches", label: "By match" },
+  { to: "/waivers", label: "Waivers" },
   { to: "/auction", label: "Auction" },
   { to: "/rules", label: "Rules" },
 ] as const;
@@ -12,7 +16,7 @@ const nav = [
 function NavItems({ className }: { className?: string }) {
   return (
     <nav className={className} aria-label="Main">
-      <ul className="flex items-center justify-around gap-1 md:justify-end md:gap-2">
+      <ul className="flex max-w-[100vw] flex-nowrap items-center justify-start gap-1 overflow-x-auto pb-1 md:max-w-none md:flex-wrap md:justify-end md:gap-2 md:overflow-visible md:pb-0">
         {nav.map(({ to, label, end }) => (
           <li key={to}>
             <NavLink
@@ -20,7 +24,7 @@ function NavItems({ className }: { className?: string }) {
               end={end}
               className={({ isActive }) =>
                 [
-                  "block rounded-lg px-2 py-2 text-xs font-medium transition-colors sm:rounded-xl sm:px-3 md:px-4 md:text-sm",
+                  "block shrink-0 rounded-lg px-2 py-2 text-[11px] font-medium transition-colors sm:rounded-xl sm:px-2.5 md:px-3 md:text-sm",
                   isActive
                     ? "bg-emerald-600/30 text-amber-200"
                     : "text-slate-300 hover:bg-slate-800 hover:text-white",

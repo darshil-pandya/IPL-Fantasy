@@ -1,8 +1,12 @@
 import { useMemo } from "react";
+import { IplTeamPill } from "../components/IplTeamPill";
+import { OwnerBadge } from "../components/OwnerBadge";
 import { useLeague } from "../context/LeagueContext";
+import { useLeagueStandings } from "../context/WaiverContext";
 
 export function Auction() {
-  const { bundle, summary } = useLeague();
+  const { bundle } = useLeague();
+  const summary = useLeagueStandings();
 
   const unsoldPlayers = useMemo(() => {
     if (!bundle || !summary) return [];
@@ -50,8 +54,11 @@ export function Auction() {
               >
                 <div>
                   <p className="font-medium text-white">{p!.name}</p>
-                  <p className="text-xs text-slate-500">
-                    {p!.iplTeam} · {p!.role} · {p!.id}
+                  <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                    <IplTeamPill code={p!.iplTeam} />
+                    <span>
+                      {p!.role} · {p!.id}
+                    </span>
                   </p>
                 </div>
                 <span className="text-xs font-medium uppercase tracking-wide text-amber-400/80">
@@ -75,8 +82,8 @@ export function Auction() {
                 className="rounded-xl border border-slate-800 bg-slate-900/40 px-4 py-3 text-sm"
               >
                 <p className="font-medium text-white">{s.name}</p>
-                <p className="mt-1 text-slate-400">
-                  Sold to <span className="text-emerald-300">{s.soldToOwner}</span> for{" "}
+                <p className="mt-2 flex flex-wrap items-center gap-2 text-slate-400">
+                  Sold to <OwnerBadge owner={s.soldToOwner} /> for{" "}
                   <span className="tabular-nums text-amber-200">{s.amountCr} Cr</span>
                   <span className="text-slate-500"> · {s.soldAt}</span>
                 </p>

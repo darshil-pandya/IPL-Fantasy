@@ -1,7 +1,11 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { IplTeamPill } from "../components/IplTeamPill";
+import { OwnerBadge } from "../components/OwnerBadge";
 import { useLeague } from "../context/LeagueContext";
+import { useWaiver } from "../context/WaiverContext";
 import { ownerForPlayerId } from "../lib/buildStandings";
+import { ownerNameClass } from "../lib/ownerTheme";
 import { ownerSlug } from "../lib/slug";
 
 type SortKey = "points" | "name";
@@ -13,7 +17,7 @@ export function Players() {
   const rows = useMemo(() => {
     if (!bundle) return [];
     const list = bundle.players.map((p) => {
-      const owner = ownerForPlayerId(bundle.franchises, p.id);
+      const owner = ownerForPlayerId(displayFranchises, p.id);
       const inUnsold = bundle.auction.unsoldPlayerIds.includes(p.id);
       let status: string;
       if (owner) status = owner;
@@ -26,7 +30,7 @@ export function Players() {
       return a.p.name.localeCompare(b.p.name);
     });
     return list;
-  }, [bundle, sort]);
+  }, [bundle, displayFranchises, sort]);
 
   if (!bundle) return null;
 
@@ -69,14 +73,16 @@ export function Players() {
                     {p.role} · {p.id}
                   </p>
                 </td>
-                <td className="px-3 py-3 text-slate-400">{p.iplTeam}</td>
+                <td className="px-3 py-3">
+                  <IplTeamPill code={p.iplTeam} />
+                </td>
                 <td className="px-3 py-3">
                   {owner ? (
                     <Link
                       to={`/teams/${ownerSlug(owner)}`}
-                      className="text-emerald-300 hover:text-amber-200"
+                      className={`inline-flex flex-wrap items-center gap-2 ${ownerNameClass(owner)} hover:opacity-90`}
                     >
-                      {status}
+                      <OwnerBadge owner={owner} />
                     </Link>
                   ) : (
                     <span className="text-slate-400">{status}</span>

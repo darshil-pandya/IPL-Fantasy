@@ -10,6 +10,7 @@
     "deploy": "npm run build && gh-pages -d dist/IPL-Fantasy"
   },
   "dependencies": {
+    "firebase": "^11.6.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-router-dom": "^7.6.1"
