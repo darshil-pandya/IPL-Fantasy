@@ -27,4 +27,8 @@ function spaFallback404(): Plugin {
 export default defineConfig({
   plugins: [react(), tailwindcss(), spaFallback404()],
   base: `/${REPO}/`,
+  build: {
+    outDir: `dist/${REPO}`,
+    emptyOutDir: true,
+  },
 });
