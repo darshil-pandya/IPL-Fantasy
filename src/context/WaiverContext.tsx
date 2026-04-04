@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { Franchise, LeagueBundle } from "../types";
+import type { Franchise, LeagueBundle, Player } from "../types";
 import { useLeague } from "./LeagueContext";
 import {
   loadSession,
@@ -92,6 +92,9 @@ export function WaiverProvider({ children }: { children: ReactNode }) {
     const m: Record<string, number> = {};
     if (!bundle) return m;
     for (const p of bundle.players) m[p.id] = p.seasonTotal;
+    for (const p of bundle.waiverPool ?? []) {
+      if (m[p.id] === undefined) m[p.id] = p.seasonTotal;
+    }
     return m;
   }, [bundle]);
 
@@ -169,7 +172,21 @@ export function WaiverProvider({ children }: { children: ReactNode }) {
 
   const availableIds = useMemo(() => {
     if (!bundle || !state) return [];
-    return bundle.players
+    const seen = new Set<string>();
+    const list: Player[] = [];
+    for (const p of bundle.players) {
+      if (!seen.has(p.id)) {
+        seen.add(p.id);
+        list.push(p);
+      }
+    }
+    for (const p of bundle.waiverPool ?? []) {
+      if (!seen.has(p.id)) {
+        seen.add(p.id);
+        list.push(p);
+      }
+    }
+    return list
       .filter((p) => isPlayerAvailable(state.rosters, p.id))
       .map((p) => p.id);
   }, [bundle, state]);

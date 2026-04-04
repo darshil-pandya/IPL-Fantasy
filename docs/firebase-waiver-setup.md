@@ -1,8 +1,8 @@
 # Firebase + Firestore (league + waivers)
 
-The **React app** is built and hosted on **GitHub Pages**. **Firebase Firestore** holds the live **league bundle** (meta, franchises, players, auction, rules, predictions) and **waiver state** (phases, nominations, bids, rosters, budgets).
+The **React app** is built and hosted on **GitHub Pages**. **Firebase Firestore** holds the live **league bundle** (meta, franchises, players, optional `waiverPool`, auction, rules, predictions) and **waiver state** (phases, nominations, bids, rosters, budgets).
 
-Static JSON under `public/IPL-Fantasy/data/` is still shipped with the site: it is the **source of truth for edits in git**, a **bootstrap path** when the Firestore league document is empty, and the payload used by **Publish league to Firestore** (Waivers → Commissioner).
+Static JSON under `public/IPL-Fantasy/data/` is still shipped with the site: it is the **source of truth for edits in git**, a **bootstrap path** when the Firestore league document is empty, and the payload used by **Publish league to Firestore** (Waivers → Commissioner). Waiver nominations use `players.json` plus `waiver-pool.json` (see `npm run build:waiver-pool`).
 
 ## 1. Create a Firebase project
 

@@ -3,3 +3,5 @@ dist
 preview-embed.json
 *.local
 .DS_Store
+__pycache__/
+*.pyc

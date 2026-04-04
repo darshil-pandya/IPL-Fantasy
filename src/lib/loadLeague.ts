@@ -27,10 +27,19 @@ async function fetchJson<T>(path: string): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+async function fetchWaiverPoolPlayers(d: string): Promise<Player[]> {
+  try {
+    const w = await fetchJson<{ players?: Player[] }>(`${d}/waiver-pool.json`);
+    return Array.isArray(w.players) ? w.players : [];
+  } catch {
+    return [];
+  }
+}
+
 /** Loads league JSON from the static site (GitHub Pages `public/.../data/`). */
 export async function fetchLeagueBundleStatic(): Promise<LeagueBundle> {
   const d = leagueDataPrefix();
-  const [meta, franchiseFile, playerFile, auction, rules, predictions] =
+  const [meta, franchiseFile, playerFile, auction, rules, predictions, waiverPool] =
     await Promise.all([
       fetchJson<LeagueMeta>(`${d}/meta.json`),
       fetchJson<{ franchises: Franchise[] }>(`${d}/franchises.json`),
@@ -38,12 +47,14 @@ export async function fetchLeagueBundleStatic(): Promise<LeagueBundle> {
       fetchJson<AuctionState>(`${d}/auction.json`),
       fetchJson<LeagueRules>(`${d}/rules.json`),
       fetchJson<PredictionsState>(`${d}/predictions.json`),
+      fetchWaiverPoolPlayers(d),
     ]);
 
   return {
     meta,
     franchises: franchiseFile.franchises,
     players: playerFile.players,
+    waiverPool: waiverPool.length > 0 ? waiverPool : undefined,
     auction,
     rules,
     predictions,

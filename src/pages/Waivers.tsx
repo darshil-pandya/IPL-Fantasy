@@ -63,6 +63,9 @@ export function Waivers() {
     const m = new Map<string, Player>();
     if (!bundle) return m;
     for (const p of bundle.players) m.set(p.id, p);
+    for (const p of bundle.waiverPool ?? []) {
+      if (!m.has(p.id)) m.set(p.id, p);
+    }
     return m;
   }, [bundle]);
 

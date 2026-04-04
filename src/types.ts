@@ -101,6 +101,8 @@ export interface LeagueBundle {
   meta: LeagueMeta;
   franchises: Franchise[];
   players: Player[];
+  /** IPL squad players not in `players.json` (e.g. full squad minus fantasy rosters). Used for waiver nominations. */
+  waiverPool?: Player[];
   auction: AuctionState;
   rules: LeagueRules;
   predictions: PredictionsState;

@@ -8,11 +8,16 @@ const LEAGUE_DOC = "leagueBundle";
 function isValidLeagueBundle(x: unknown): x is LeagueBundle {
   if (!x || typeof x !== "object") return false;
   const b = x as Record<string, unknown>;
+  const poolOk =
+    b.waiverPool == null ||
+    (Array.isArray(b.waiverPool) &&
+      b.waiverPool.every((p) => p != null && typeof p === "object"));
   return (
     b.meta != null &&
     typeof b.meta === "object" &&
     Array.isArray(b.franchises) &&
     Array.isArray(b.players) &&
+    poolOk &&
     b.auction != null &&
     typeof b.auction === "object" &&
     b.rules != null &&
