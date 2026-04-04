@@ -51,9 +51,9 @@ function DataRoutes() {
           <Route path="teams/:ownerSlug" element={<TeamDetail />} />
           <Route path="players" element={<Players />} />
           <Route path="matches" element={<MatchPoints />} />
-          <Route path="predictions" element={<Predictions />} />
           <Route path="waivers" element={<Waivers />} />
           <Route path="auction" element={<Auction />} />
+          <Route path="predictions" element={<Predictions />} />
           <Route path="rules" element={<Rules />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

@@ -11,11 +11,9 @@ import {
   countPlayersWithBreakdownIssues,
 } from "../lib/playerFantasyPoints";
 import { ownerNameClass } from "../lib/ownerTheme";
-import type { LeagueBundle, Player, PlayerNationality } from "../types";
+import type { LeagueBundle, Player, PlayerNationality, PlayerRole } from "../types";
 
 const BREAKDOWN_EPSILON = 0.15;
-
-type SortKey = "points" | "name" | "franchise" | "iplTeam" | "delta";
 
 function natLabel(n?: PlayerNationality): string {
   if (n === "IND") return "India";
@@ -23,7 +21,6 @@ function natLabel(n?: PlayerNationality): string {
   return "—";
 }
 
-/** Display fantasy points; negatives allowed. */
 function fmtPts(n?: number): string {
   if (n == null || Number.isNaN(n)) return "—";
   return n.toFixed(1);
@@ -197,157 +194,362 @@ const FANTASY_POINT_COLUMNS: PtCol[] = [
   },
 ];
 
+type SortColumnId =
+  | "name"
+  | "franchise"
+  | "ipl"
+  | "role"
+  | "nat"
+  | "total"
+  | "delta"
+  | (typeof FANTASY_POINT_COLUMNS)[number]["key"];
+
+function isNumericSortColumn(k: SortColumnId): boolean {
+  if (k === "total" || k === "delta") return true;
+  return FANTASY_POINT_COLUMNS.some((c) => c.key === k);
+}
+
+function defaultSortDir(k: SortColumnId): "asc" | "desc" {
+  return isNumericSortColumn(k) ? "desc" : "asc";
+}
+
+function compareNum(
+  a: number | undefined,
+  b: number | undefined,
+  dir: "asc" | "desc",
+): number {
+  const na = a == null || Number.isNaN(a);
+  const nb = b == null || Number.isNaN(b);
+  if (na && nb) return 0;
+  if (na) return 1;
+  if (nb) return -1;
+  const diff = (a as number) - (b as number);
+  return dir === "asc" ? diff : -diff;
+}
+
+type Row = {
+  p: Player;
+  fc: { label: string; owner: string | null };
+  br: ReturnType<typeof breakdownMatchesSeasonTotal>;
+};
+
+function compareRows(a: Row, b: Row, key: SortColumnId, dir: "asc" | "desc"): number {
+  const s = (x: string, y: string) => (dir === "asc" ? x.localeCompare(y) : y.localeCompare(x));
+
+  switch (key) {
+    case "name":
+      return s(a.p.name, b.p.name);
+    case "franchise":
+      return s(a.fc.label, b.fc.label) || s(a.p.name, b.p.name);
+    case "ipl":
+      return s(a.p.iplTeam, b.p.iplTeam) || s(a.p.name, b.p.name);
+    case "role":
+      return s(a.p.role, b.p.role) || s(a.p.name, b.p.name);
+    case "nat": {
+      const la = natLabel(a.p.nationality);
+      const lb = natLabel(b.p.nationality);
+      return s(la, lb) || s(a.p.name, b.p.name);
+    }
+    case "total":
+      return compareNum(a.p.seasonTotal, b.p.seasonTotal, dir);
+    case "delta": {
+      const da = a.br.checked ? a.br.delta : undefined;
+      const db = b.br.checked ? b.br.delta : undefined;
+      return compareNum(da, db, dir);
+    }
+    default: {
+      const col = FANTASY_POINT_COLUMNS.find((c) => c.key === key);
+      if (!col) return 0;
+      return compareNum(col.get(a.p), col.get(b.p), dir);
+    }
+  }
+}
+
+function SortArrow({ active, dir }: { active: boolean; dir: "asc" | "desc" }) {
+  if (!active) return <span className="ml-0.5 text-brand-dark/25">↕</span>;
+  return <span className="ml-0.5 text-brand-ocean">{dir === "asc" ? "↑" : "↓"}</span>;
+}
+
 export function Players() {
   const { bundle } = useLeague();
   const { displayFranchises } = useWaiver();
-  const [sort, setSort] = useState<SortKey>("points");
+
+  const [filterPlayer, setFilterPlayer] = useState("");
+  const [filterFranchise, setFilterFranchise] = useState<string>("all");
+  const [filterIpl, setFilterIpl] = useState<string>("all");
+  const [filterRole, setFilterRole] = useState<string>("all");
+  const [filterNat, setFilterNat] = useState<string>("all");
+
+  const [sort, setSort] = useState<{ key: SortColumnId; dir: "asc" | "desc" }>({
+    key: "name",
+    dir: "asc",
+  });
 
   const pool = useMemo(
     () => (bundle ? allPlayersInLeague(bundle) : []),
     [bundle],
   );
 
+  const ownerOptions = useMemo(() => {
+    return [...displayFranchises.map((f) => f.owner)].sort((a, b) => a.localeCompare(b));
+  }, [displayFranchises]);
+
+  const iplOptions = useMemo(() => {
+    return Array.from(new Set(pool.map((p) => p.iplTeam))).sort((a, b) =>
+      a.localeCompare(b),
+    );
+  }, [pool]);
+
   const breakdownIssueCount = useMemo(
     () => countPlayersWithBreakdownIssues(pool, BREAKDOWN_EPSILON),
     [pool],
   );
 
+  const filteredPool = useMemo(() => {
+    if (!bundle) return [];
+    const q = filterPlayer.trim().toLowerCase();
+    return pool.filter((p) => {
+      if (q && !p.name.toLowerCase().includes(q)) return false;
+      const fc = franchiseCell(bundle, displayFranchises, p.id);
+      if (filterFranchise !== "all") {
+        if (filterFranchise === "__unsold__" && fc.label !== "Unsold") return false;
+        if (filterFranchise === "__avail__" && fc.label !== "Available") return false;
+        if (
+          filterFranchise !== "__unsold__" &&
+          filterFranchise !== "__avail__" &&
+          fc.owner !== filterFranchise
+        ) {
+          return false;
+        }
+      }
+      if (filterIpl !== "all" && p.iplTeam !== filterIpl) return false;
+      if (filterRole !== "all" && p.role !== filterRole) return false;
+      if (filterNat === "unset" && p.nationality != null) return false;
+      if (filterNat === "IND" && p.nationality !== "IND") return false;
+      if (filterNat === "OVS" && p.nationality !== "OVS") return false;
+      return true;
+    });
+  }, [
+    bundle,
+    pool,
+    displayFranchises,
+    filterPlayer,
+    filterFranchise,
+    filterIpl,
+    filterRole,
+    filterNat,
+  ]);
+
   const rows = useMemo(() => {
     if (!bundle) return [];
-    const list = pool.map((p) => {
-      const fc = franchiseCell(bundle, displayFranchises, p.id);
-      const br = breakdownMatchesSeasonTotal(p, BREAKDOWN_EPSILON);
-      return { p, fc, br };
-    });
-    list.sort((a, b) => {
-      if (sort === "points") return b.p.seasonTotal - a.p.seasonTotal;
-      if (sort === "name") return a.p.name.localeCompare(b.p.name);
-      if (sort === "iplTeam") {
-        return (
-          a.p.iplTeam.localeCompare(b.p.iplTeam) ||
-          a.p.name.localeCompare(b.p.name)
-        );
-      }
-      if (sort === "delta") {
-        const da = a.br.checked ? Math.abs(a.br.delta) : -1;
-        const db = b.br.checked ? Math.abs(b.br.delta) : -1;
-        return db - da || b.p.seasonTotal - a.p.seasonTotal;
-      }
-      return a.fc.label.localeCompare(b.fc.label) || a.p.name.localeCompare(b.p.name);
-    });
+    const list: Row[] = filteredPool.map((p) => ({
+      p,
+      fc: franchiseCell(bundle, displayFranchises, p.id),
+      br: breakdownMatchesSeasonTotal(p, BREAKDOWN_EPSILON),
+    }));
+    list.sort((a, b) => compareRows(a, b, sort.key, sort.dir));
     return list;
-  }, [bundle, displayFranchises, pool, sort]);
+  }, [bundle, displayFranchises, filteredPool, sort]);
+
+  const onHeaderClick = (key: SortColumnId) => {
+    setSort((prev) =>
+      prev.key === key
+        ? { key, dir: prev.dir === "asc" ? "desc" : "asc" }
+        : { key, dir: defaultSortDir(key) },
+    );
+  };
+
+  const thBase =
+    "font-medium transition-colors hover:bg-brand-cyan/40 cursor-pointer select-none";
+  const thSticky = "sticky left-0 z-[2] bg-brand-pale/95 shadow-[2px_0_6px_-2px_rgba(2,62,138,0.12)]";
 
   if (!bundle) return null;
 
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-xl font-bold text-white">Players</h2>
-        <p className="mt-1 text-sm text-slate-400">
-          Every player in <code className="text-amber-200/80">players.json</code> plus the
-          waiver pool. <strong className="text-slate-300">Category columns are fantasy
-          points</strong> (can be negative). Cumulative over the IPL season; update after each
-          match. Optional raw counting stats for Home highlights stay in{" "}
-          <code className="text-amber-200/80">seasonStats</code>; point buckets live in{" "}
-          <code className="text-amber-200/80">seasonFantasyPoints</code> (see{" "}
-          <code className="text-amber-200/80">types.ts</code>).
+        <h2 className="text-xl font-bold text-brand-dark">Players</h2>
+        <p className="mt-1 text-sm text-slate-600">
+          Every player in <code className="rounded bg-brand-pale px-1 text-brand-dark">players.json</code> plus the
+          waiver pool. Category columns are cumulative <strong>fantasy points</strong>. Click
+          any column header to sort. Default sort: player name (A–Z).
         </p>
-        <div className="mt-3 rounded-xl border border-slate-800 bg-slate-900/40 p-4 text-sm text-slate-400">
-          <p className="font-medium text-slate-300">Franchise totals &amp; waivers</p>
+        <div className="mt-3 app-card p-4 text-sm text-slate-600">
+          <p className="font-medium text-brand-dark">Franchise totals &amp; waivers</p>
           <p className="mt-2 leading-relaxed">
-            A franchise&apos;s fantasy total is the sum of <code className="text-slate-500">seasonTotal</code> for
-            every player <em>currently</em> on its roster, plus{" "}
-            <strong className="text-slate-300">waiver carryover</strong>. On waiver reveal,
-            the outgoing player&apos;s <code className="text-slate-500">seasonTotal</code> at that
-            moment is added to carryover so those points are not lost when the roster
-            changes. Incoming players contribute their current <code className="text-slate-500">seasonTotal</code> from
-            data. Player rows here always show the full player record — ownership does not
-            reset individual scoring.
+            A franchise&apos;s fantasy total is the sum of <code className="rounded bg-white px-1">seasonTotal</code> for
+            every player <em>currently</em> on its roster, plus <strong>waiver carryover</strong>{" "}
+            (points banked when a player is dropped on waiver reveal). Player totals here are
+            always the full player record.
           </p>
         </div>
         {breakdownIssueCount > 0 ? (
-          <div className="mt-3 rounded-xl border border-amber-900/60 bg-amber-950/25 px-4 py-3 text-sm text-amber-100/90">
-            <strong className="text-amber-200">{breakdownIssueCount}</strong> player
+          <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+            <strong>{breakdownIssueCount}</strong> player
             {breakdownIssueCount === 1 ? "" : "s"} have{" "}
-            <code className="text-amber-200/90">seasonFantasyPoints</code> filled but the sum
-            differs from <code className="text-amber-200/90">seasonTotal</code> by more than{" "}
-            {BREAKDOWN_EPSILON} pts (see Δ column). Either adjust buckets or{" "}
-            <code className="text-amber-200/90">seasonTotal</code> so they match — the table
-            treats <code className="text-amber-200/90">seasonTotal</code> as the authoritative
-            fantasy total for standings.
+            <code className="rounded bg-amber-100/80 px-1">seasonFantasyPoints</code> that do
+            not sum to <code className="rounded bg-amber-100/80 px-1">seasonTotal</code> (±
+            {BREAKDOWN_EPSILON}). See Δ column.
           </div>
         ) : null}
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <label className="flex items-center gap-2 text-sm text-slate-300">
-          <span className="text-slate-500">Sort by</span>
+      <div className="app-card flex flex-col gap-3 p-4 sm:flex-row sm:flex-wrap sm:items-end">
+        <label className="flex min-w-[10rem] flex-1 flex-col gap-1 text-xs font-medium text-brand-dark/80">
+          Player
+          <input
+            type="search"
+            value={filterPlayer}
+            onChange={(e) => setFilterPlayer(e.target.value)}
+            placeholder="Search name…"
+            className="app-input"
+          />
+        </label>
+        <label className="flex min-w-[9rem] flex-col gap-1 text-xs font-medium text-brand-dark/80">
+          Franchise
           <select
-            value={sort}
-            onChange={(e) => setSort(e.target.value as SortKey)}
-            className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-white"
+            value={filterFranchise}
+            onChange={(e) => setFilterFranchise(e.target.value)}
+            className="app-input"
           >
-            <option value="points">Fantasy pts (high → low)</option>
-            <option value="name">Name (A → Z)</option>
-            <option value="franchise">Franchise (A → Z)</option>
-            <option value="iplTeam">IPL team (A → Z)</option>
-            <option value="delta">Breakdown mismatch (largest Δ first)</option>
+            <option value="all">All</option>
+            {ownerOptions.map((o) => (
+              <option key={o} value={o}>
+                {o}
+              </option>
+            ))}
+            <option value="__unsold__">Unsold</option>
+            <option value="__avail__">Available</option>
+          </select>
+        </label>
+        <label className="flex min-w-[7rem] flex-col gap-1 text-xs font-medium text-brand-dark/80">
+          IPL team
+          <select
+            value={filterIpl}
+            onChange={(e) => setFilterIpl(e.target.value)}
+            className="app-input"
+          >
+            <option value="all">All</option>
+            {iplOptions.map((code) => (
+              <option key={code} value={code}>
+                {code}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex min-w-[7rem] flex-col gap-1 text-xs font-medium text-brand-dark/80">
+          Role
+          <select
+            value={filterRole}
+            onChange={(e) => setFilterRole(e.target.value)}
+            className="app-input"
+          >
+            <option value="all">All</option>
+            {(["BAT", "BOWL", "AR", "WK"] as PlayerRole[]).map((r) => (
+              <option key={r} value={r}>
+                {r}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex min-w-[8rem] flex-col gap-1 text-xs font-medium text-brand-dark/80">
+          Nationality
+          <select
+            value={filterNat}
+            onChange={(e) => setFilterNat(e.target.value)}
+            className="app-input"
+          >
+            <option value="all">All</option>
+            <option value="IND">India</option>
+            <option value="OVS">Overseas</option>
+            <option value="unset">Not set</option>
           </select>
         </label>
       </div>
 
-      <div className="overflow-x-auto rounded-2xl border border-slate-800">
+      <p className="text-xs text-slate-500">
+        Showing {rows.length} of {pool.length} players. Sort:{" "}
+        <span className="font-medium text-brand-dark">{sort.key}</span>{" "}
+        {sort.dir === "asc" ? "ascending" : "descending"}.
+      </p>
+
+      <div className="app-table">
         <table className="w-full min-w-[1200px] border-collapse text-left text-xs sm:text-sm">
-          <thead>
-            <tr className="border-b border-slate-800 bg-slate-900/80 text-[10px] uppercase tracking-wide text-slate-500 sm:text-xs">
+          <thead className="app-table-head">
+            <tr>
               <th
                 scope="col"
-                className="sticky left-0 z-[2] bg-slate-900/95 px-2 py-2 font-medium sm:px-3 sm:py-3"
+                className={`${thBase} ${thSticky} px-2 py-2 text-left sm:px-3 sm:py-3`}
+                onClick={() => onHeaderClick("name")}
               >
                 Player
-              </th>
-              <th scope="col" className="px-2 py-2 font-medium sm:px-3 sm:py-3">
-                Franchise
-              </th>
-              <th scope="col" className="px-2 py-2 font-medium sm:px-3 sm:py-3">
-                IPL
-              </th>
-              <th scope="col" className="px-2 py-2 font-medium sm:px-3 sm:py-3">
-                Role
-              </th>
-              <th scope="col" className="px-2 py-2 font-medium sm:px-3 sm:py-3">
-                Nat
+                <SortArrow active={sort.key === "name"} dir={sort.dir} />
               </th>
               <th
                 scope="col"
-                className="px-2 py-2 text-right font-medium text-amber-400/90 sm:px-3 sm:py-3"
-                title="Authoritative fantasy total (standings use this)"
+                className={`${thBase} px-2 py-2 text-left sm:px-3 sm:py-3`}
+                onClick={() => onHeaderClick("franchise")}
+              >
+                Franchise
+                <SortArrow active={sort.key === "franchise"} dir={sort.dir} />
+              </th>
+              <th
+                scope="col"
+                className={`${thBase} px-2 py-2 text-left sm:px-3 sm:py-3`}
+                onClick={() => onHeaderClick("ipl")}
+              >
+                IPL
+                <SortArrow active={sort.key === "ipl"} dir={sort.dir} />
+              </th>
+              <th
+                scope="col"
+                className={`${thBase} px-2 py-2 text-left sm:px-3 sm:py-3`}
+                onClick={() => onHeaderClick("role")}
+              >
+                Role
+                <SortArrow active={sort.key === "role"} dir={sort.dir} />
+              </th>
+              <th
+                scope="col"
+                className={`${thBase} px-2 py-2 text-left sm:px-3 sm:py-3`}
+                onClick={() => onHeaderClick("nat")}
+              >
+                Nat
+                <SortArrow active={sort.key === "nat"} dir={sort.dir} />
+              </th>
+              <th
+                scope="col"
+                className={`${thBase} px-2 py-2 text-right sm:px-3 sm:py-3`}
+                onClick={() => onHeaderClick("total")}
+                title="Authoritative fantasy total"
               >
                 Total
+                <SortArrow active={sort.key === "total"} dir={sort.dir} />
               </th>
               {FANTASY_POINT_COLUMNS.map((c) => (
                 <th
                   key={c.key}
                   scope="col"
                   title={c.title}
-                  className="min-w-[2.6rem] px-1.5 py-2 text-right font-medium sm:px-2 sm:py-3"
+                  className={`${thBase} min-w-[2.6rem] px-1.5 py-2 text-right sm:px-2 sm:py-3`}
+                  onClick={() => onHeaderClick(c.key as SortColumnId)}
                 >
-                  <span className="cursor-help border-b border-dotted border-slate-600">
-                    {c.label}
-                  </span>
+                  <span className="border-b border-dotted border-brand-dark/30">{c.label}</span>
+                  <SortArrow active={sort.key === c.key} dir={sort.dir} />
                 </th>
               ))}
               <th
                 scope="col"
-                className="px-2 py-2 text-right font-medium text-slate-400 sm:px-3 sm:py-3"
-                title="seasonTotal minus sum of category points (should be ~0 if breakdown is complete)"
+                className={`${thBase} px-2 py-2 text-right sm:px-3 sm:py-3`}
+                title="seasonTotal minus sum of categories"
+                onClick={() => onHeaderClick("delta")}
               >
                 Δ
+                <SortArrow active={sort.key === "delta"} dir={sort.dir} />
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-800">
+          <tbody>
             {rows.map(({ p, fc, br }) => {
               const mismatch = br.checked && !br.inSync;
               return (
@@ -355,23 +557,25 @@ export function Players() {
                   key={p.id}
                   className={
                     mismatch
-                      ? "bg-rose-950/15 hover:bg-rose-950/25"
-                      : "bg-slate-950/40 hover:bg-slate-900/50"
+                      ? "border-b border-brand-cyan/30 bg-red-50/80 hover:bg-red-50"
+                      : "app-table-row"
                   }
                 >
-                  <td className="sticky left-0 z-[1] bg-slate-950/95 px-2 py-2 font-medium text-white sm:bg-slate-950/90 sm:px-3 sm:py-2.5">
+                  <td
+                    className={`sticky left-0 z-[1] bg-white px-2 py-2 font-medium text-brand-dark shadow-[2px_0_6px_-2px_rgba(2,62,138,0.08)] sm:px-3 sm:py-2.5 ${mismatch ? "bg-red-50/90" : ""}`}
+                  >
                     <span title={p.id}>{p.name}</span>
                   </td>
                   <td className="px-2 py-2 sm:px-3 sm:py-2.5">
                     {fc.owner ? (
                       <Link
                         to={`/teams?owner=${encodeURIComponent(fc.owner)}`}
-                        className={`inline-flex flex-wrap items-center gap-2 ${ownerNameClass(fc.owner)} hover:opacity-90`}
+                        className={`inline-flex flex-wrap items-center gap-2 ${ownerNameClass(fc.owner)} hover:opacity-80`}
                       >
                         <OwnerBadge owner={fc.owner} />
                       </Link>
                     ) : (
-                      <span className="text-slate-400">{fc.label}</span>
+                      <span className="text-slate-500">{fc.label}</span>
                     )}
                   </td>
                   <td className="px-2 py-2 sm:px-3 sm:py-2.5">
@@ -385,20 +589,20 @@ export function Players() {
                       {natLabel(p.nationality)}
                     </span>
                   </td>
-                  <td className="px-2 py-2 text-right font-semibold tabular-nums text-white sm:px-3 sm:py-2.5">
+                  <td className="px-2 py-2 text-right font-semibold tabular-nums text-brand-dark sm:px-3 sm:py-2.5">
                     {p.seasonTotal.toFixed(1)}
                   </td>
                   {FANTASY_POINT_COLUMNS.map((c) => (
                     <td
                       key={c.key}
-                      className="px-1.5 py-2 text-right tabular-nums text-slate-300 sm:px-2 sm:py-2.5"
+                      className="px-1.5 py-2 text-right tabular-nums text-slate-700 sm:px-2 sm:py-2.5"
                     >
                       {fmtPts(c.get(p))}
                     </td>
                   ))}
                   <td
                     className={`px-2 py-2 text-right text-xs tabular-nums sm:px-3 sm:py-2.5 ${
-                      mismatch ? "font-semibold text-rose-300" : "text-slate-500"
+                      mismatch ? "font-semibold text-red-700" : "text-slate-500"
                     }`}
                   >
                     {!br.checked
@@ -414,13 +618,10 @@ export function Players() {
         </table>
       </div>
 
-      <p className="text-xs leading-relaxed text-slate-600">
-        <strong className="text-slate-500">Reconciliation:</strong> If every scoring source is
-        assigned to exactly one bucket, the sum of <code className="text-slate-500">seasonFantasyPoints</code> fields
-        should equal <code className="text-slate-500">seasonTotal</code>. If you also track points only in{" "}
-        <code className="text-slate-500">byMatch</code> without a breakdown, leave{" "}
-        <code className="text-slate-500">seasonFantasyPoints</code> empty (Δ shows —). Prediction
-        bonuses are franchise-level, not in player totals.
+      <p className="text-xs leading-relaxed text-slate-500">
+        Reconciliation: sum of <code className="rounded bg-brand-pale px-1">seasonFantasyPoints</code> should
+        match <code className="rounded bg-brand-pale px-1">seasonTotal</code> when every source is bucketed.
+        Prediction bonuses are franchise-level only.
       </p>
     </div>
   );

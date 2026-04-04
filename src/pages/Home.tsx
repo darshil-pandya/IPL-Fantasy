@@ -39,14 +39,14 @@ function StatCard({
   valueSuffix?: string;
 }) {
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4">
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+    <div className="rounded-xl border border-brand-cyan/50 bg-white p-4 shadow-sm">
+      <p className="text-xs font-medium uppercase tracking-wide text-brand-dark/50">
         {title}
       </p>
       {leader ? (
         <>
-          <p className="mt-2 font-semibold text-white">{leader.player.name}</p>
-          <p className="mt-1 text-sm tabular-nums text-emerald-300/90">
+          <p className="mt-2 font-semibold text-brand-dark">{leader.player.name}</p>
+          <p className="mt-1 text-sm tabular-nums text-brand-ocean">
             {leader.display}
             {valueSuffix ? ` ${valueSuffix}` : ""}
           </p>
@@ -116,13 +116,13 @@ export function Home() {
   return (
     <div className="space-y-8">
       {leagueNotice ? (
-        <div className="rounded-xl border border-amber-900/50 bg-amber-950/20 px-4 py-3 text-sm text-amber-100/90">
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
           {leagueNotice}
         </div>
       ) : null}
-      <section className="rounded-2xl border border-slate-800 bg-slate-900/50 p-5">
-        <h2 className="text-lg font-semibold text-white">{meta.seasonLabel}</h2>
-        <p className="mt-2 text-sm leading-relaxed text-slate-400">
+      <section className="app-card p-5">
+        <h2 className="text-lg font-semibold text-brand-dark">{meta.seasonLabel}</h2>
+        <p className="mt-2 text-sm leading-relaxed text-slate-600">
           {meta.pointsUpdateNote}
         </p>
         {meta.lastPointsUpdate && (
@@ -136,63 +136,50 @@ export function Home() {
             href={meta.cricbuzzBaseUrl}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center rounded-xl bg-slate-800 px-4 py-2 text-sm font-medium text-amber-200 hover:bg-slate-700"
+            className="app-btn-primary"
           >
             Open Cricbuzz scores
           </a>
-          <button
-            type="button"
-            onClick={() => void refresh()}
-            className="rounded-xl border border-slate-600 px-4 py-2 text-sm font-medium text-slate-200 hover:bg-slate-800"
-          >
+          <button type="button" onClick={() => void refresh()} className="app-btn-secondary">
             Refresh data
           </button>
-          <Link
-            to="/predictions"
-            className="rounded-xl border border-slate-600 px-4 py-2 text-sm font-medium text-slate-200 hover:bg-slate-800"
-          >
+          <Link to="/predictions" className="app-btn-secondary">
             Predictions
           </Link>
-          <Link
-            to="/waivers"
-            className="rounded-xl border border-slate-600 px-4 py-2 text-sm font-medium text-slate-200 hover:bg-slate-800"
-          >
+          <Link to="/waivers" className="app-btn-secondary">
             Waivers
           </Link>
         </div>
       </section>
 
       <section>
-        <h2 className="mb-2 text-lg font-semibold text-white">Leaderboard</h2>
-        <p className="mb-3 text-sm text-slate-400">
+        <h2 className="mb-2 text-lg font-semibold text-brand-dark">Leaderboard</h2>
+        <p className="mb-3 text-sm text-slate-600">
           Sorted by rank (fantasy points plus prediction bonus: {pred.pointsPerCorrect}{" "}
           pts per correct when results are set). Squad totals use live waiver rosters.
         </p>
-        <div className="overflow-x-auto rounded-2xl border border-slate-800">
+        <div className="app-table">
           <table className="w-full min-w-[320px] text-left text-sm">
-            <thead className="bg-slate-900/80 text-xs uppercase tracking-wide text-slate-500">
+            <thead className="app-table-head">
               <tr>
                 <th className="px-3 py-3 font-medium">Rank</th>
                 <th className="px-3 py-3 font-medium">Owner</th>
                 <th className="px-3 py-3 font-medium">Best player</th>
-                <th className="px-3 py-3 text-right font-medium text-amber-400/90">
+                <th className="px-3 py-3 text-right font-medium text-brand-ocean">
                   Total pts
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800">
+            <tbody>
               {sortedLeaderboard.map((r) => (
-                <tr
-                  key={r.owner}
-                  className="bg-slate-950/40 hover:bg-slate-900/60"
-                >
-                  <td className="px-3 py-3 font-semibold tabular-nums text-slate-400">
+                <tr key={r.owner} className="app-table-row">
+                  <td className="px-3 py-3 font-semibold tabular-nums text-slate-500">
                     {r.rank}
                   </td>
                   <td className="px-3 py-3">
                     <Link
                       to={`/teams?owner=${encodeURIComponent(r.owner)}`}
-                      className="font-medium text-white hover:text-amber-200"
+                      className="font-medium text-brand-dark hover:text-brand-ocean"
                     >
                       {r.owner}
                     </Link>
@@ -200,10 +187,10 @@ export function Home() {
                       <OwnerBadge owner={r.owner} />
                     </div>
                   </td>
-                  <td className="px-3 py-3 text-slate-200">
+                  <td className="px-3 py-3 text-slate-700">
                     {r.bestPlayer ? (
                       <>
-                        <span className="font-medium text-white">
+                        <span className="font-medium text-brand-dark">
                           {r.bestPlayer.name}
                         </span>
                         <span className="ml-2 tabular-nums text-slate-500">
@@ -211,10 +198,10 @@ export function Home() {
                         </span>
                       </>
                     ) : (
-                      <span className="text-slate-500">—</span>
+                      <span className="text-slate-400">—</span>
                     )}
                   </td>
-                  <td className="px-3 py-3 text-right text-base font-bold tabular-nums text-amber-200">
+                  <td className="px-3 py-3 text-right text-base font-bold tabular-nums text-brand-ocean">
                     {r.total.toFixed(1)}
                   </td>
                 </tr>
@@ -225,12 +212,14 @@ export function Home() {
       </section>
 
       <section>
-        <h2 className="mb-2 text-lg font-semibold text-white">Season highlights</h2>
-        <p className="mb-3 text-sm text-slate-400">
+        <h2 className="mb-2 text-lg font-semibold text-brand-dark">Season highlights</h2>
+        <p className="mb-3 text-sm text-slate-600">
           IPL counting stats come from optional{" "}
-          <code className="text-amber-200/80">seasonStats</code> on each player in{" "}
-          <code className="text-amber-200/80">players.json</code>. Fantasy points use{" "}
-          <code className="text-amber-200/80">seasonTotal</code>.
+          <code className="rounded bg-brand-pale px-1 text-brand-dark">seasonStats</code> on
+          each player in{" "}
+          <code className="rounded bg-brand-pale px-1 text-brand-dark">players.json</code>.
+          Fantasy points use{" "}
+          <code className="rounded bg-brand-pale px-1 text-brand-dark">seasonTotal</code>.
         </p>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <StatCard

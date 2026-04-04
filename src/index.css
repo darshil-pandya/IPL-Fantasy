@@ -2,15 +2,44 @@
 
 @theme {
   --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
-  --color-ink: #0f172a;
-  --color-pitch: #065f46;
-  --color-ball: #fbbf24;
-  --color-card: #1e293b;
-  --color-muted: #94a3b8;
+  --color-brand-dark: #023e8a;
+  --color-brand-ocean: #0077b6;
+  --color-brand-cyan: #90e0ef;
+  --color-brand-pale: #caf0f8;
 }
 
 @layer base {
   html {
-    @apply bg-slate-950 text-slate-100;
+    @apply bg-white text-slate-800 antialiased;
+  }
+}
+
+@layer components {
+  .app-card {
+    @apply rounded-2xl border border-brand-cyan/60 bg-brand-pale/50 shadow-sm;
+  }
+  .app-table {
+    @apply overflow-x-auto rounded-2xl border border-brand-cyan/60 bg-white shadow-sm;
+  }
+  .app-table-head {
+    @apply border-b border-brand-cyan/50 bg-brand-pale/80 text-[10px] font-medium uppercase tracking-wide text-brand-dark/70 sm:text-xs;
+  }
+  .app-table-row {
+    @apply border-b border-brand-cyan/30 bg-white hover:bg-brand-pale/40;
+  }
+  .app-btn-primary {
+    @apply inline-flex items-center justify-center rounded-xl bg-brand-dark px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-brand-ocean;
+  }
+  .app-btn-secondary {
+    @apply inline-flex items-center justify-center rounded-xl border border-brand-ocean/40 bg-white px-4 py-2 text-sm font-medium text-brand-dark shadow-sm transition-colors hover:bg-brand-pale;
+  }
+  .app-input {
+    @apply rounded-lg border border-brand-cyan bg-white px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-brand-ocean focus:outline-none focus:ring-2 focus:ring-brand-cyan/80;
+  }
+  .app-nav-active {
+    @apply bg-brand-cyan/80 text-brand-dark;
+  }
+  .app-nav-idle {
+    @apply text-brand-dark/80 hover:bg-brand-pale hover:text-brand-dark;
   }
 }

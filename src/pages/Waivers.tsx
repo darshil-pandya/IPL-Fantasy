@@ -35,7 +35,7 @@ function firebaseUi(connected: boolean, err: string | null): React.ReactNode {
   return (
     <p className="mt-2 text-xs text-slate-500">
       Firestore: {connected ? "listening" : "connecting…"}
-      {err ? <span className="text-rose-400"> — {err}</span> : null}
+      {err ? <span className="text-red-600"> — {err}</span> : null}
     </p>
   );
 }
@@ -116,12 +116,12 @@ export function Waivers() {
 
   return (
     <div className="space-y-8">
-      <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-5">
-        <h2 className="text-lg font-semibold text-white">Waiver center</h2>
-        <p className="mt-2 text-sm text-slate-400">
+      <section className="app-card p-5">
+        <h2 className="text-lg font-semibold text-brand-dark">Waiver center</h2>
+        <p className="mt-2 text-sm text-slate-600">
           Other owners&apos; bid amounts stay off this screen until the commissioner reveals
           the round (honor system). Phase:{" "}
-          <strong className="text-amber-200/90">{state.phase}</strong>
+          <strong className="text-brand-ocean">{state.phase}</strong>
           {state.roundId > 0 ? (
             <span className="text-slate-500"> · Round {state.roundId}</span>
           ) : null}
@@ -134,12 +134,12 @@ export function Waivers() {
             onSubmit={doLogin}
             className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end"
           >
-            <label className="flex flex-col gap-1 text-sm text-slate-300">
-              <span className="text-xs uppercase text-slate-500">User</span>
+            <label className="flex flex-col gap-1 text-sm text-brand-dark/90">
+              <span className="text-xs uppercase text-brand-dark/50">User</span>
               <select
                 value={userLabel}
                 onChange={(e) => setUserLabel(e.target.value)}
-                className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-white"
+                className="app-input py-2"
               >
                 {WAIVER_LOGIN_ROWS.map((r) => (
                   <option key={r.label} value={r.label}>
@@ -148,38 +148,31 @@ export function Waivers() {
                 ))}
               </select>
             </label>
-            <label className="flex flex-col gap-1 text-sm text-slate-300">
-              <span className="text-xs uppercase text-slate-500">Password</span>
+            <label className="flex flex-col gap-1 text-sm text-brand-dark/90">
+              <span className="text-xs uppercase text-brand-dark/50">Password</span>
               <input
                 type="password"
                 autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="min-w-[12rem] rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-white"
+                className="app-input min-w-[12rem] py-2"
               />
             </label>
-            <button
-              type="submit"
-              className="rounded-xl bg-emerald-700/50 px-4 py-2 text-sm font-medium text-emerald-100 ring-1 ring-emerald-600/40 hover:bg-emerald-700/70"
-            >
+            <button type="submit" className="app-btn-primary self-end sm:self-auto">
               Sign in
             </button>
             {loginErr && (
-              <p className="text-sm text-rose-300 sm:w-full">{loginErr}</p>
+              <p className="text-sm text-red-600 sm:w-full">{loginErr}</p>
             )}
           </form>
         ) : (
           <div className="mt-4 flex flex-wrap items-center gap-3">
-            <span className="text-sm text-slate-400">
+            <span className="text-sm text-slate-600">
               Signed in as{" "}
-              <strong className="text-white">{session.label}</strong> (
+              <strong className="text-brand-dark">{session.label}</strong> (
               {session.role})
             </span>
-            <button
-              type="button"
-              onClick={logout}
-              className="rounded-xl border border-slate-600 px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-800"
-            >
+            <button type="button" onClick={logout} className="app-btn-secondary py-1.5 text-sm">
               Log out
             </button>
           </div>
@@ -212,7 +205,7 @@ export function Waivers() {
       )}
 
       <section>
-        <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-brand-dark/50">
           Nominations this round
         </h3>
         {state.nominations.length === 0 ? (
@@ -246,23 +239,23 @@ export function Waivers() {
       </section>
 
       <section>
-        <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-brand-dark/50">
           Event log (recent)
         </h3>
-        <ul className="mt-2 max-h-64 space-y-1 overflow-y-auto rounded-xl border border-slate-800 bg-slate-950/50 p-3 font-mono text-xs text-slate-400">
+        <ul className="mt-2 max-h-64 space-y-1 overflow-y-auto rounded-xl border border-brand-cyan/50 bg-brand-pale/50 p-3 font-mono text-xs text-slate-600">
           {[...state.log].reverse().map((e, i) => (
             <li key={`${e.at}-${i}`}>
-              <span className="text-slate-600">{e.at}</span> [{e.kind}]{" "}
+              <span className="text-slate-500">{e.at}</span> [{e.kind}]{" "}
               {e.message}
             </li>
           ))}
         </ul>
       </section>
 
-      <section className="rounded-2xl border border-slate-800 bg-slate-900/30 p-4">
-        <h3 className="text-sm font-semibold text-white">Original auction</h3>
+      <section className="app-card p-4">
+        <h3 className="text-sm font-semibold text-brand-dark">Original auction</h3>
         <p className="mt-1 text-xs text-slate-500">
-          Static history from <code className="text-amber-200/80">auction.json</code>.
+          Static history from <code className="rounded bg-brand-pale px-1 text-brand-dark">auction.json</code>.
         </p>
         <AuctionHistorySnippet bundle={bundle} pmap={pmap} />
       </section>
@@ -306,37 +299,33 @@ function AdminPanel({
   }
 
   return (
-    <section className="rounded-2xl border border-amber-900/40 bg-amber-950/15 p-5">
-      <h3 className="text-sm font-semibold uppercase tracking-wide text-amber-200/90">
+    <section className="rounded-2xl border border-amber-200 bg-amber-50/90 p-5 shadow-sm">
+      <h3 className="text-sm font-semibold uppercase tracking-wide text-amber-900">
         Commissioner
       </h3>
       <div className="mt-4 flex flex-wrap gap-2">
         <button
           type="button"
           onClick={() => dispatch({ type: "admin_start_nomination" })}
-          className="rounded-xl bg-slate-800 px-4 py-2 text-sm text-white hover:bg-slate-700"
+          className="app-btn-primary"
         >
           Start nomination phase
         </button>
         <button
           type="button"
           onClick={() => dispatch({ type: "admin_start_bidding" })}
-          className="rounded-xl bg-slate-800 px-4 py-2 text-sm text-white hover:bg-slate-700"
+          className="app-btn-primary"
         >
           Start bidding phase
         </button>
         <button
           type="button"
           onClick={() => dispatch({ type: "admin_reveal" })}
-          className="rounded-xl bg-emerald-800/50 px-4 py-2 text-sm font-medium text-emerald-100 ring-1 ring-emerald-600/40 hover:bg-emerald-800/70"
+          className="rounded-xl bg-brand-ocean px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-brand-dark"
         >
           Reveal results
         </button>
-        <button
-          type="button"
-          onClick={onExport}
-          className="rounded-xl border border-slate-600 px-4 py-2 text-sm text-slate-200 hover:bg-slate-800"
-        >
+        <button type="button" onClick={onExport} className="app-btn-secondary">
           Export rosters JSON
         </button>
         <button
@@ -348,28 +337,28 @@ function AdminPanel({
               : undefined
           }
           onClick={() => void publishLeagueToFirestore()}
-          className="rounded-xl border border-amber-700/60 bg-amber-950/30 px-4 py-2 text-sm text-amber-100 hover:bg-amber-950/50 disabled:cursor-not-allowed disabled:opacity-45"
+          className="rounded-xl border border-amber-300 bg-white px-4 py-2 text-sm text-amber-950 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-45"
         >
           {pubBusy ? "Publishing…" : "Publish league to Firestore"}
         </button>
       </div>
       {!isFirebaseConfigured() && (
-        <p className="mt-3 text-xs leading-relaxed text-amber-200/85">
-          <strong className="font-medium text-amber-100/90">Publish is disabled.</strong> This
+        <p className="mt-3 text-xs leading-relaxed text-amber-950/90">
+          <strong className="font-medium text-amber-950">Publish is disabled.</strong> This
           deploy must include all three Firebase env vars at <em>build</em> time. In GitHub:{" "}
           <strong>Settings → Secrets and variables → Actions</strong>, add{" "}
-          <code className="rounded bg-slate-900/80 px-1 text-[0.7rem] text-slate-300">
+          <code className="rounded bg-white px-1 text-[0.7rem] text-brand-dark">
             VITE_FIREBASE_API_KEY
           </code>
           ,{" "}
-          <code className="rounded bg-slate-900/80 px-1 text-[0.7rem] text-slate-300">
+          <code className="rounded bg-white px-1 text-[0.7rem] text-brand-dark">
             VITE_FIREBASE_AUTH_DOMAIN
           </code>
           , and{" "}
-          <code className="rounded bg-slate-900/80 px-1 text-[0.7rem] text-slate-300">
+          <code className="rounded bg-white px-1 text-[0.7rem] text-brand-dark">
             VITE_FIREBASE_PROJECT_ID
           </code>
-          (exact names), then push to <code className="text-slate-400">main</code> or re-run{" "}
+          (exact names), then push to <code className="text-amber-800">main</code> or re-run{" "}
           <strong>Deploy to GitHub Pages</strong>. If only the API key was set, Waivers could
           misleadingly say “listening” before — that is fixed in this version.
         </p>
@@ -378,14 +367,14 @@ function AdminPanel({
         <p
           className={
             pubFeedback.kind === "ok"
-              ? "mt-3 text-xs text-emerald-300/90"
-              : "mt-3 text-xs text-rose-300"
+              ? "mt-3 text-xs text-emerald-700"
+              : "mt-3 text-xs text-red-600"
           }
         >
           {pubFeedback.text}
         </p>
       )}
-      {error && <p className="mt-3 text-sm text-rose-300">{error}</p>}
+      {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
       <p className="mt-3 text-xs text-slate-500">
         Strict flow: idle → nomination → bidding → reveal → idle. Reveal resolves
         every nomination at once; winning bids deduct budget and update rosters.
@@ -425,13 +414,13 @@ function OwnerWaiverPanel({
   const availOptions = availableIds.filter((id) => !nominatedInIds.has(id));
 
   return (
-    <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-5">
+    <section className="app-card p-5">
       <div className="flex flex-wrap items-center gap-2">
-        <h3 className="text-lg font-semibold text-white">{franchise.owner}</h3>
+        <h3 className="text-lg font-semibold text-brand-dark">{franchise.owner}</h3>
         <OwnerBadge owner={sessionOwner} />
         <span className="text-sm text-slate-500">
           Budget left:{" "}
-          <span className="tabular-nums text-amber-200">{money(budgetRemaining)}</span>
+          <span className="tabular-nums font-medium text-brand-ocean">{money(budgetRemaining)}</span>
         </span>
       </div>
       {phase === "nomination" && (
@@ -455,13 +444,13 @@ function OwnerWaiverPanel({
             }
           }}
         >
-          <label className="flex flex-col gap-1 text-xs text-slate-400">
+          <label className="flex flex-col gap-1 text-xs text-slate-600">
             Nominee (available)
             <select
               required
               value={nomIn}
               onChange={(e) => setNomIn(e.target.value)}
-              className="rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-sm text-white"
+              className="app-input py-2 text-sm"
             >
               <option value="">Select…</option>
               {availOptions.map((id) => (
@@ -471,13 +460,13 @@ function OwnerWaiverPanel({
               ))}
             </select>
           </label>
-          <label className="flex flex-col gap-1 text-xs text-slate-400">
+          <label className="flex flex-col gap-1 text-xs text-slate-600">
             Your player out
             <select
               required
               value={nomOut}
               onChange={(e) => setNomOut(e.target.value)}
-              className="rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-sm text-white"
+              className="app-input py-2 text-sm"
             >
               <option value="">Select…</option>
               {franchise.playerIds.map((id) => (
@@ -487,7 +476,7 @@ function OwnerWaiverPanel({
               ))}
             </select>
           </label>
-          <label className="flex flex-col gap-1 text-xs text-slate-400">
+          <label className="flex flex-col gap-1 text-xs text-slate-600">
             Your bid (₹)
             <input
               type="number"
@@ -495,14 +484,11 @@ function OwnerWaiverPanel({
               min={WAIVER_BID_INCREMENT}
               value={nomAmt}
               onChange={(e) => setNomAmt(e.target.value)}
-              className="rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-sm text-white"
+              className="app-input py-2 text-sm"
             />
           </label>
           <div className="flex items-end gap-2">
-            <button
-              type="submit"
-              className="rounded-xl bg-emerald-700/40 px-4 py-2 text-sm font-medium text-emerald-100 ring-1 ring-emerald-600/35"
-            >
+            <button type="submit" className="app-btn-primary">
               {editId ? "Update nomination" : "Add nomination"}
             </button>
             {editId && (
@@ -513,7 +499,7 @@ function OwnerWaiverPanel({
                   setNomIn("");
                   setNomOut("");
                 }}
-                className="text-sm text-slate-500 hover:text-slate-300"
+                className="text-sm text-slate-500 hover:text-brand-dark"
               >
                 Cancel edit
               </button>
@@ -526,16 +512,16 @@ function OwnerWaiverPanel({
           {myNominations.map((n) => (
             <li
               key={n.id}
-              className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2"
+              className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-brand-cyan/40 bg-brand-pale/40 px-3 py-2"
             >
-              <span className="text-slate-300">
+              <span className="text-slate-700">
                 {pmap.get(n.playerInId)?.name} in ·{" "}
                 {pmap.get(n.playerOutId)?.name} out · {money(n.amount)}
               </span>
               <div className="flex gap-2">
                 <button
                   type="button"
-                  className="text-amber-400/90 hover:text-amber-300"
+                  className="text-sm font-medium text-brand-ocean hover:text-brand-dark"
                   onClick={() => {
                     setEditId(n.id);
                     setNomIn(n.playerInId);
@@ -547,7 +533,7 @@ function OwnerWaiverPanel({
                 </button>
                 <button
                   type="button"
-                  className="text-rose-400/90 hover:text-rose-300"
+                  className="text-sm font-medium text-red-600 hover:text-red-800"
                   onClick={() =>
                     tryDispatch({
                       type: "nomination_delete",
@@ -563,7 +549,7 @@ function OwnerWaiverPanel({
           ))}
         </ul>
       )}
-      {error && <p className="mt-3 text-sm text-rose-300">{error}</p>}
+      {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
     </section>
   );
 }
@@ -603,10 +589,10 @@ function NominationRow({
   }, [existing?.id, existing?.playerOutId, existing?.amount]);
 
   return (
-    <li className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+    <li className="rounded-xl border border-brand-cyan/50 bg-white p-4 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <p className="font-medium text-white">{pIn?.name ?? n.playerInId}</p>
+          <p className="font-medium text-brand-dark">{pIn?.name ?? n.playerInId}</p>
           <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
             {pIn && <IplTeamPill code={pIn.iplTeam} />}
             <span>
@@ -620,7 +606,7 @@ function NominationRow({
         session?.role === "owner" &&
         session.owner !== n.nominatorOwner && (
         <form
-          className="mt-3 flex flex-wrap items-end gap-2 border-t border-slate-800 pt-3"
+          className="mt-3 flex flex-wrap items-end gap-2 border-t border-brand-cyan/40 pt-3"
           onSubmit={(e) => {
             e.preventDefault();
             tryDispatch({
@@ -639,7 +625,7 @@ function NominationRow({
             required
             value={outId}
             onChange={(e) => setOutId(e.target.value)}
-            className="rounded-lg border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-white"
+            className="app-input py-1.5 text-sm"
           >
             <option value="">Player out…</option>
             {myRosterIds.map((id) => (
@@ -654,12 +640,9 @@ function NominationRow({
             min={WAIVER_BID_INCREMENT}
             value={amt}
             onChange={(e) => setAmt(e.target.value)}
-            className="w-32 rounded-lg border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-white"
+            className="app-input w-32 py-1.5 text-sm"
           />
-          <button
-            type="submit"
-            className="rounded-lg bg-slate-700 px-3 py-1.5 text-sm text-white hover:bg-slate-600"
-          >
+          <button type="submit" className="app-btn-primary py-1.5 text-sm">
             {existing ? "Update bid" : "Place bid"}
           </button>
         </form>

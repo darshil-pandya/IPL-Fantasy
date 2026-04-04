@@ -45,15 +45,15 @@ export function Teams() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-bold text-white">Teams</h2>
-        <p className="mt-1 text-sm text-slate-400">
+        <h2 className="text-xl font-bold text-brand-dark">Teams</h2>
+        <p className="mt-1 text-sm text-slate-600">
           Roster by owner (owners sorted by season points high → low). Player rows
           sorted the same way.
         </p>
       </div>
 
-      <label className="flex flex-col gap-1 text-sm text-slate-300">
-        <span className="text-xs font-medium uppercase tracking-wide text-slate-500">
+      <label className="flex flex-col gap-1 text-sm text-brand-dark/90">
+        <span className="text-xs font-medium uppercase tracking-wide text-brand-dark/50">
           Owner
         </span>
         <select
@@ -67,7 +67,7 @@ export function Teams() {
               return next;
             });
           }}
-          className="max-w-md rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-white"
+          className="app-input max-w-md py-2.5"
         >
           {ownersByPoints.map((s) => (
             <option key={s.owner} value={s.owner}>
@@ -80,22 +80,22 @@ export function Teams() {
       {selected && (
         <div className="space-y-3">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-lg font-semibold text-white">{selected.owner}</h3>
+            <h3 className="text-lg font-semibold text-brand-dark">{selected.owner}</h3>
             <OwnerBadge owner={selected.owner} />
             <span className="text-sm text-slate-500">
               {selected.totalPoints.toFixed(1)} season pts
             </span>
             <Link
               to={`/teams/${ownerSlug(selected.owner)}`}
-              className="ml-auto text-sm font-medium text-amber-400 hover:text-amber-300"
+              className="ml-auto text-sm font-medium text-brand-ocean hover:text-brand-dark"
             >
               Open squad details (match breakdown) →
             </Link>
           </div>
 
-          <div className="overflow-x-auto rounded-2xl border border-slate-800">
+          <div className="app-table">
             <table className="w-full min-w-[360px] text-left text-sm">
-              <thead className="bg-slate-900/80 text-xs uppercase tracking-wide text-slate-500">
+              <thead className="app-table-head">
                 <tr>
                   <th className="px-3 py-3 font-medium">Player</th>
                   <th className="px-3 py-3 font-medium">IPL team</th>
@@ -104,12 +104,12 @@ export function Teams() {
                   <th className="px-3 py-3 text-right font-medium">Points</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800">
+              <tbody>
                 {[...selected.playersResolved]
                   .sort((a, b) => b.seasonTotal - a.seasonTotal)
                   .map((p) => (
-                    <tr key={p.id} className="bg-slate-950/40">
-                      <td className="px-3 py-3 font-medium text-white">{p.name}</td>
+                    <tr key={p.id} className="app-table-row">
+                      <td className="px-3 py-3 font-medium text-brand-dark">{p.name}</td>
                       <td className="px-3 py-3">
                         <IplTeamPill code={p.iplTeam} />
                       </td>
@@ -121,7 +121,7 @@ export function Teams() {
                           {natLabel(p.nationality)}
                         </span>
                       </td>
-                      <td className="px-3 py-3 text-right font-semibold tabular-nums text-emerald-300/90">
+                      <td className="px-3 py-3 text-right font-semibold tabular-nums text-brand-ocean">
                         {p.seasonTotal.toFixed(1)}
                       </td>
                     </tr>

@@ -36,20 +36,20 @@ function StatusPill({
 }) {
   if (!resolved) {
     return (
-      <span className="rounded-full bg-slate-800 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-500 ring-1 ring-slate-600/60">
+      <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-600 ring-1 ring-slate-300">
         Pending
       </span>
     );
   }
   if (correct) {
     return (
-      <span className="rounded-full bg-emerald-900/50 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-emerald-200 ring-1 ring-emerald-600/50">
+      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-emerald-800 ring-1 ring-emerald-400/60">
         Match
       </span>
     );
   }
   return (
-    <span className="rounded-full bg-slate-800 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-500 ring-1 ring-slate-600/60">
+    <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-600 ring-1 ring-slate-300">
       Miss
     </span>
   );
@@ -130,30 +130,29 @@ export function Predictions() {
     },
   };
 
-  const selectClass =
-    "rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white min-w-[8rem]";
+  const selectClass = "app-input min-w-[8rem] py-2 text-sm";
 
   return (
     <div className="space-y-8">
       <div>
-        <h2 className="text-xl font-bold uppercase tracking-wide text-white">
+        <h2 className="text-xl font-bold uppercase tracking-wide text-brand-dark">
           Predictions
         </h2>
-        <p className="mt-2 text-sm text-slate-400">
-          Each correct prediction wins <strong className="text-amber-200/90">{pts} pts</strong>.
+        <p className="mt-2 text-sm text-slate-600">
+          Each correct prediction wins <strong className="text-brand-ocean">{pts} pts</strong>.
           Bonus flows into the leaderboard. Picks are stored in{" "}
-          <code className="text-amber-200/80">predictions.json</code>. Season results can be
-          saved in this browser or pasted into <code className="text-amber-200/80">actuals</code>{" "}
+          <code className="rounded bg-brand-pale px-1 text-brand-dark">predictions.json</code>. Season results can be
+          saved in this browser or pasted into <code className="rounded bg-brand-pale px-1 text-brand-dark">actuals</code>{" "}
           for everyone.
         </p>
       </div>
 
-      <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-5">
-        <h3 className="text-xs font-semibold uppercase tracking-widest text-slate-500">
+      <section className="app-card p-5">
+        <h3 className="text-xs font-semibold uppercase tracking-widest text-brand-dark/50">
           Season results (moderator)
         </h3>
         <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <label className="flex flex-col gap-1 text-xs text-slate-400">
+          <label className="flex flex-col gap-1 text-xs text-slate-600">
             Winner
             <select
               className={selectClass}
@@ -168,7 +167,7 @@ export function Predictions() {
               ))}
             </select>
           </label>
-          <label className="flex flex-col gap-1 text-xs text-slate-400">
+          <label className="flex flex-col gap-1 text-xs text-slate-600">
             Runner-up
             <select
               className={selectClass}
@@ -183,7 +182,7 @@ export function Predictions() {
               ))}
             </select>
           </label>
-          <label className="flex flex-col gap-1 text-xs text-slate-400">
+          <label className="flex flex-col gap-1 text-xs text-slate-600">
             Orange Cap
             <select
               className={selectClass + " min-w-[12rem]"}
@@ -198,7 +197,7 @@ export function Predictions() {
               ))}
             </select>
           </label>
-          <label className="flex flex-col gap-1 text-xs text-slate-400">
+          <label className="flex flex-col gap-1 text-xs text-slate-600">
             Purple Cap
             <select
               className={selectClass + " min-w-[12rem]"}
@@ -215,18 +214,14 @@ export function Predictions() {
           </label>
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
-          <button
-            type="button"
-            className="rounded-xl border border-slate-600 px-4 py-2 text-sm text-slate-200 hover:bg-slate-800"
-            onClick={() => {
-              void navigator.clipboard.writeText(exportActualsJson(actuals));
-            }}
-          >
+          <button type="button" className="app-btn-secondary" onClick={() => {
+            void navigator.clipboard.writeText(exportActualsJson(actuals));
+          }}>
             Copy actuals JSON
           </button>
           <button
             type="button"
-            className="rounded-xl border border-slate-600 px-4 py-2 text-sm text-slate-200 hover:bg-slate-800"
+            className="app-btn-secondary"
             onClick={() => {
               saveStoredActuals(pred.actuals);
               setActuals({ ...pred.actuals });
@@ -240,14 +235,11 @@ export function Predictions() {
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {Object.values(catStats).map((c) => (
-          <div
-            key={c.label}
-            className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4"
-          >
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <div key={c.label} className="app-card p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-brand-dark/50">
               {c.label}
             </p>
-            <p className="mt-2 flex flex-wrap items-center gap-2 text-lg font-semibold text-white">
+            <p className="mt-2 flex flex-wrap items-center gap-2 text-lg font-semibold text-brand-dark">
               {c.actual ? (
                 c.label.includes("Cap") ? (
                   c.actual
@@ -265,9 +257,9 @@ export function Predictions() {
         ))}
       </div>
 
-      <div className="overflow-x-auto rounded-2xl border border-slate-800">
+      <div className="app-table">
         <table className="w-full min-w-[720px] text-left text-sm">
-          <thead className="border-b border-slate-800 bg-slate-900/90 text-xs uppercase tracking-wide text-slate-500">
+          <thead className="app-table-head border-b border-brand-cyan/50">
             <tr>
               <th className="px-3 py-3 font-medium">Franchise</th>
               <th className="px-3 py-3 font-medium">Winner pick</th>
@@ -277,7 +269,7 @@ export function Predictions() {
               <th className="px-3 py-3 text-right font-medium">Correct</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-800">
+          <tbody>
             {pred.picks.map((pick) => {
               const nCorrect = countCorrectPicks(pick, actuals);
               const wRes = !!actuals.winner;
@@ -289,7 +281,7 @@ export function Predictions() {
               const pRes = !!actuals.purpleCap;
               const pOk = pRes && normName(pick.purpleCap, actuals.purpleCap!);
               return (
-                <tr key={pick.owner} className="bg-slate-950/30">
+                <tr key={pick.owner} className="app-table-row">
                   <td className="px-3 py-3 align-top">
                     <OwnerBadge owner={pick.owner} />
                   </td>
@@ -307,17 +299,17 @@ export function Predictions() {
                   </td>
                   <td className="px-3 py-3 align-top">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-slate-100">{pick.orangeCap}</span>
+                      <span className="text-brand-dark">{pick.orangeCap}</span>
                       <StatusPill resolved={oRes} correct={oOk} />
                     </div>
                   </td>
                   <td className="px-3 py-3 align-top">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-slate-100">{pick.purpleCap}</span>
+                      <span className="text-brand-dark">{pick.purpleCap}</span>
                       <StatusPill resolved={pRes} correct={pOk} />
                     </div>
                   </td>
-                  <td className="px-3 py-3 text-right align-top text-lg font-bold tabular-nums text-amber-200">
+                  <td className="px-3 py-3 text-right align-top text-lg font-bold tabular-nums text-brand-ocean">
                     {nCorrect}
                   </td>
                 </tr>
