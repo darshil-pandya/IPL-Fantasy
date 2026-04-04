@@ -100,7 +100,7 @@ Wait until it finishes green. It will:
 
 ## Step 7 — Firestore rules (included in the workflow)
 
-You do **not** have to paste rules by hand unless you prefer that. The same workflow runs `firebase deploy --only firestore:rules,functions`.
+You do **not** have to paste rules by hand unless you prefer that. The same workflow runs `firebase deploy --only firestore:rules,functions` (with `--non-interactive --force` in CI so Artifact Registry cleanup policy is applied).
 
 The file **`firestore.rules`** in the repo defines: **read/write** `waiverState` and `leagueBundle`; **read-only** `fantasyMatchScores` from clients.
 

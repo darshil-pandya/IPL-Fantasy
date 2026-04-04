@@ -261,6 +261,7 @@ Without this, **Score sync** may fail when the browser calls the Cloud Function.
 | **Push Cricket Data…** shows **“Failed to authenticate, have you run firebase login?”** | The Firebase CLI often **does not** use service-account JSON for `firebase functions:secrets:set` in CI. Current workflow uses **`gcloud secrets create` / `versions add`** instead (same Secret Manager names: `CRICKETDATA_API_KEY`, `FANTASY_SYNC_PASSPHRASE`). Pull the latest `firebase-backend.yml` and re-run. |
 | **Deploy Firestore rules and Cloud Functions** | Project not on **Blaze**; or **Cloud Build** / **Artifact Registry** API not enabled; or IAM roles missing for deploy (Phase C4). |
 | **Deploy…** → **403** `setIamPolicy` on a secret (e.g. `CRICKETDATA_API_KEY`) | GitHub’s service account needs **Secret Manager Admin** so Firebase can attach runtime access to secrets. Add it on **IAM** for the `client_email` in your JSON key (Phase C4). |
+| **Deploy…** → functions deployed but **cleanup policy** / exit code 1 | Gen‑2 functions store images in Artifact Registry; the CLI needs **`--force`** (or run `firebase functions:artifacts:setpolicy`) so CI can auto‑apply a cleanup policy. The backend workflow uses `firebase deploy … --force`. |
 
 | Problem | Likely fix |
 |---------|------------|
