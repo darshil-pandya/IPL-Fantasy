@@ -76,6 +76,10 @@ Fill in `rules.json` with your agreed **composition** and **scoring** text.
 
 ## Franchise owners & opening squads
 
-Seven franchises (15 players each) are in `franchises.json` / `players.json`. Edits you asked for versus the shared screenshots: **Darshil** includes **Rachin Ravindra** instead of Sam Curran (the screenshot showed Marcus Stoinis in that overseas all-rounder slot; the JSON uses Rachin). **Prajin** includes **Deepak Chahar** instead of Yash Dayal (the screenshot showed Khaleel Ahmed in the Indian CSK pace slot; the JSON uses Deepak). Change IDs in both files if your group standardizes on different names.
+Seven franchises (15 players each) are in `franchises.json` (player IDs) and `players.json` (names, IPL team, role, points).
+
+All seven opening squads in `franchises.json` match the commissioner roster tables (including **Bhavya**, **Darshil**, **Hersh**, **Jash**, **Karan**, **Prajin**, **Sanket**).
+
+If the **live** site still shows old squads, redeploy and use **Waivers → Publish league to Firestore** so Firestore picks up the latest `franchises.json`.
 
 Owners: Darshil, Bhavya, Prajin, Sanket, Hersh, Jash, Karan.
