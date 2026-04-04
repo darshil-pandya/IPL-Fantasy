@@ -454,6 +454,7 @@ function OwnerWaiverPanel({
             playerIds={availOptions}
             pmap={pmap}
             placeholder="Choose a player from the pool…"
+            searchable
           />
           <WaiverPlayerPicker
             label="Your player out"

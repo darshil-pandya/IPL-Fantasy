@@ -32,7 +32,13 @@ type WaiverPlayerPickerProps = {
   playerIds: string[];
   pmap: Map<string, Player>;
   placeholder?: string;
+  /** Show a name search field and filter the list as you type. */
+  searchable?: boolean;
 };
+
+function normalizeSearch(s: string): string {
+  return s.trim().toLowerCase();
+}
 
 export function WaiverPlayerPicker({
   label,
@@ -41,9 +47,12 @@ export function WaiverPlayerPicker({
   playerIds,
   pmap,
   placeholder = "Select player…",
+  searchable = false,
 }: WaiverPlayerPickerProps) {
   const [open, setOpen] = useState(false);
+  const [filterQuery, setFilterQuery] = useState("");
   const rootRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const sortedIds = useMemo(() => {
     return [...playerIds].sort((a, b) => {
@@ -52,6 +61,16 @@ export function WaiverPlayerPicker({
       return na.localeCompare(nb);
     });
   }, [playerIds, pmap]);
+
+  const filteredIds = useMemo(() => {
+    if (!searchable) return sortedIds;
+    const q = normalizeSearch(filterQuery);
+    if (!q) return sortedIds;
+    return sortedIds.filter((id) => {
+      const name = pmap.get(id)?.name ?? id;
+      return normalizeSearch(name).includes(q);
+    });
+  }, [searchable, sortedIds, filterQuery, pmap]);
 
   useEffect(() => {
     function onDoc(e: MouseEvent) {
@@ -62,6 +81,12 @@ export function WaiverPlayerPicker({
       return () => document.removeEventListener("mousedown", onDoc);
     }
   }, [open]);
+
+  useEffect(() => {
+    if (open && searchable) {
+      searchInputRef.current?.focus();
+    }
+  }, [open, searchable]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -78,6 +103,23 @@ export function WaiverPlayerPicker({
   return (
     <div ref={rootRef} className="relative flex flex-col gap-1">
       <span className="text-xs font-medium text-slate-600">{label}</span>
+      {searchable && (
+        <input
+          ref={searchInputRef}
+          type="search"
+          enterKeyHint="search"
+          autoComplete="off"
+          value={filterQuery}
+          onChange={(e) => {
+            setFilterQuery(e.target.value);
+            setOpen(true);
+          }}
+          onFocus={() => setOpen(true)}
+          placeholder="Type player name to filter…"
+          aria-label={`${label} — search by name`}
+          className="app-input w-full py-2 text-sm"
+        />
+      )}
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
@@ -100,11 +142,16 @@ export function WaiverPlayerPicker({
         <ul
           className="absolute top-full z-30 mt-1 max-h-72 w-full overflow-y-auto rounded-xl border border-brand-cyan/60 bg-white py-1 shadow-lg ring-1 ring-brand-dark/5"
           role="listbox"
+          aria-label={label}
         >
           {sortedIds.length === 0 ? (
             <li className="px-3 py-4 text-center text-sm text-slate-500">No players</li>
+          ) : filteredIds.length === 0 ? (
+            <li className="px-3 py-4 text-center text-sm text-slate-500">
+              No names match &ldquo;{filterQuery.trim()}&rdquo;
+            </li>
           ) : (
-            sortedIds.map((id) => {
+            filteredIds.map((id) => {
               const p = pmap.get(id);
               if (!p) return null;
               return (
@@ -115,6 +162,7 @@ export function WaiverPlayerPicker({
                     onClick={() => {
                       onChange(id);
                       setOpen(false);
+                      setFilterQuery("");
                     }}
                   >
                     <PlayerRowInner p={p} />
