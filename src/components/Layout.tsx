@@ -5,6 +5,7 @@ const navBase = [
   { to: "/", label: "Home", end: true },
   { to: "/teams", label: "Teams" },
   { to: "/matches", label: "Match Center" },
+  { to: "/scorecard", label: "🏏 Scorecards" },
   { to: "/players", label: "Players" },
   { to: "/waivers", label: "Waivers" },
   { to: "/auction", label: "Auction" },

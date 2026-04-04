@@ -13,6 +13,7 @@ import { Rules } from "./pages/Rules";
 import { TeamDetail } from "./pages/TeamDetail";
 import { Teams } from "./pages/Teams";
 import { AdminFantasySync } from "./pages/AdminFantasySync";
+import { Scorecard } from "./pages/Scorecard";
 import { Waivers } from "./pages/Waivers";
 
 function routerBasename(): string {
@@ -57,6 +58,7 @@ function DataRoutes() {
           <Route path="predictions" element={<Predictions />} />
           <Route path="rules" element={<Rules />} />
           <Route path="admin/scores" element={<AdminFantasySync />} />
+          <Route path="scorecard" element={<Scorecard />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

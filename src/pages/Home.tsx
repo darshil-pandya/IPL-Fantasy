@@ -131,11 +131,23 @@ export function Home() {
           {meta.pointsUpdateNote}
         </p>
         {meta.lastPointsUpdate && (
-          <p className="mt-2 text-xs text-slate-500">
-            Last points update:{" "}
-            <time dateTime={meta.lastPointsUpdate}>{meta.lastPointsUpdate}</time>
-          </p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700 ring-1 ring-green-600/20">
+              ✅ Points updated
+            </span>
+            <time dateTime={meta.lastPointsUpdate} className="text-xs text-slate-400">
+              {meta.lastPointsUpdate}
+            </time>
+          </div>
         )}
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <Link
+            to="/scorecard"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-brand-cyan/50 bg-brand-pale px-3 py-1.5 text-xs font-medium text-brand-ocean hover:bg-brand-cyan/10 transition-colors"
+          >
+            🏏 View Live Scorecards
+          </Link>
+        </div>
         <div className="mt-4 flex flex-wrap gap-2">
           <a
             href={meta.cricbuzzBaseUrl}
