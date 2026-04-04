@@ -70,10 +70,10 @@ export function TeamDetail() {
     <div className="space-y-6">
       <div>
         <Link
-          to="/teams"
+          to={`/teams?owner=${encodeURIComponent(row.owner)}`}
           className="text-sm font-medium text-amber-400 hover:text-amber-300"
         >
-          ← All teams
+          ← Back to roster table
         </Link>
         <h2 className="mt-2 text-2xl font-bold text-white">{row.owner}</h2>
         <div className="mt-2">

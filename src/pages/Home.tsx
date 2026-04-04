@@ -20,7 +20,6 @@ import {
   pickForOwner,
   predictionScore,
 } from "../lib/predictions";
-import { ownerSlug } from "../lib/slug";
 import type { Player } from "../types";
 
 function bestFantasyPlayerOnSquad(players: Player[]): Player | null {
@@ -192,7 +191,7 @@ export function Home() {
                   </td>
                   <td className="px-3 py-3">
                     <Link
-                      to={`/teams/${ownerSlug(r.owner)}`}
+                      to={`/teams?owner=${encodeURIComponent(r.owner)}`}
                       className="font-medium text-white hover:text-amber-200"
                     >
                       {r.owner}

@@ -8,14 +8,36 @@ export interface MatchPoints {
 
 export type PlayerNationality = "IND" | "OVS";
 
-/** Real IPL season counting stats (optional; shown on Home when present). */
+/**
+ * Season counting stats for scoring (optional; edit in players.json / waiver pool).
+ * Aligns with `rules.json` fantasy categories: batting, bowling, fielding, other.
+ */
 export interface PlayerSeasonStats {
   runs?: number;
+  ballsFaced?: number;
+  /** Per 100 balls; if omitted, UI may derive from runs ÷ ballsFaced. */
+  strikeRate?: number;
+  fours?: number;
+  sixes?: number;
+  ducks?: number;
+  dotBalls?: number;
   wickets?: number;
+  lbwOrBowled?: number;
+  threeWHauls?: number;
+  fourWHauls?: number;
+  fiveWHauls?: number;
+  maidens?: number;
+  catches?: number;
+  stumpings?: number;
+  runOutDirect?: number;
+  runOutAssist?: number;
+  oversBowled?: number;
+  runsConceded?: number;
+  economy?: number;
+  namedInXi?: number;
+  impactOrConcussion?: number;
   battingAvg?: number;
   bowlingAvg?: number;
-  sixes?: number;
-  fours?: number;
 }
 
 export interface Player {

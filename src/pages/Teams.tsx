@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { IplTeamPill } from "../components/IplTeamPill";
 import { OwnerBadge } from "../components/OwnerBadge";
 import { useLeague } from "../context/LeagueContext";
@@ -17,18 +17,28 @@ function natLabel(n?: PlayerNationality): string {
 export function Teams() {
   const { bundle } = useLeague();
   const displaySummary = useLeagueStandings();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [owner, setOwner] = useState<string>("");
 
-  const standings = useMemo(() => {
-    if (!bundle || !displaySummary) return [];
-    return displaySummary.standings;
-  }, [bundle, displaySummary]);
+  const ownersByPoints = useMemo(() => {
+    if (!displaySummary) return [];
+    return displaySummary.sorted;
+  }, [displaySummary]);
+
+  useEffect(() => {
+    const q = searchParams.get("owner");
+    if (!q || ownersByPoints.length === 0) return;
+    const decoded = decodeURIComponent(q);
+    if (ownersByPoints.some((s) => s.owner === decoded)) {
+      setOwner(decoded);
+    }
+  }, [searchParams, ownersByPoints]);
 
   const selected = useMemo(() => {
-    if (!standings.length) return null;
-    const o = owner || standings[0].owner;
-    return standings.find((s) => s.owner === o) ?? standings[0];
-  }, [standings, owner]);
+    if (!ownersByPoints.length) return null;
+    const o = owner || ownersByPoints[0].owner;
+    return ownersByPoints.find((s) => s.owner === o) ?? ownersByPoints[0];
+  }, [ownersByPoints, owner]);
 
   if (!bundle || !displaySummary) return null;
 
@@ -37,7 +47,8 @@ export function Teams() {
       <div>
         <h2 className="text-xl font-bold text-white">Teams</h2>
         <p className="mt-1 text-sm text-slate-400">
-          Roster by owner: player, IPL side, role, nationality, season fantasy points.
+          Roster by owner (owners sorted by season points high → low). Player rows
+          sorted the same way.
         </p>
       </div>
 
@@ -47,12 +58,20 @@ export function Teams() {
         </span>
         <select
           value={selected?.owner ?? ""}
-          onChange={(e) => setOwner(e.target.value)}
+          onChange={(e) => {
+            const o = e.target.value;
+            setOwner(o);
+            setSearchParams((prev) => {
+              const next = new URLSearchParams(prev);
+              next.set("owner", o);
+              return next;
+            });
+          }}
           className="max-w-md rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-white"
         >
-          {standings.map((s) => (
+          {ownersByPoints.map((s) => (
             <option key={s.owner} value={s.owner}>
-              {s.owner}
+              {s.owner} ({s.totalPoints.toFixed(1)} pts)
             </option>
           ))}
         </select>
