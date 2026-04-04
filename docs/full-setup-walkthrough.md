@@ -129,7 +129,9 @@ Create **four** more secrets:
 3. Find the email inside the JSON (field `client_email`), e.g. `firebase-adminsdk-….iam.gserviceaccount.com`.
 4. **Edit** that principal → **Add role** (for a private league you can temporarily use **Editor** on the project while debugging; later you can tighten roles).
 5. Roles that often matter for this repo: **Cloud Functions Admin**, **Service Account User**, **Secret Manager Admin** (or **Secret Manager Secret Accessor** + ability to create secrets), **Firebase Rules Admin** / **Firebase Admin** as applicable.
-6. Save, then **re-run** the **Deploy Firebase backend** workflow.
+6. **If the log shows HTTP 403 and `secretmanager.googleapis.com` or `serviceusage.services.use`:** add **`Service Usage Consumer`** (`roles/serviceusage.serviceUsageConsumer`) to that **same** service account. Without it, `firebase functions:secrets:set` cannot use the Secret Manager API on your project.
+7. **Enable the API once (browser, as project owner):** **APIs & Services** → **Library** → search **Secret Manager API** → **Enable**.
+8. Save IAM changes, then **re-run** the **Deploy Firebase backend** workflow.
 
 ---
 
@@ -241,6 +243,22 @@ Without this, **Score sync** may fail when the browser calls the Cloud Function.
 ---
 
 # Troubleshooting (quick)
+
+## Reading a failed “Deploy Firebase backend” run
+
+1. GitHub → **Actions** → click the **red** workflow run.
+2. Click the **deploy** job.
+3. Expand steps **top to bottom**. The **first step with a red X** is the one that failed; scroll inside it for the **real error line** (not only “exit code 1”).
+4. Typical mapping:
+
+| Failed step | Common cause |
+|-------------|----------------|
+| **Verify required GitHub Actions secrets** | A secret name is wrong or the value was never saved (empty). Fix in **Settings → Secrets → Actions**, re-run workflow. |
+| **Install Cloud Function dependencies** | Rare `npm ci` / lockfile issue; try re-run. |
+| **google-github-actions/auth** | **`FIREBASE_SERVICE_ACCOUNT_JSON`** is invalid: not the full file, extra text, or broken copy-paste. Regenerate key in Firebase, paste entire JSON again. |
+| **Push Cricket Data + sync passphrase** | **403** on `secretmanager.googleapis.com` / `serviceusage.services.use`: add **Service Usage Consumer** to the Firebase Admin service account (see Phase C4); enable **Secret Manager API** in GCP; add **Secret Manager Admin** if still denied. |
+| **Push Cricket Data…** shows **“Failed to authenticate, have you run firebase login?”** | The workflow writes your service account JSON to `gcp-sa.json` and sets **`GOOGLE_APPLICATION_CREDENTIALS`** so the Firebase CLI uses it (no interactive login). Pull the latest `firebase-backend.yml` and re-run the workflow. |
+| **Deploy Firestore rules and Cloud Functions** | Project not on **Blaze**; or **Cloud Build** / **Artifact Registry** API not enabled; or IAM roles missing for deploy (Phase C4). |
 
 | Problem | Likely fix |
 |---------|------------|
