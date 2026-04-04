@@ -15,6 +15,7 @@ import type { Franchise, LeagueBundle, Player } from "../types";
 import type { WaiverBid, WaiverNomination, WaiverSession } from "../lib/waiver/types";
 import { isFirebaseConfigured } from "../lib/firebase/client";
 import { seedLeagueFromStaticToFirestore } from "../lib/firebase/leagueRemote";
+import { ownerCardClass, ownerCardMutedClass } from "../lib/ownerTheme";
 
 function money(n: number): string {
   return new Intl.NumberFormat("en-IN", {
@@ -130,6 +131,49 @@ export function Waivers() {
           . Budget per owner: {money(WAIVER_BUDGET_START)} · Bids in{" "}
           {money(WAIVER_BID_INCREMENT)} steps.
         </p>
+        <div className="mt-4">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-brand-dark/50">
+            Remaining waiver budget
+          </h3>
+          <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7">
+            {displayFranchises.map((f) => {
+              const remaining = state.budgets[f.owner] ?? WAIVER_BUDGET_START;
+              const isYou =
+                session?.role === "owner" && session.owner === f.owner;
+              return (
+                <div
+                  key={f.owner}
+                  className={[
+                    ownerCardClass(f.owner),
+                    isYou
+                      ? "ring-2 ring-brand-ocean ring-offset-2 ring-offset-white"
+                      : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                >
+                  <p
+                    className={`truncate text-xs font-semibold ${ownerCardMutedClass(f.owner)}`}
+                    title={f.owner}
+                  >
+                    {f.owner}
+                    {isYou ? (
+                      <span className="ml-1 font-normal text-brand-ocean">· you</span>
+                    ) : null}
+                  </p>
+                  <p className="mt-1 text-base font-bold tabular-nums text-brand-dark">
+                    {money(remaining)}
+                  </p>
+                  <p
+                    className={`text-[10px] font-medium opacity-75 ${ownerCardMutedClass(f.owner)}`}
+                  >
+                    left to bid
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
         {firebaseUi(remoteConnected, remoteError)}
         {!session ? (
           <form
