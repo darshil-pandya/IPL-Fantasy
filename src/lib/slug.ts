@@ -1,3 +1,5 @@
+import type { FranchiseStanding } from "../types";
+
 export function ownerSlug(owner: string): string {
   return owner
     .trim()
@@ -7,8 +9,8 @@ export function ownerSlug(owner: string): string {
 }
 
 export function franchiseBySlug(
-  franchises: { owner: string }[],
+  franchises: FranchiseStanding[],
   slug: string,
-): { owner: string } | undefined {
+): FranchiseStanding | undefined {
   return franchises.find((f) => ownerSlug(f.owner) === slug);
 }

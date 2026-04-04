@@ -1,4 +1,6 @@
 import type { WaiverSession } from "./types";
+
+export type { WaiverSession };
 import { WAIVER_SESSION_LS_KEY } from "./constants";
 
 /** Display label -> password (honor system; not secret). */

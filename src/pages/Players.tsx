@@ -11,7 +11,13 @@ import {
   countPlayersWithBreakdownIssues,
 } from "../lib/playerFantasyPoints";
 import { ownerNameClass } from "../lib/ownerTheme";
-import type { LeagueBundle, Player, PlayerNationality, PlayerRole } from "../types";
+import type {
+  Franchise,
+  LeagueBundle,
+  Player,
+  PlayerNationality,
+  PlayerRole,
+} from "../types";
 
 const BREAKDOWN_EPSILON = 0.15;
 
@@ -41,7 +47,7 @@ function allPlayersInLeague(bundle: LeagueBundle): Player[] {
 
 function franchiseCell(
   bundle: LeagueBundle,
-  franchises: { owner: string; playerIds: string[] }[],
+  franchises: Franchise[],
   playerId: string,
 ): { label: string; owner: string | null } {
   const owner = ownerForPlayerId(franchises, playerId);

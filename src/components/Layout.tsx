@@ -1,6 +1,8 @@
 import { NavLink, Outlet } from "react-router-dom";
 
-const navBase = [
+type NavItem = { readonly to: string; readonly label: string; readonly end?: boolean };
+
+const navBase: readonly NavItem[] = [
   { to: "/", label: "Home", end: true },
   { to: "/teams", label: "Teams" },
   { to: "/matches", label: "Match Center" },
@@ -9,7 +11,7 @@ const navBase = [
   { to: "/auction", label: "Auction" },
   { to: "/predictions", label: "Predictions" },
   { to: "/rules", label: "Rules" },
-] as const;
+];
 
 function NavItems({ className }: { className?: string }) {
   const items = [...navBase];
