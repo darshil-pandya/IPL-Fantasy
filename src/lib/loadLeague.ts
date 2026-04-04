@@ -27,7 +27,8 @@ async function fetchJson<T>(path: string): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-export async function loadLeagueBundle(): Promise<LeagueBundle> {
+/** Loads league JSON from the static site (GitHub Pages `public/.../data/`). */
+export async function fetchLeagueBundleStatic(): Promise<LeagueBundle> {
   const d = leagueDataPrefix();
   const [meta, franchiseFile, playerFile, auction, rules, predictions] =
     await Promise.all([

@@ -5,7 +5,7 @@ import { OwnerBadge } from "../components/OwnerBadge";
 import { ownerSlug } from "../lib/slug";
 
 export function Home() {
-  const { bundle, refresh } = useLeague();
+  const { bundle, refresh, leagueNotice } = useLeague();
   const summary = useLeagueStandings();
   if (!bundle || !summary) return null;
 
@@ -15,6 +15,11 @@ export function Home() {
 
   return (
     <div className="space-y-8">
+      {leagueNotice ? (
+        <div className="rounded-xl border border-amber-900/50 bg-amber-950/20 px-4 py-3 text-sm text-amber-100/90">
+          {leagueNotice}
+        </div>
+      ) : null}
       <section className="rounded-2xl border border-slate-800 bg-slate-900/50 p-5">
         <h2 className="text-lg font-semibold text-white">{bundle.meta.seasonLabel}</h2>
         <p className="mt-2 text-sm leading-relaxed text-slate-400">

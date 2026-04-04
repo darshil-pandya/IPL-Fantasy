@@ -3,30 +3,11 @@
  * Set VITE_FIREBASE_* env vars to enable.
  */
 
+import { getFirebaseApp, isFirebaseConfigured } from "./client";
+
 const DOC_PATH = "iplFantasy/waiverState";
 
-export function isFirebaseWaiverConfigured(): boolean {
-  return Boolean(
-    import.meta.env.VITE_FIREBASE_API_KEY &&
-      import.meta.env.VITE_FIREBASE_AUTH_DOMAIN &&
-      import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  );
-}
-
-function firebaseConfig(): { apiKey: string; authDomain: string; projectId: string } {
-  const apiKey = import.meta.env.VITE_FIREBASE_API_KEY;
-  const authDomain = import.meta.env.VITE_FIREBASE_AUTH_DOMAIN;
-  const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID;
-  if (!apiKey || !authDomain || !projectId) {
-    throw new Error("Firebase env incomplete");
-  }
-  return { apiKey, authDomain, projectId };
-}
-
-async function getWaiverApp() {
-  const { initializeApp, getApp, getApps } = await import("firebase/app");
-  return getApps().length ? getApp() : initializeApp(firebaseConfig());
-}
+export const isFirebaseWaiverConfigured = isFirebaseConfigured;
 
 export type Unsub = () => void;
 
@@ -37,7 +18,7 @@ export async function subscribeWaiverRemote(
   if (!isFirebaseWaiverConfigured()) return null;
   try {
     const { getFirestore, doc, onSnapshot } = await import("firebase/firestore");
-    const app = await getWaiverApp();
+    const app = await getFirebaseApp();
     const db = getFirestore(app);
     const [col, id] = DOC_PATH.split("/");
     const d = doc(db, col, id);
@@ -60,7 +41,7 @@ export async function pushWaiverRemote(payload: unknown): Promise<void> {
   const { getFirestore, doc, setDoc, serverTimestamp } = await import(
     "firebase/firestore"
   );
-  const app = await getWaiverApp();
+  const app = await getFirebaseApp();
   const db = getFirestore(app);
   const [col, id] = DOC_PATH.split("/");
   await setDoc(

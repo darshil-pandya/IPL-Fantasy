@@ -11,6 +11,8 @@ import {
 import { WAIVER_LOGIN_ROWS } from "../lib/waiver/auth";
 import type { LeagueBundle, Player } from "../types";
 import type { WaiverBid, WaiverNomination, WaiverSession } from "../lib/waiver/types";
+import { isFirebaseConfigured } from "../lib/firebase/client";
+import { seedLeagueFromStaticToFirestore } from "../lib/firebase/leagueRemote";
 
 function money(n: number): string {
   return new Intl.NumberFormat("en-IN", {
@@ -21,13 +23,12 @@ function money(n: number): string {
 }
 
 function firebaseUi(connected: boolean, err: string | null): React.ReactNode {
-  const on =
-    typeof import.meta.env.VITE_FIREBASE_API_KEY === "string" &&
-    import.meta.env.VITE_FIREBASE_API_KEY.length > 0;
-  if (!on) {
+  if (!isFirebaseConfigured()) {
     return (
       <p className="mt-2 text-xs text-slate-600">
-        Firestore sync off (set VITE_FIREBASE_* — see docs/firebase-waiver-setup.md).
+        Firestore sync off — this build needs all three{" "}
+        <code className="text-slate-500">VITE_FIREBASE_*</code> vars at build time (see
+        docs/firebase-waiver-setup.md).
       </p>
     );
   }
@@ -275,6 +276,32 @@ function AdminPanel({
   error: string | null;
   onExport: () => void;
 }) {
+  const [pubBusy, setPubBusy] = useState(false);
+  const [pubFeedback, setPubFeedback] = useState<{
+    kind: "ok" | "err";
+    text: string;
+  } | null>(null);
+
+  async function publishLeagueToFirestore() {
+    if (!isFirebaseConfigured()) return;
+    setPubFeedback(null);
+    setPubBusy(true);
+    try {
+      await seedLeagueFromStaticToFirestore();
+      setPubFeedback({
+        kind: "ok",
+        text: "League bundle written to Firestore. Other tabs and devices will update automatically.",
+      });
+    } catch (e) {
+      setPubFeedback({
+        kind: "err",
+        text: e instanceof Error ? e.message : String(e),
+      });
+    } finally {
+      setPubBusy(false);
+    }
+  }
+
   return (
     <section className="rounded-2xl border border-amber-900/40 bg-amber-950/15 p-5">
       <h3 className="text-sm font-semibold uppercase tracking-wide text-amber-200/90">
@@ -309,7 +336,52 @@ function AdminPanel({
         >
           Export rosters JSON
         </button>
+        <button
+          type="button"
+          disabled={pubBusy || !isFirebaseConfigured()}
+          title={
+            !isFirebaseConfigured()
+              ? "Add all three VITE_FIREBASE_* secrets and redeploy so this build can use Firestore."
+              : undefined
+          }
+          onClick={() => void publishLeagueToFirestore()}
+          className="rounded-xl border border-amber-700/60 bg-amber-950/30 px-4 py-2 text-sm text-amber-100 hover:bg-amber-950/50 disabled:cursor-not-allowed disabled:opacity-45"
+        >
+          {pubBusy ? "Publishing…" : "Publish league to Firestore"}
+        </button>
       </div>
+      {!isFirebaseConfigured() && (
+        <p className="mt-3 text-xs leading-relaxed text-amber-200/85">
+          <strong className="font-medium text-amber-100/90">Publish is disabled.</strong> This
+          deploy must include all three Firebase env vars at <em>build</em> time. In GitHub:{" "}
+          <strong>Settings → Secrets and variables → Actions</strong>, add{" "}
+          <code className="rounded bg-slate-900/80 px-1 text-[0.7rem] text-slate-300">
+            VITE_FIREBASE_API_KEY
+          </code>
+          ,{" "}
+          <code className="rounded bg-slate-900/80 px-1 text-[0.7rem] text-slate-300">
+            VITE_FIREBASE_AUTH_DOMAIN
+          </code>
+          , and{" "}
+          <code className="rounded bg-slate-900/80 px-1 text-[0.7rem] text-slate-300">
+            VITE_FIREBASE_PROJECT_ID
+          </code>
+          (exact names), then push to <code className="text-slate-400">main</code> or re-run{" "}
+          <strong>Deploy to GitHub Pages</strong>. If only the API key was set, Waivers could
+          misleadingly say “listening” before — that is fixed in this version.
+        </p>
+      )}
+      {pubFeedback && (
+        <p
+          className={
+            pubFeedback.kind === "ok"
+              ? "mt-3 text-xs text-emerald-300/90"
+              : "mt-3 text-xs text-rose-300"
+          }
+        >
+          {pubFeedback.text}
+        </p>
+      )}
       {error && <p className="mt-3 text-sm text-rose-300">{error}</p>}
       <p className="mt-3 text-xs text-slate-500">
         Strict flow: idle → nomination → bidding → reveal → idle. Reveal resolves

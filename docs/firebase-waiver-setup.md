@@ -1,6 +1,8 @@
-# Firebase + waiver sync
+# Firebase + Firestore (league + waivers)
 
-League data (`players.json`, `franchises.json`, etc.) stays on **GitHub Pages** as static files. **Firebase Firestore** is used only to share **waiver state** (phases, nominations, bids, live rosters, budgets) across everyone’s browsers.
+The **React app** is built and hosted on **GitHub Pages**. **Firebase Firestore** holds the live **league bundle** (meta, franchises, players, auction, rules, predictions) and **waiver state** (phases, nominations, bids, rosters, budgets).
+
+Static JSON under `public/IPL-Fantasy/data/` is still shipped with the site: it is the **source of truth for edits in git**, a **bootstrap path** when the Firestore league document is empty, and the payload used by **Publish league to Firestore** (Waivers → Commissioner).
 
 ## 1. Create a Firebase project
 
@@ -20,7 +22,7 @@ You do **not** need Firebase Hosting if you already use GitHub Pages.
 
 ### Security rules (private league)
 
-For a **small private league**, many groups use open read/write on **only** the waiver document path. This is **not** secure against anyone who inspects the client; upgrade to Firebase Auth later if needed.
+For a **small private league**, many groups use open read/write on **only** the `iplFantasy` documents. This is **not** secure against anyone who inspects the client; upgrade to Firebase Auth later if needed.
 
 In Firestore → **Rules**, use something like:
 
@@ -37,7 +39,27 @@ service cloud.firestore {
 
 Click **Publish**.
 
-## 3. Local development
+## 3. League source mode (`VITE_LEAGUE_SOURCE`)
+
+When all three `VITE_FIREBASE_*` variables are set:
+
+| Value | Behavior |
+|-------|----------|
+| **`auto`** (default) | Subscribe to `iplFantasy/leagueBundle`. If the document is missing or empty, load JSON from the same GitHub Pages site and show a notice on Home. |
+| **`firestore`** | Firestore only; no static fallback. Use after you have published the league at least once. |
+| **`static`** | Always load league JSON from `public/.../data/*.json` (Firestore ignored for league data; waivers can still sync if Firebase env is set). |
+
+Set in `.env.local` locally or add a repository variable / secret for the build if you need a non-default value.
+
+## 4. First-time: seed league in Firestore
+
+1. Deploy the site with Firebase env vars so the app can talk to Firestore.
+2. Sign in on **Waivers** as **Commissioner** (admin).
+3. Click **Publish league to Firestore**. That reads the merged JSON from your deployed static paths and writes document `iplFantasy/leagueBundle` with field `payload` (full `LeagueBundle`).
+
+After that, all clients with `auto` or `firestore` load the league from Firestore and receive live updates when you publish again.
+
+## 5. Local development
 
 1. Copy `.env.example` to **`.env.local`** in the repo root (this file is gitignored).
 2. Fill in:
@@ -50,7 +72,7 @@ VITE_FIREBASE_PROJECT_ID=your-project-id
 
 3. Run `npm run dev`, open **Waivers**. You should see **Firestore: listening** under the page title when all three variables are set.
 
-## 4. Live site (GitHub Actions)
+## 6. Live site (GitHub Actions)
 
 Vite embeds `VITE_*` variables at **build** time. The GitHub Pages workflow passes optional secrets into `npm run build`.
 
@@ -65,24 +87,27 @@ Vite embeds `VITE_*` variables at **build** time. The GitHub Pages workflow pass
 
 3. Push to `main` (or re-run **Deploy to GitHub Pages**). After deploy, open the live site → **Waivers** and confirm **Firestore: listening**.
 
-If a secret is missing, the build still succeeds; the app falls back to **localStorage-only** waivers (no cross-device sync).
+If a secret is missing, the build still succeeds; the app uses **static JSON only** for the league and **localStorage-only** waivers (no cross-device sync).
 
-## 5. Data model in Firestore
+## 7. Data model in Firestore
 
 | Collection | Document ID | Fields |
 |------------|-------------|--------|
-| `iplFantasy` | `waiverState` | `payload` (object: same JSON as localStorage waiver state), `updatedAt` (server timestamp) |
+| `iplFantasy` | `leagueBundle` | `payload` (object: full league bundle), `updatedAt` (server timestamp) |
+| `iplFantasy` | `waiverState` | `payload` (object: same shape as localStorage waiver state), `updatedAt` (server timestamp) |
 
-## 6. Troubleshooting
+## 8. Troubleshooting
 
 | Symptom | Check |
 |---------|--------|
 | **Firestore: listening** never appears | All three `VITE_*` vars set? Rebuild after changing `.env` or secrets. |
 | Permission denied in browser console | Firestore **Rules** allow read/write for `iplFantasy/{docId}`. |
+| League empty with `firestore` mode | Run **Publish league to Firestore** once, or create `leagueBundle` manually. |
+| Home shows “Firestore league document is empty” | Expected in `auto` until you publish; static JSON is used meanwhile. |
 | Two browsers show different waivers | One build has Firebase env, the other doesn’t; or rules blocked writes on one side. |
 | `Missing or insufficient permissions` | Rules too strict; or wrong project ID. |
 
-## 7. What is not in Firebase
+## 9. What stays in the repo (GitHub)
 
-- Predictions, leaderboard math, match points, auction history JSON → still loaded from **`/IPL-Fantasy/IPL-Fantasy/data/*.json`** on GitHub Pages.
+- League JSON files under **`public/IPL-Fantasy/data/`** — edit, commit, push; then **Publish league to Firestore** so the live app picks up changes without redeploying (or redeploy and publish again).
 - Waiver **login** passwords → still the in-app honor-system list (`src/lib/waiver/auth.ts`), not Firebase Authentication.

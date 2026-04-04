@@ -50,11 +50,13 @@ npx gh-pages -d dist/IPL-Fantasy
 
 If you rename the repository, update **both** `vite.config.ts` (`REPO` and `base`) **and** move data to `public/<new-repo-name>/data/` so URLs stay consistent.
 
-## Firebase (optional — shared waivers)
+## Firebase (optional — league + waivers in Firestore)
 
-Firestore syncs **waiver rounds** only; league JSON stays in this repo. Setup: **[docs/firebase-waiver-setup.md](docs/firebase-waiver-setup.md)**. For GitHub Pages, add repository **Actions secrets** `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, and `VITE_FIREBASE_PROJECT_ID` (see that doc). Local dev uses `.env.local`.
+With `VITE_FIREBASE_*` set at build time, the app loads the **league bundle** from Firestore (`iplFantasy/leagueBundle`) and subscribes for live updates; **waiver state** syncs the same way (`iplFantasy/waiverState`). Static JSON in `public/.../data/` remains in git for editing and as a fallback or seed—commissioners use **Waivers → Publish league to Firestore** after deploy. Setup: **[docs/firebase-waiver-setup.md](docs/firebase-waiver-setup.md)**. GitHub Pages: add **Actions secrets** `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, and `VITE_FIREBASE_PROJECT_ID`. Local dev uses `.env.local`.
 
-## Updating league data (no code changes)
+## Updating league data
+
+If you use **Firestore** for the live league, edit the JSON files below, commit, deploy (or rely on existing deploy), then open **Waivers** as commissioner and **Publish league to Firestore** so browsers load the new bundle without waiting for another path. With Firebase off, a refresh after deploy is enough.
 
 | File | Purpose |
 |------|---------|
