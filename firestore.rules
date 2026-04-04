@@ -1,0 +1,18 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Waiver state: app reads/writes from the browser (honor-system league).
+    match /iplFantasy/waiverState {
+      allow read, write: if true;
+    }
+    // League bundle: commissioner publishes from the app.
+    match /iplFantasy/leagueBundle {
+      allow read, write: if true;
+    }
+    // Fantasy score overlay: app reads; only Cloud Functions (Admin SDK) may write.
+    match /iplFantasy/fantasyMatchScores {
+      allow read: if true;
+      allow write: if false;
+    }
+  }
+}

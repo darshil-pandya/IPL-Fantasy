@@ -1,5 +1,7 @@
 # Firebase + Firestore (league + waivers)
 
+**Full step-by-step from scratch (including score sync and GitHub Actions):** [full-setup-walkthrough.md](./full-setup-walkthrough.md).
+
 The **React app** is built and hosted on **GitHub Pages**. **Firebase Firestore** holds the live **league bundle** (meta, franchises, players, optional `waiverPool`, auction, rules, predictions) and **waiver state** (phases, nominations, bids, rosters, budgets).
 
 Static JSON under `public/IPL-Fantasy/data/` is still shipped with the site: it is the **source of truth for edits in git**, a **bootstrap path** when the Firestore league document is empty, and the payload used by **Publish league to Firestore** (Waivers → Commissioner). Waiver nominations use `players.json` plus `waiver-pool.json` (see `npm run build:waiver-pool`).
@@ -38,6 +40,8 @@ service cloud.firestore {
 ```
 
 Click **Publish**.
+
+For **score sync** (Cricket Data → Cloud Function → `fantasyMatchScores`), this repo ships **`firestore.rules`** in the root: waivers and league bundle stay client-writable; **`fantasyMatchScores` is read-only from the browser**. Deploy rules + functions from GitHub (**Actions → Deploy Firebase backend**) — no local CLI required. Details: [firebase-score-sync.md](./firebase-score-sync.md).
 
 ## 3. League source mode (`VITE_LEAGUE_SOURCE`)
 

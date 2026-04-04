@@ -7,11 +7,13 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { LeagueBundle } from "../types";
+import type { FantasyMatchOverlayEntry, LeagueBundle } from "../types";
+import { mergeBundleWithFantasyOverlays } from "../lib/fantasy/mergeOverlay";
 import {
   isFirebaseConfigured,
   leagueDataSourceMode,
 } from "../lib/firebase/client";
+import { subscribeFantasyMatchOverlays } from "../lib/firebase/fantasyScoresRemote";
 import {
   fetchLeagueBundleOnce,
   subscribeLeagueBundle,
@@ -24,6 +26,8 @@ type LeagueCtx = {
   loading: boolean;
   /** Shown when Firestore is empty but static JSON was used (auto mode). */
   leagueNotice: string | null;
+  /** Firestore fantasy overlay listener issue (optional). */
+  fantasyOverlayNotice: string | null;
   refresh: () => Promise<void>;
   summary: ReturnType<typeof summarizeBundle> | null;
 };
@@ -34,10 +38,24 @@ const STATIC_FALLBACK_NOTICE =
   "Showing JSON from this site—Firestore league document is empty. Commissioner: Waivers → Publish league to Firestore.";
 
 export function LeagueProvider({ children }: { children: ReactNode }) {
-  const [bundle, setBundle] = useState<LeagueBundle | null>(null);
+  const [rawBundle, setRawBundle] = useState<LeagueBundle | null>(null);
+  const [fantasyOverlays, setFantasyOverlays] = useState<
+    FantasyMatchOverlayEntry[]
+  >([]);
+  const [fantasyOverlayNotice, setFantasyOverlayNotice] = useState<
+    string | null
+  >(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [leagueNotice, setLeagueNotice] = useState<string | null>(null);
+
+  const bundle = useMemo(
+    () =>
+      rawBundle
+        ? mergeBundleWithFantasyOverlays(rawBundle, fantasyOverlays)
+        : null,
+    [rawBundle, fantasyOverlays],
+  );
 
   const refresh = useCallback(async () => {
     const mode = leagueDataSourceMode();
@@ -46,13 +64,13 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
     try {
       if (!isFirebaseConfigured() || mode === "static") {
         const b = await fetchLeagueBundleStatic();
-        setBundle(b);
+        setRawBundle(b);
         setLeagueNotice(null);
         return;
       }
       const b = await fetchLeagueBundleOnce();
       if (b) {
-        setBundle(b);
+        setRawBundle(b);
         setLeagueNotice(null);
         return;
       }
@@ -60,15 +78,15 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
         setError(
           "No league data in Firestore (iplFantasy/leagueBundle). Use Commissioner → Publish league to Firestore.",
         );
-        setBundle(null);
+        setRawBundle(null);
         return;
       }
       const sb = await fetchLeagueBundleStatic();
-      setBundle(sb);
+      setRawBundle(sb);
       setLeagueNotice(STATIC_FALLBACK_NOTICE);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to refresh league data");
-      setBundle(null);
+      setRawBundle(null);
     } finally {
       setLoading(false);
     }
@@ -86,7 +104,7 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
       void fetchLeagueBundleStatic()
         .then((b) => {
           if (cancelled) return;
-          setBundle(b);
+          setRawBundle(b);
           setLeagueNotice(null);
         })
         .catch((e) => {
@@ -94,7 +112,7 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
           setError(
             e instanceof Error ? e.message : "Failed to load league data",
           );
-          setBundle(null);
+          setRawBundle(null);
         })
         .finally(() => {
           if (!cancelled) setLoading(false);
@@ -116,12 +134,12 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
         if (cancelled) return;
         if (err) {
           setError(err.message);
-          setBundle(null);
+          setRawBundle(null);
           setLoading(false);
           return;
         }
         if (b) {
-          setBundle(b);
+          setRawBundle(b);
           setError(null);
           setLeagueNotice(null);
           setLoading(false);
@@ -131,14 +149,14 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
           setError(
             "No league data in Firestore (iplFantasy/leagueBundle). Use Commissioner → Publish league to Firestore.",
           );
-          setBundle(null);
+          setRawBundle(null);
           setLoading(false);
           return;
         }
         void fetchLeagueBundleStatic()
           .then((sb) => {
             if (cancelled) return;
-            setBundle(sb);
+            setRawBundle(sb);
             setError(null);
             setLeagueNotice(STATIC_FALLBACK_NOTICE);
             setLoading(false);
@@ -148,7 +166,7 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
             setError(
               e instanceof Error ? e.message : "Failed to load static league",
             );
-            setBundle(null);
+            setRawBundle(null);
             setLoading(false);
           });
       });
@@ -159,6 +177,38 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
       unsub = u ?? undefined;
     })();
 
+    return () => {
+      cancelled = true;
+      unsub?.();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isFirebaseConfigured()) {
+      setFantasyOverlays([]);
+      setFantasyOverlayNotice(null);
+      return;
+    }
+    let cancelled = false;
+    let unsub: (() => void) | undefined;
+    void (async () => {
+      const u = await subscribeFantasyMatchOverlays(
+        (entries) => {
+          if (cancelled) return;
+          setFantasyOverlays(entries);
+          setFantasyOverlayNotice(null);
+        },
+        (e) => {
+          if (cancelled) return;
+          setFantasyOverlayNotice(e.message);
+        },
+      );
+      if (cancelled) {
+        u?.();
+        return;
+      }
+      unsub = u ?? undefined;
+    })();
     return () => {
       cancelled = true;
       unsub?.();
@@ -176,10 +226,19 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
       error,
       loading,
       leagueNotice,
+      fantasyOverlayNotice,
       refresh,
       summary,
     }),
-    [bundle, error, loading, leagueNotice, refresh, summary],
+    [
+      bundle,
+      error,
+      loading,
+      leagueNotice,
+      fantasyOverlayNotice,
+      refresh,
+      summary,
+    ],
   );
 
   return (

@@ -59,7 +59,7 @@ function StatCard({
 }
 
 export function Home() {
-  const { bundle, refresh, leagueNotice } = useLeague();
+  const { bundle, refresh, leagueNotice, fantasyOverlayNotice } = useLeague();
   const summary = useLeagueStandings();
   const [tick, setTick] = useState(0);
 
@@ -118,6 +118,11 @@ export function Home() {
       {leagueNotice ? (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
           {leagueNotice}
+        </div>
+      ) : null}
+      {fantasyOverlayNotice ? (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">
+          Firestore fantasy scores: {fantasyOverlayNotice}
         </div>
       ) : null}
       <section className="app-card p-5">

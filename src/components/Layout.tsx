@@ -1,6 +1,7 @@
 import { NavLink, Outlet } from "react-router-dom";
+import { isFirebaseConfigured } from "../lib/firebase/client";
 
-const nav = [
+const navBase = [
   { to: "/", label: "Home", end: true },
   { to: "/teams", label: "Teams" },
   { to: "/matches", label: "Match Center" },
@@ -11,15 +12,19 @@ const nav = [
   { to: "/rules", label: "Rules" },
 ] as const;
 
+const navFirebaseExtra = { to: "/admin/scores", label: "Score sync" } as const;
+
 function NavItems({ className }: { className?: string }) {
+  const extra = isFirebaseConfigured() ? [navFirebaseExtra] : [];
+  const items = [...navBase, ...extra];
   return (
     <nav className={className} aria-label="Main">
       <ul className="flex max-w-[100vw] flex-nowrap items-center justify-start gap-1 overflow-x-auto pb-1 md:max-w-none md:flex-wrap md:justify-end md:gap-2 md:overflow-visible md:pb-0">
-        {nav.map(({ to, label, end }) => (
+        {items.map(({ to, label, end }) => (
           <li key={to}>
             <NavLink
               to={to}
-              end={end}
+              end={end ?? false}
               className={({ isActive }) =>
                 [
                   "block shrink-0 rounded-lg px-2 py-2 text-[11px] font-medium transition-colors sm:rounded-xl sm:px-2.5 md:px-3 md:text-sm",

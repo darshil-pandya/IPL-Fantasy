@@ -4,6 +4,19 @@ export interface MatchPoints {
   matchLabel: string;
   matchDate: string;
   points: number;
+  /** Stable id when merged from Firestore (same match across re-syncs). */
+  matchKey?: string;
+}
+
+/** One match worth of fantasy points keyed by `Player.id` (Firestore overlay). */
+export interface FantasyMatchOverlayEntry {
+  matchKey: string;
+  matchLabel: string;
+  matchDate: string;
+  status?: "final" | "abandoned" | "provisional";
+  playerPoints: Record<string, number>;
+  cricketMatchId?: string;
+  source?: string;
 }
 
 export type PlayerNationality = "IND" | "OVS";
