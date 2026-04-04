@@ -8,6 +8,16 @@ export interface MatchPoints {
 
 export type PlayerNationality = "IND" | "OVS";
 
+/** Real IPL season counting stats (optional; shown on Home when present). */
+export interface PlayerSeasonStats {
+  runs?: number;
+  wickets?: number;
+  battingAvg?: number;
+  bowlingAvg?: number;
+  sixes?: number;
+  fours?: number;
+}
+
 export interface Player {
   id: string;
   name: string;
@@ -17,6 +27,8 @@ export interface Player {
   nationality?: PlayerNationality;
   seasonTotal: number;
   byMatch: MatchPoints[];
+  /** IPL tournament stats for leaderboards on Home (edit in players.json). */
+  seasonStats?: PlayerSeasonStats;
 }
 
 export interface Franchise {

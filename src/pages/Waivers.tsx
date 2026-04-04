@@ -9,7 +9,7 @@ import {
   WAIVER_BUDGET_START,
 } from "../lib/waiver/constants";
 import { WAIVER_LOGIN_ROWS } from "../lib/waiver/auth";
-import type { LeagueBundle, Player } from "../types";
+import type { Franchise, LeagueBundle, Player } from "../types";
 import type { WaiverBid, WaiverNomination, WaiverSession } from "../lib/waiver/types";
 import { isFirebaseConfigured } from "../lib/firebase/client";
 import { seedLeagueFromStaticToFirestore } from "../lib/firebase/leagueRemote";
@@ -407,7 +407,7 @@ function OwnerWaiverPanel({
   error,
 }: {
   sessionOwner: string;
-  franchise: { owner: string; teamName: string; playerIds: string[] };
+  franchise: Franchise;
   phase: string;
   myNominations: WaiverNomination[];
   nominatedInIds: Set<string>;
@@ -427,7 +427,7 @@ function OwnerWaiverPanel({
   return (
     <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-5">
       <div className="flex flex-wrap items-center gap-2">
-        <h3 className="text-lg font-semibold text-white">{franchise.teamName}</h3>
+        <h3 className="text-lg font-semibold text-white">{franchise.owner}</h3>
         <OwnerBadge owner={sessionOwner} />
         <span className="text-sm text-slate-500">
           Budget left:{" "}

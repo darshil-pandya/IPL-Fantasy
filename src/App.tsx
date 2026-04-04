@@ -5,9 +5,7 @@ import { LoadingState } from "./components/LoadingState";
 import { LeagueProvider, useLeague } from "./context/LeagueContext";
 import { WaiverProvider } from "./context/WaiverContext";
 import { Auction } from "./pages/Auction";
-import { Franchises } from "./pages/Franchises";
 import { Home } from "./pages/Home";
-import { Leaderboard } from "./pages/Leaderboard";
 import { MatchPoints } from "./pages/MatchPoints";
 import { Players } from "./pages/Players";
 import { Predictions } from "./pages/Predictions";
@@ -47,8 +45,8 @@ function DataRoutes() {
       <Routes>
         <Route element={<Layout />}>
           <Route index element={<Home />} />
-          <Route path="leaderboard" element={<Leaderboard />} />
-          <Route path="franchises" element={<Franchises />} />
+          <Route path="leaderboard" element={<Navigate to="/" replace />} />
+          <Route path="franchises" element={<Navigate to="/teams" replace />} />
           <Route path="teams" element={<Teams />} />
           <Route path="teams/:ownerSlug" element={<TeamDetail />} />
           <Route path="players" element={<Players />} />

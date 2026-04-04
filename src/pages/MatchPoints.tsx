@@ -200,17 +200,17 @@ export function MatchPoints() {
         </div>
         <label className="flex flex-col gap-1 text-sm text-slate-300">
           <span className="text-xs font-medium uppercase tracking-wide text-slate-500">
-            Franchise
+            Owner
           </span>
           <select
             value={franchise}
             onChange={(e) => setFranchise(e.target.value)}
             className="min-w-[12rem] rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-white"
           >
-            <option value="all">All franchises</option>
+            <option value="all">All owners</option>
             {bundle.franchises.map((f) => (
               <option key={f.owner} value={f.owner}>
-                {f.teamName} ({f.owner})
+                {f.owner}
               </option>
             ))}
           </select>
@@ -221,7 +221,7 @@ export function MatchPoints() {
         <section key={s.owner} className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex flex-wrap items-center gap-2">
-              <h3 className="text-base font-semibold text-white">{s.teamName}</h3>
+              <h3 className="text-base font-semibold text-white">{s.owner}</h3>
               <OwnerBadge owner={s.owner} />
             </div>
             <span className="rounded-full border border-slate-700 bg-slate-800/60 px-3 py-1 text-xs text-slate-300">

@@ -75,7 +75,7 @@ export function TeamDetail() {
         >
           ← All teams
         </Link>
-        <h2 className="mt-2 text-2xl font-bold text-white">{row.teamName}</h2>
+        <h2 className="mt-2 text-2xl font-bold text-white">{row.owner}</h2>
         <div className="mt-2">
           <OwnerBadge owner={row.owner} />
         </div>
