@@ -128,7 +128,8 @@ Create **four** more secrets:
 2. **IAM & Admin** → **IAM**.
 3. Find the email inside the JSON (field `client_email`), e.g. `firebase-adminsdk-….iam.gserviceaccount.com`.
 4. **Edit** that principal → **Add role** (for a private league you can temporarily use **Editor** on the project while debugging; later you can tighten roles).
-5. Roles that often matter for this repo: **Cloud Functions Admin**, **Service Account User**, **Secret Manager Admin** (or **Secret Manager Secret Accessor** + ability to create secrets), **Firebase Rules Admin** / **Firebase Admin** as applicable.
+5. Roles that often matter for this repo: **Cloud Functions Admin**, **Service Account User**, **Secret Manager Admin**, **Service Usage Consumer**, **Firebase Rules Admin** / **Firebase Admin** as applicable.  
+   **Important:** **`Secret Manager Admin`** is required not only to create secret *values* but also for **`secretmanager.secrets.setIamPolicy`**. Without it, `firebase deploy` fails with **403** when it tries to grant the Functions runtime (e.g. `…-compute@developer.gserviceaccount.com`) access to `CRICKETDATA_API_KEY` / `FANTASY_SYNC_PASSPHRASE`. Roles like **Secret Creator** or **Accessor** alone are usually **not** enough for deploy.
 6. **If the log shows HTTP 403 and `secretmanager.googleapis.com` or `serviceusage.services.use`:** add **`Service Usage Consumer`** (`roles/serviceusage.serviceUsageConsumer`) to that **same** service account. Without it, `firebase functions:secrets:set` cannot use the Secret Manager API on your project.
 7. **Enable the API once (browser, as project owner):** **APIs & Services** → **Library** → search **Secret Manager API** → **Enable**.
 8. Save IAM changes, then **re-run** the **Deploy Firebase backend** workflow.
@@ -259,6 +260,7 @@ Without this, **Score sync** may fail when the browser calls the Cloud Function.
 | **Push Cricket Data + sync passphrase** | **403** on `secretmanager.googleapis.com` / `serviceusage.services.use`: add **Service Usage Consumer** to the Firebase Admin service account (see Phase C4); enable **Secret Manager API** in GCP; add **Secret Manager Admin** if still denied. |
 | **Push Cricket Data…** shows **“Failed to authenticate, have you run firebase login?”** | The Firebase CLI often **does not** use service-account JSON for `firebase functions:secrets:set` in CI. Current workflow uses **`gcloud secrets create` / `versions add`** instead (same Secret Manager names: `CRICKETDATA_API_KEY`, `FANTASY_SYNC_PASSPHRASE`). Pull the latest `firebase-backend.yml` and re-run. |
 | **Deploy Firestore rules and Cloud Functions** | Project not on **Blaze**; or **Cloud Build** / **Artifact Registry** API not enabled; or IAM roles missing for deploy (Phase C4). |
+| **Deploy…** → **403** `setIamPolicy` on a secret (e.g. `CRICKETDATA_API_KEY`) | GitHub’s service account needs **Secret Manager Admin** so Firebase can attach runtime access to secrets. Add it on **IAM** for the `client_email` in your JSON key (Phase C4). |
 
 | Problem | Likely fix |
 |---------|------------|
