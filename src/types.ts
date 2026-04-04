@@ -40,6 +40,50 @@ export interface PlayerSeasonStats {
   bowlingAvg?: number;
 }
 
+/**
+ * Cumulative fantasy points by scoring category (season-to-date).
+ * Values may be negative (e.g. ducks, economy/SR penalties). If you maintain a full
+ * breakdown, the sum of all fields should match `seasonTotal` (see validation on Players).
+ */
+export interface PlayerSeasonFantasyPoints {
+  /** Points from +1 per run scored */
+  battingRuns?: number;
+  /** Points from +2 per four (boundary bonus) */
+  boundaryFours?: number;
+  /** Points from +4 per six */
+  boundarySixes?: number;
+  /** Net milestone bonuses (25/50/75/100) after your stacking rules */
+  battingMilestones?: number;
+  /** Duck penalties (negative) */
+  ducks?: number;
+  /** Points from +1 per dot ball */
+  dotBalls?: number;
+  /** Points from +25 per wicket (excl. run out) */
+  wickets?: number;
+  /** Points from +8 per LBW or bowled */
+  lbwOrBowled?: number;
+  threeWicketHauls?: number;
+  fourWicketHauls?: number;
+  fiveWicketHauls?: number;
+  /** Points from +12 per maiden */
+  maidens?: number;
+  /** Net economy-rate band points (can be negative) */
+  economy?: number;
+  /** Net strike-rate band points for eligible roles (can be negative) */
+  strikeRate?: number;
+  /** Points from catches (+8 each) */
+  catches?: number;
+  /** Points from 3-catch bonus instances (+4 each time it applies) */
+  threeCatchBonus?: number;
+  stumpings?: number;
+  runOutDirect?: number;
+  runOutAssist?: number;
+  namedInXi?: number;
+  impactOrConcussion?: number;
+  /** Manual adjustments not covered above */
+  other?: number;
+}
+
 export interface Player {
   id: string;
   name: string;
@@ -51,6 +95,8 @@ export interface Player {
   byMatch: MatchPoints[];
   /** IPL tournament stats for leaderboards on Home (edit in players.json). */
   seasonStats?: PlayerSeasonStats;
+  /** Fantasy points by category; Players page shows these instead of raw stats. */
+  seasonFantasyPoints?: PlayerSeasonFantasyPoints;
 }
 
 export interface Franchise {
