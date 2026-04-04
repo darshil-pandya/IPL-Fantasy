@@ -26,7 +26,14 @@ function logEntry(
   message: string,
   meta?: Record<string, unknown>,
 ): WaiverLogEntry {
-  return { at: nowIso(), kind, message, meta };
+  const at = nowIso();
+  if (meta == null) return { at, kind, message };
+  const cleaned: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(meta)) {
+    if (v !== undefined) cleaned[k] = v;
+  }
+  if (Object.keys(cleaned).length === 0) return { at, kind, message };
+  return { at, kind, message, meta: cleaned };
 }
 
 function validBidAmount(n: number): boolean {

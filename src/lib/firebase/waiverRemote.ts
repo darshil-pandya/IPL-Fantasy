@@ -36,6 +36,16 @@ export async function subscribeWaiverRemote(
   }
 }
 
+/** Firestore rejects `undefined` anywhere in the tree; JSON round-trip drops those keys. */
+function stripUndefinedForFirestore<T>(value: T): T {
+  if (value === undefined) return value;
+  try {
+    return JSON.parse(JSON.stringify(value)) as T;
+  } catch {
+    return value;
+  }
+}
+
 export async function pushWaiverRemote(payload: unknown): Promise<void> {
   if (!isFirebaseWaiverConfigured()) return;
   const { getFirestore, doc, setDoc, serverTimestamp } = await import(
@@ -44,9 +54,10 @@ export async function pushWaiverRemote(payload: unknown): Promise<void> {
   const app = await getFirebaseApp();
   const db = getFirestore(app);
   const [col, id] = DOC_PATH.split("/");
+  const cleanPayload = stripUndefinedForFirestore(payload);
   await setDoc(
     doc(db, col, id),
-    { payload, updatedAt: serverTimestamp() },
+    { payload: cleanPayload, updatedAt: serverTimestamp() },
     { merge: true },
   );
 }
