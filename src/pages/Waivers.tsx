@@ -453,8 +453,7 @@ function OwnerWaiverPanel({
             onChange={setNomIn}
             playerIds={availOptions}
             pmap={pmap}
-            placeholder="Choose a player from the pool…"
-            searchable
+            placeholder="Type player name, then pick from the list…"
           />
           <WaiverPlayerPicker
             label="Your player out"
@@ -462,7 +461,7 @@ function OwnerWaiverPanel({
             onChange={setNomOut}
             playerIds={franchise.playerIds}
             pmap={pmap}
-            placeholder="Choose who leaves your squad…"
+            placeholder="Type player name, then pick from the list…"
           />
           <div className="sm:col-span-2">
             <WaiverBidField
@@ -618,7 +617,7 @@ function NominationRow({
                 onChange={setOutId}
                 playerIds={myRosterIds}
                 pmap={pmap}
-                placeholder="Select player leaving your squad…"
+                placeholder="Type player name, then pick from the list…"
               />
             </div>
             <div className="w-full shrink-0 lg:w-56">

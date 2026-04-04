@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { IplTeamPill } from "./IplTeamPill";
 import { natBadgeClass, roleBadgeClass } from "../lib/playerBadges";
 import type { Player, PlayerNationality } from "../types";
@@ -32,8 +32,6 @@ type WaiverPlayerPickerProps = {
   playerIds: string[];
   pmap: Map<string, Player>;
   placeholder?: string;
-  /** Show a name search field and filter the list as you type. */
-  searchable?: boolean;
 };
 
 function normalizeSearch(s: string): string {
@@ -46,13 +44,13 @@ export function WaiverPlayerPicker({
   onChange,
   playerIds,
   pmap,
-  placeholder = "Select player…",
-  searchable = false,
+  placeholder = "Type to search, then pick a player…",
 }: WaiverPlayerPickerProps) {
   const [open, setOpen] = useState(false);
   const [filterQuery, setFilterQuery] = useState("");
   const rootRef = useRef<HTMLDivElement>(null);
-  const searchInputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const listId = useId();
 
   const sortedIds = useMemo(() => {
     return [...playerIds].sort((a, b) => {
@@ -63,14 +61,13 @@ export function WaiverPlayerPicker({
   }, [playerIds, pmap]);
 
   const filteredIds = useMemo(() => {
-    if (!searchable) return sortedIds;
     const q = normalizeSearch(filterQuery);
     if (!q) return sortedIds;
     return sortedIds.filter((id) => {
       const name = pmap.get(id)?.name ?? id;
       return normalizeSearch(name).includes(q);
     });
-  }, [searchable, sortedIds, filterQuery, pmap]);
+  }, [sortedIds, filterQuery, pmap]);
 
   useEffect(() => {
     function onDoc(e: MouseEvent) {
@@ -81,12 +78,6 @@ export function WaiverPlayerPicker({
       return () => document.removeEventListener("mousedown", onDoc);
     }
   }, [open]);
-
-  useEffect(() => {
-    if (open && searchable) {
-      searchInputRef.current?.focus();
-    }
-  }, [open, searchable]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -101,78 +92,95 @@ export function WaiverPlayerPicker({
   const selected = value ? pmap.get(value) : undefined;
 
   return (
-    <div ref={rootRef} className="relative flex flex-col gap-1">
+    <div ref={rootRef} className="flex flex-col gap-1">
       <span className="text-xs font-medium text-slate-600">{label}</span>
-      {searchable && (
-        <input
-          ref={searchInputRef}
-          type="search"
-          enterKeyHint="search"
-          autoComplete="off"
-          value={filterQuery}
-          onChange={(e) => {
-            setFilterQuery(e.target.value);
-            setOpen(true);
-          }}
-          onFocus={() => setOpen(true)}
-          placeholder="Type player name to filter…"
-          aria-label={`${label} — search by name`}
-          className="app-input w-full py-2 text-sm"
-        />
-      )}
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-        aria-haspopup="listbox"
-        className="app-input flex min-h-[2.75rem] w-full items-start justify-between gap-2 py-2 text-left"
-      >
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
-          {selected ? (
-            <PlayerRowInner p={selected} />
-          ) : (
-            <span className="self-center text-sm text-slate-400">{placeholder}</span>
-          )}
-        </div>
-        <span className="shrink-0 pt-0.5 text-brand-dark/45" aria-hidden>
-          {open ? "▴" : "▾"}
-        </span>
-      </button>
-      {open && (
-        <ul
-          className="absolute top-full z-30 mt-1 max-h-72 w-full overflow-y-auto rounded-xl border border-brand-cyan/60 bg-white py-1 shadow-lg ring-1 ring-brand-dark/5"
-          role="listbox"
-          aria-label={label}
+      <div className="relative">
+        <div
+          className={[
+            "flex min-h-[2.75rem] w-full items-stretch overflow-hidden rounded-xl border bg-white shadow-sm transition-[box-shadow,border-color]",
+            open
+              ? "border-brand-ocean ring-2 ring-brand-cyan/50"
+              : "border-brand-cyan/60 hover:border-brand-ocean/50",
+          ].join(" ")}
         >
-          {sortedIds.length === 0 ? (
-            <li className="px-3 py-4 text-center text-sm text-slate-500">No players</li>
-          ) : filteredIds.length === 0 ? (
-            <li className="px-3 py-4 text-center text-sm text-slate-500">
-              No names match &ldquo;{filterQuery.trim()}&rdquo;
-            </li>
-          ) : (
-            filteredIds.map((id) => {
-              const p = pmap.get(id);
-              if (!p) return null;
-              return (
-                <li key={id} role="option" aria-selected={value === id}>
-                  <button
-                    type="button"
-                    className="w-full border-b border-brand-pale/80 px-3 py-2.5 text-left transition-colors last:border-b-0 hover:bg-brand-pale/70 focus:bg-brand-pale/70 focus:outline-none"
-                    onClick={() => {
-                      onChange(id);
-                      setOpen(false);
-                      setFilterQuery("");
-                    }}
-                  >
-                    <PlayerRowInner p={p} />
-                  </button>
-                </li>
-              );
-            })
-          )}
-        </ul>
-      )}
+          <input
+            ref={inputRef}
+            type="text"
+            inputMode="search"
+            enterKeyHint="search"
+            autoComplete="off"
+            spellCheck={false}
+            value={filterQuery}
+            onChange={(e) => {
+              setFilterQuery(e.target.value);
+              setOpen(true);
+            }}
+            onFocus={() => setOpen(true)}
+            placeholder={placeholder}
+            aria-label={`${label} — type to filter by name`}
+            aria-expanded={open}
+            aria-controls={listId}
+            className="min-w-0 flex-1 border-0 bg-transparent px-3 py-2 text-sm text-brand-dark outline-none placeholder:text-slate-400"
+          />
+          <button
+            type="button"
+            tabIndex={-1}
+            aria-label={open ? "Close list" : "Open full list"}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => {
+              setOpen((o) => !o);
+              if (!open) inputRef.current?.focus();
+            }}
+            className="shrink-0 border-l border-brand-cyan/40 bg-brand-pale/40 px-2.5 text-brand-dark/60 transition-colors hover:bg-brand-cyan/30 hover:text-brand-dark"
+          >
+            {open ? "▴" : "▾"}
+          </button>
+        </div>
+        {selected && (
+          <div className="mt-1.5 rounded-lg border border-brand-cyan/40 bg-brand-pale/50 px-2.5 py-2">
+            <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+              Selected
+            </p>
+            <PlayerRowInner p={selected} />
+          </div>
+        )}
+        {open && (
+          <ul
+            id={listId}
+            className="absolute left-0 right-0 z-30 mt-1 max-h-72 overflow-y-auto rounded-xl border border-brand-cyan/60 bg-white py-1 shadow-lg ring-1 ring-brand-dark/5"
+            role="listbox"
+            aria-label={label}
+          >
+            {sortedIds.length === 0 ? (
+              <li className="px-3 py-4 text-center text-sm text-slate-500">No players</li>
+            ) : filteredIds.length === 0 ? (
+              <li className="px-3 py-4 text-center text-sm text-slate-500">
+                No names match &ldquo;{filterQuery.trim()}&rdquo;
+              </li>
+            ) : (
+              filteredIds.map((id) => {
+                const p = pmap.get(id);
+                if (!p) return null;
+                return (
+                  <li key={id} role="option" aria-selected={value === id}>
+                    <button
+                      type="button"
+                      className="w-full border-b border-brand-pale/80 px-3 py-2.5 text-left transition-colors last:border-b-0 hover:bg-brand-pale/70 focus:bg-brand-pale/70 focus:outline-none"
+                      onClick={() => {
+                        onChange(id);
+                        setOpen(false);
+                        setFilterQuery("");
+                      }}
+                    >
+                      <PlayerRowInner p={p} />
+                    </button>
+                  </li>
+                );
+              })
+            )}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }
