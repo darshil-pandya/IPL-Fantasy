@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { IplTeamPill } from "../components/IplTeamPill";
 import { OwnerBadge } from "../components/OwnerBadge";
+import { WaiverBidField } from "../components/WaiverBidField";
+import { WaiverPlayerPicker } from "../components/WaiverPlayerPicker";
 import { useLeague } from "../context/LeagueContext";
 import { useWaiver } from "../context/WaiverContext";
 import type { WaiverEngineAction } from "../lib/waiver/engine";
@@ -408,7 +410,7 @@ function OwnerWaiverPanel({
 }) {
   const [nomIn, setNomIn] = useState("");
   const [nomOut, setNomOut] = useState("");
-  const [nomAmt, setNomAmt] = useState(String(WAIVER_BID_INCREMENT * 2));
+  const [nomAmt, setNomAmt] = useState(String(WAIVER_BID_INCREMENT));
   const [editId, setEditId] = useState<string | null>(null);
 
   const availOptions = availableIds.filter((id) => !nominatedInIds.has(id));
@@ -425,7 +427,7 @@ function OwnerWaiverPanel({
       </div>
       {phase === "nomination" && (
         <form
-          className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
+          className="mt-4 grid gap-4 sm:grid-cols-2"
           onSubmit={(e) => {
             e.preventDefault();
             const amount = Number(nomAmt);
@@ -441,54 +443,39 @@ function OwnerWaiverPanel({
               setEditId(null);
               setNomIn("");
               setNomOut("");
+              setNomAmt(String(WAIVER_BID_INCREMENT));
             }
           }}
         >
-          <label className="flex flex-col gap-1 text-xs text-slate-600">
-            Nominee (available)
-            <select
-              required
-              value={nomIn}
-              onChange={(e) => setNomIn(e.target.value)}
-              className="app-input py-2 text-sm"
-            >
-              <option value="">Select…</option>
-              {availOptions.map((id) => (
-                <option key={id} value={id}>
-                  {pmap.get(id)?.name ?? id}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex flex-col gap-1 text-xs text-slate-600">
-            Your player out
-            <select
-              required
-              value={nomOut}
-              onChange={(e) => setNomOut(e.target.value)}
-              className="app-input py-2 text-sm"
-            >
-              <option value="">Select…</option>
-              {franchise.playerIds.map((id) => (
-                <option key={id} value={id}>
-                  {pmap.get(id)?.name ?? id}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex flex-col gap-1 text-xs text-slate-600">
-            Your bid (₹)
-            <input
-              type="number"
-              step={WAIVER_BID_INCREMENT}
-              min={WAIVER_BID_INCREMENT}
+          <WaiverPlayerPicker
+            label="Nominee (available)"
+            value={nomIn}
+            onChange={setNomIn}
+            playerIds={availOptions}
+            pmap={pmap}
+            placeholder="Choose a player from the pool…"
+          />
+          <WaiverPlayerPicker
+            label="Your player out"
+            value={nomOut}
+            onChange={setNomOut}
+            playerIds={franchise.playerIds}
+            pmap={pmap}
+            placeholder="Choose who leaves your squad…"
+          />
+          <div className="sm:col-span-2">
+            <WaiverBidField
               value={nomAmt}
-              onChange={(e) => setNomAmt(e.target.value)}
-              className="app-input py-2 text-sm"
+              onChange={setNomAmt}
+              budgetRemaining={budgetRemaining}
             />
-          </label>
-          <div className="flex items-end gap-2">
-            <button type="submit" className="app-btn-primary">
+          </div>
+          <div className="flex flex-wrap items-end gap-2 sm:col-span-2">
+            <button
+              type="submit"
+              disabled={!nomIn || !nomOut}
+              className="app-btn-primary disabled:cursor-not-allowed disabled:opacity-50"
+            >
               {editId ? "Update nomination" : "Add nomination"}
             </button>
             {editId && (
@@ -498,6 +485,7 @@ function OwnerWaiverPanel({
                   setEditId(null);
                   setNomIn("");
                   setNomOut("");
+                  setNomAmt(String(WAIVER_BID_INCREMENT));
                 }}
                 className="text-sm text-slate-500 hover:text-brand-dark"
               >
@@ -580,12 +568,12 @@ function NominationRow({
       : undefined;
   const [outId, setOutId] = useState(existing?.playerOutId ?? "");
   const [amt, setAmt] = useState(
-    String(existing?.amount ?? WAIVER_BID_INCREMENT * 2),
+    String(existing?.amount ?? WAIVER_BID_INCREMENT),
   );
 
   useEffect(() => {
     setOutId(existing?.playerOutId ?? "");
-    setAmt(String(existing?.amount ?? WAIVER_BID_INCREMENT * 2));
+    setAmt(String(existing?.amount ?? WAIVER_BID_INCREMENT));
   }, [existing?.id, existing?.playerOutId, existing?.amount]);
 
   return (
@@ -606,7 +594,7 @@ function NominationRow({
         session?.role === "owner" &&
         session.owner !== n.nominatorOwner && (
         <form
-          className="mt-3 flex flex-wrap items-end gap-2 border-t border-brand-cyan/40 pt-3"
+          className="mt-3 space-y-3 border-t border-brand-cyan/40 pt-3"
           onSubmit={(e) => {
             e.preventDefault();
             tryDispatch({
@@ -618,33 +606,38 @@ function NominationRow({
             });
           }}
         >
-          <span className="w-full text-xs text-slate-500">
-            Your bid · budget {money(budgetRemaining)}
-          </span>
-          <select
-            required
-            value={outId}
-            onChange={(e) => setOutId(e.target.value)}
-            className="app-input py-1.5 text-sm"
-          >
-            <option value="">Player out…</option>
-            {myRosterIds.map((id) => (
-              <option key={id} value={id}>
-                {pmap.get(id)?.name ?? id}
-              </option>
-            ))}
-          </select>
-          <input
-            type="number"
-            step={WAIVER_BID_INCREMENT}
-            min={WAIVER_BID_INCREMENT}
-            value={amt}
-            onChange={(e) => setAmt(e.target.value)}
-            className="app-input w-32 py-1.5 text-sm"
-          />
-          <button type="submit" className="app-btn-primary py-1.5 text-sm">
-            {existing ? "Update bid" : "Place bid"}
-          </button>
+          <p className="text-xs text-slate-500">
+            Your bid · remaining budget {money(budgetRemaining)}
+          </p>
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+            <div className="min-w-0 flex-1 lg:max-w-md">
+              <WaiverPlayerPicker
+                label="Player out"
+                value={outId}
+                onChange={setOutId}
+                playerIds={myRosterIds}
+                pmap={pmap}
+                placeholder="Select player leaving your squad…"
+              />
+            </div>
+            <div className="w-full shrink-0 lg:w-56">
+              <WaiverBidField
+                value={amt}
+                onChange={setAmt}
+                budgetRemaining={budgetRemaining}
+                label="Bid amount (₹)"
+              />
+            </div>
+            <div className="flex items-end">
+              <button
+                type="submit"
+                disabled={!outId}
+                className="app-btn-primary py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {existing ? "Update bid" : "Place bid"}
+              </button>
+            </div>
+          </div>
         </form>
       )}
       {phase === "bidding" &&
