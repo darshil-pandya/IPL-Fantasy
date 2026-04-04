@@ -1,9 +1,10 @@
 # Deploy Firestore rules + Cloud Functions from GitHub (no local machine required).
 # Add repository secrets first — see docs/firebase-score-sync.md
 #
-# Firebase CLI uses GOOGLE_APPLICATION_CREDENTIALS (service account JSON), not
-# interactive `firebase login`. We write the JSON to a file because some runners
-# do not pass auth from google-github-actions/auth through to `firebase` reliably.
+# Secret values go to Google Secret Manager via `gcloud` (service account key).
+# `firebase functions:secrets:set` often fails in CI with "have you run firebase login?"
+# even when GOOGLE_APPLICATION_CREDENTIALS is set — the Firebase CLI does not always use ADC
+# for that subcommand. `firebase deploy` still uses the JSON key file for deployment.
 name: Deploy Firebase backend
 
 on:
@@ -15,6 +16,9 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    env:
+      GCP_SA_KEY: ${{ github.workspace }}/gcp-sa.json
+      PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
     steps:
       - uses: actions/checkout@v4
 
@@ -26,7 +30,6 @@ jobs:
 
       - name: Verify required GitHub Actions secrets
         env:
-          PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
           CRICKET: ${{ secrets.CRICKETDATA_API_KEY }}
           PASS: ${{ secrets.FANTASY_SYNC_PASSPHRASE }}
           SA_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
@@ -48,35 +51,52 @@ jobs:
         run: npm ci
         working-directory: functions
 
-      - name: Write service account JSON for Firebase CLI (Application Default Credentials)
+      - name: Write service account JSON to disk
         env:
           SA_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
         run: |
           python3 << 'PY'
           import json, os
           path = os.path.join(os.environ["GITHUB_WORKSPACE"], "gcp-sa.json")
-          data = json.loads(os.environ["SA_JSON"])
           with open(path, "w", encoding="utf-8") as f:
-              json.dump(data, f)
-          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as g:
-              g.write(f"GOOGLE_APPLICATION_CREDENTIALS={path}\n")
+              json.dump(json.loads(os.environ["SA_JSON"]), f)
           PY
-          test -f "${GITHUB_WORKSPACE}/gcp-sa.json" && echo "Wrote credentials for Firebase CLI (next steps use GOOGLE_APPLICATION_CREDENTIALS)."
+          test -f "$GCP_SA_KEY" && echo "Wrote $GCP_SA_KEY"
+
+      - name: Install Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          version: "latest"
+          project_id: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+
+      - name: Push Cricket Data + sync passphrase to Secret Manager (gcloud)
+        env:
+          CRICKETDATA_API_KEY: ${{ secrets.CRICKETDATA_API_KEY }}
+          FANTASY_SYNC_PASSPHRASE: ${{ secrets.FANTASY_SYNC_PASSPHRASE }}
+        run: |
+          set -e
+          gcloud auth activate-service-account --key-file="$GCP_SA_KEY"
+          gcloud config set project "$PROJECT_ID"
+
+          upsert_secret() {
+            local name="$1"
+            local val="$2"
+            if gcloud secrets describe "$name" --project="$PROJECT_ID" &>/dev/null; then
+              printf '%s' "$val" | gcloud secrets versions add "$name" --data-file=- --project="$PROJECT_ID"
+            else
+              printf '%s' "$val" | gcloud secrets create "$name" --replication-policy=automatic --data-file=- --project="$PROJECT_ID"
+            fi
+          }
+
+          upsert_secret CRICKETDATA_API_KEY "$CRICKETDATA_API_KEY"
+          upsert_secret FANTASY_SYNC_PASSPHRASE "$FANTASY_SYNC_PASSPHRASE"
+          echo "Secret Manager updated for CRICKETDATA_API_KEY and FANTASY_SYNC_PASSPHRASE."
 
       - name: Install Firebase CLI
         run: npm install -g firebase-tools
 
-      - name: Push Cricket Data + sync passphrase into Firebase (Secret Manager)
-        run: |
-          set -e
-          printf '%s' "$CRICKETDATA_API_KEY" | firebase functions:secrets:set CRICKETDATA_API_KEY --project "$PROJECT_ID" --data-file=-
-          printf '%s' "$FANTASY_SYNC_PASSPHRASE" | firebase functions:secrets:set FANTASY_SYNC_PASSPHRASE --project "$PROJECT_ID" --data-file=-
-        env:
-          PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
-          CRICKETDATA_API_KEY: ${{ secrets.CRICKETDATA_API_KEY }}
-          FANTASY_SYNC_PASSPHRASE: ${{ secrets.FANTASY_SYNC_PASSPHRASE }}
-
       - name: Deploy Firestore rules and Cloud Functions
         run: firebase deploy --only firestore:rules,functions --project "$PROJECT_ID" --non-interactive
         env:
-          PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/gcp-sa.json
+          GOOGLE_CLOUD_PROJECT: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}

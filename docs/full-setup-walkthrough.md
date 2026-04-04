@@ -257,7 +257,7 @@ Without this, **Score sync** may fail when the browser calls the Cloud Function.
 | **Install Cloud Function dependencies** | Rare `npm ci` / lockfile issue; try re-run. |
 | **google-github-actions/auth** | **`FIREBASE_SERVICE_ACCOUNT_JSON`** is invalid: not the full file, extra text, or broken copy-paste. Regenerate key in Firebase, paste entire JSON again. |
 | **Push Cricket Data + sync passphrase** | **403** on `secretmanager.googleapis.com` / `serviceusage.services.use`: add **Service Usage Consumer** to the Firebase Admin service account (see Phase C4); enable **Secret Manager API** in GCP; add **Secret Manager Admin** if still denied. |
-| **Push Cricket Data…** shows **“Failed to authenticate, have you run firebase login?”** | The workflow writes your service account JSON to `gcp-sa.json` and sets **`GOOGLE_APPLICATION_CREDENTIALS`** so the Firebase CLI uses it (no interactive login). Pull the latest `firebase-backend.yml` and re-run the workflow. |
+| **Push Cricket Data…** shows **“Failed to authenticate, have you run firebase login?”** | The Firebase CLI often **does not** use service-account JSON for `firebase functions:secrets:set` in CI. Current workflow uses **`gcloud secrets create` / `versions add`** instead (same Secret Manager names: `CRICKETDATA_API_KEY`, `FANTASY_SYNC_PASSPHRASE`). Pull the latest `firebase-backend.yml` and re-run. |
 | **Deploy Firestore rules and Cloud Functions** | Project not on **Blaze**; or **Cloud Build** / **Artifact Registry** API not enabled; or IAM roles missing for deploy (Phase C4). |
 
 | Problem | Likely fix |
