@@ -15,8 +15,6 @@ export interface FantasyMatchOverlayEntry {
   matchDate: string;
   status?: "final" | "abandoned" | "provisional";
   playerPoints: Record<string, number>;
-  cricketMatchId?: string;
-  source?: string;
 }
 
 export type PlayerNationality = "IND" | "OVS";

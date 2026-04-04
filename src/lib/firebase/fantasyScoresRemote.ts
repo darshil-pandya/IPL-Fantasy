@@ -43,8 +43,6 @@ export function normalizeFantasyMatchEntry(
     dateStr = (matchDate as { toDate: () => Date }).toDate().toISOString();
   } else return null;
   const status = raw.status;
-  const cricketMatchId = raw.cricketMatchId;
-  const source = raw.source;
   return {
     matchKey,
     matchLabel,
@@ -56,8 +54,6 @@ export function normalizeFantasyMatchEntry(
         ? status
         : undefined,
     playerPoints: normalizePlayerPoints(raw.playerPoints),
-    cricketMatchId: typeof cricketMatchId === "string" ? cricketMatchId : undefined,
-    source: typeof source === "string" ? source : undefined,
   };
 }
 

@@ -1,6 +1,6 @@
 # Firebase + Firestore (league + waivers)
 
-**Full step-by-step from scratch (including score sync and GitHub Actions):** [full-setup-walkthrough.md](./full-setup-walkthrough.md).
+**Full step-by-step from scratch (including GitHub Actions):** [full-setup-walkthrough.md](./full-setup-walkthrough.md).
 
 The **React app** is built and hosted on **GitHub Pages**. **Firebase Firestore** holds the live **league bundle** (meta, franchises, players, optional `waiverPool`, auction, rules, predictions) and **waiver state** (phases, nominations, bids, rosters, budgets).
 
@@ -41,7 +41,7 @@ service cloud.firestore {
 
 Click **Publish**.
 
-For **score sync** (Cricket Data → Cloud Function → `fantasyMatchScores`), this repo ships **`firestore.rules`** in the root: waivers and league bundle stay client-writable; **`fantasyMatchScores` is read-only from the browser**. Deploy rules + functions from GitHub (**Actions → Deploy Firebase backend**) — no local CLI required. Details: [firebase-score-sync.md](./firebase-score-sync.md).
+This repo ships **`firestore.rules`** in the root: waivers and league bundle stay client-writable; **`fantasyMatchScores` is read-only from the browser** (update it with Admin SDK / your own tooling if you want live overlays). Deploy rules from GitHub (**Actions → Deploy Firebase backend**) — no local CLI required.
 
 ## 3. League source mode (`VITE_LEAGUE_SOURCE`)
 
