@@ -9,7 +9,11 @@
     "leagueOnlyInJsonCount": 0,
     "ignoredEspnSlugs": [
       "mustafizur-rahman"
-    ]
+    ],
+    "scorecardAuditMergedAt": "2026-04-05T15:29:14.980Z",
+    "scorecardAuditSourceCsv": "reports\\scorecard-name-audit\\league_players_vs_espn_scorecards.csv",
+    "scorecardAuditAliasesAdded": 1,
+    "scorecardAuditCollisions": 0
   },
   "manualEspnSlugToLeaguePlayerId": {
     "abishek-porel": "abhishek-porel",
@@ -458,7 +462,8 @@
     "au verma": "aniket-verma",
     "zeeshan ansari": "zeeshan-ansari",
     "jack edwards": "jack-edwards",
-    "j edwards": "jack-edwards"
+    "j edwards": "jack-edwards",
+    "cpl connolly": "cooper-connolly"
   },
   "espnSquadPlayerRows": [
     {
