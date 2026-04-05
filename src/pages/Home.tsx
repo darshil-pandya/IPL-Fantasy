@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { OwnerBadge } from "../components/OwnerBadge";
+import { OwnerPointsLineChart } from "../components/OwnerPointsLineChart";
 import { useLeague } from "../context/LeagueContext";
 import { useLeagueStandings } from "../context/WaiverContext";
+import { buildOwnerCumulativeMatchChartData } from "../lib/cumulativeOwnerMatchPoints";
+import { matchColumnsFromPlayers } from "../lib/matchColumns";
 import {
   leaderBestBattingAvg,
   leaderBestBowlingAvg,
@@ -91,6 +94,31 @@ export function Home() {
       .sort((a, b) => b.total - a.total)
       .map((r, i) => ({ ...r, rank: i + 1 }));
   }, [leaderboardRows]);
+
+  const allPlayersForMatches = useMemo(() => {
+    if (!bundle) return [];
+    const m = new Map<string, Player>();
+    for (const p of bundle.players) m.set(p.id, p);
+    for (const p of bundle.waiverPool ?? []) {
+      if (!m.has(p.id)) m.set(p.id, p);
+    }
+    return [...m.values()];
+  }, [bundle]);
+
+  const matchCols = useMemo(
+    () => matchColumnsFromPlayers(allPlayersForMatches),
+    [allPlayersForMatches],
+  );
+
+  const ownerPointsChart = useMemo(() => {
+    if (!summary) return null;
+    const order = sortedLeaderboard.map((r) => r.owner);
+    return buildOwnerCumulativeMatchChartData(
+      summary.standings,
+      matchCols,
+      order,
+    );
+  }, [summary, matchCols, sortedLeaderboard]);
 
   const statLeaders = useMemo(() => {
     if (!bundle) return null;
@@ -247,6 +275,31 @@ export function Home() {
           <StatCard title="Most sixes" leader={statLeaders.sixes} valueSuffix="6s" />
           <StatCard title="Most fours" leader={statLeaders.fours} valueSuffix="4s" />
         </div>
+      </section>
+
+      <section aria-label="Owner fantasy points by match">
+        <h2 className="font-display mb-2 text-2xl tracking-wide text-white">
+          Points through the season
+        </h2>
+        <p className="mb-3 text-sm text-slate-400">
+          Cumulative fantasy points from each player&apos;s{" "}
+          <code className="app-code-inline">byMatch</code> scores on current waiver
+          rosters. Prediction bonus is not included.
+        </p>
+        {ownerPointsChart && ownerPointsChart.data.length > 1 ? (
+          <div className="app-card overflow-hidden p-4 sm:p-5">
+            <OwnerPointsLineChart
+              data={ownerPointsChart.data}
+              owners={ownerPointsChart.owners}
+            />
+          </div>
+        ) : (
+          <p className="rounded-xl border border-slate-700/60 bg-slate-900/40 px-4 py-6 text-center text-sm text-slate-500">
+            No match-by-match fantasy data yet. When player scorecards include{" "}
+            <code className="app-code-inline">byMatch</code> entries, this chart will
+            track each owner&apos;s running total after every match.
+          </p>
+        )}
       </section>
     </div>
   );

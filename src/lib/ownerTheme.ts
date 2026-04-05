@@ -47,6 +47,17 @@ const OWNERS: Record<
   },
 };
 
+/** Line-chart stroke (hex) aligned with owner accents; works on dark backgrounds. */
+const OWNER_CHART_STROKE: Record<string, string> = {
+  Darshil: "#38bdf8",
+  Bhavya: "#e879f9",
+  Prajin: "#2dd4bf",
+  Sanket: "#fb923c",
+  Hersh: "#a3e635",
+  Jash: "#818cf8",
+  Karan: "#fb7185",
+};
+
 const PILL =
   "inline-flex max-w-full items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ";
 
@@ -71,4 +82,8 @@ export function ownerCardClass(owner: string): string {
 /** Muted label text on an owner card (owner name, captions). */
 export function ownerCardMutedClass(owner: string): string {
   return OWNERS[owner]?.cardMuted ?? "text-slate-400";
+}
+
+export function ownerChartStroke(owner: string): string {
+  return OWNER_CHART_STROKE[owner] ?? "#94a3b8";
 }
