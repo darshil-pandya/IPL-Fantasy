@@ -5,6 +5,7 @@ import { useLeague } from "../context/LeagueContext";
 import { useLeagueStandings } from "../context/WaiverContext";
 import type { FranchiseScoringMode } from "../lib/franchiseAttributedScoring";
 import { pointsInMatch, type MatchColumn } from "../lib/matchColumns";
+import { abbreviateMatchLabel, formatMatchDate } from "../lib/matchLabel";
 import { natBadgeClass, roleBadgeClass } from "../lib/playerBadges";
 import type { FranchiseStanding, Player } from "../types";
 
@@ -71,9 +72,9 @@ function FranchiseMatchTable({
                 scope="col"
                 className="min-w-[5.5rem] px-2 py-3 text-right text-[10px] font-semibold uppercase leading-tight tracking-wide text-slate-500"
               >
-                <span className="block text-slate-500">{c.date}</span>
-                <span className="line-clamp-2 font-normal normal-case text-slate-300">
-                  {c.label}
+                <span className="block text-slate-300">{abbreviateMatchLabel(c.label)}</span>
+                <span className="font-normal normal-case text-slate-500">
+                  {formatMatchDate(c.date)}
                 </span>
               </th>
             ))}

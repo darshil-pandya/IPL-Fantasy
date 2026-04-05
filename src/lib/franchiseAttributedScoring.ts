@@ -235,6 +235,7 @@ export function computeFranchiseScoring(
   standings: FranchiseStanding[];
   sorted: FranchiseStanding[];
   pmap: Map<string, Player>;
+  formerPlayersPerOwner: Record<string, { player: Player; attributedPoints: number }[]>;
 } {
   const players = playersForAttribution(bundle);
   const columns = matchColumnsFromPlayers(players);
@@ -289,6 +290,49 @@ export function computeFranchiseScoring(
     }
   }
 
+  // Per-player attributed points: only count points while the player was on that owner's roster
+  const playerPointsByOwner: Record<string, Record<string, number>> = {};
+  if (mode !== "legacy" && columns.length > 0) {
+    for (const o of owners) playerPointsByOwner[o] = {};
+
+    if (mode === "attributed" && rostersAtStartOfMatch) {
+      for (let j = 0; j < columns.length; j++) {
+        const rosters = rostersAtStartOfMatch[j];
+        for (const o of owners) {
+          for (const id of rosters[o] ?? []) {
+            const p = pmap.get(id);
+            if (!p) continue;
+            const v = pointsInMatch(p, columns[j].id);
+            if (v != null) {
+              playerPointsByOwner[o][id] =
+                Math.round(((playerPointsByOwner[o][id] ?? 0) + v) * 100) / 100;
+            }
+          }
+        }
+      }
+    } else if (mode === "timestamp" && ownershipPeriods) {
+      for (let j = 0; j < columns.length; j++) {
+        const col = columns[j];
+        for (const period of ownershipPeriods) {
+          if (!owners.includes(period.ownerId)) continue;
+          const inRange =
+            period.acquiredAt <= col.date &&
+            (period.releasedAt === null || col.date < period.releasedAt);
+          if (!inRange) continue;
+          const p = pmap.get(period.playerId);
+          if (!p) continue;
+          const v = pointsInMatch(p, col.id);
+          if (v != null) {
+            playerPointsByOwner[period.ownerId][period.playerId] =
+              Math.round(
+                ((playerPointsByOwner[period.ownerId][period.playerId] ?? 0) + v) * 100,
+              ) / 100;
+          }
+        }
+      }
+    }
+  }
+
   const standings: FranchiseStanding[] = baseStandings.map((s) => {
     if (mode === "legacy") {
       return {
@@ -298,10 +342,42 @@ export function computeFranchiseScoring(
     }
     const fromMatches =
       perOwnerPerMatch[s.owner]?.reduce((a, b) => a + b, 0) ?? 0;
-    return { ...s, totalPoints: fromMatches };
+    const ownerPlayerPts = playerPointsByOwner[s.owner];
+    const playersResolved = ownerPlayerPts
+      ? s.playersResolved.map((p) => ({
+          ...p,
+          seasonTotal: ownerPlayerPts[p.id] ?? 0,
+        }))
+      : s.playersResolved;
+    return { ...s, totalPoints: fromMatches, playersResolved };
   });
 
   const sorted = [...standings].sort((a, b) => b.totalPoints - a.totalPoints);
+
+  // Former players: dropped via waiver swaps, no longer on the current roster
+  const formerPlayersPerOwner: Record<
+    string,
+    { player: Player; attributedPoints: number }[]
+  > = {};
+  for (const o of owners) {
+    const currentIds = new Set(currentRosters[o] ?? []);
+    const droppedIds = new Set<string>();
+    for (const e of rosterHistory) {
+      if (e.winner === o) droppedIds.add(e.playerOutId);
+    }
+    const former: { player: Player; attributedPoints: number }[] = [];
+    for (const id of droppedIds) {
+      if (currentIds.has(id)) continue;
+      const p = pmap.get(id);
+      if (!p) continue;
+      former.push({
+        player: p,
+        attributedPoints: playerPointsByOwner[o]?.[id] ?? 0,
+      });
+    }
+    former.sort((a, b) => b.attributedPoints - a.attributedPoints);
+    if (former.length > 0) formerPlayersPerOwner[o] = former;
+  }
 
   return {
     mode,
@@ -311,5 +387,6 @@ export function computeFranchiseScoring(
     standings,
     sorted,
     pmap,
+    formerPlayersPerOwner,
   };
 }

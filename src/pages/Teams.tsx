@@ -127,6 +127,37 @@ export function Teams() {
                     </tr>
                   ))}
               </tbody>
+              {(displaySummary.formerPlayersPerOwner[selected.owner]?.length ?? 0) > 0 && (
+                <tbody className="opacity-50">
+                  <tr>
+                    <td
+                      colSpan={5}
+                      className="px-3 pb-1 pt-4 text-[10px] font-semibold uppercase tracking-wide text-slate-500"
+                    >
+                      Former Players
+                    </td>
+                  </tr>
+                  {displaySummary.formerPlayersPerOwner[selected.owner].map((f) => (
+                    <tr key={f.player.id} className="app-table-row">
+                      <td className="px-3 py-3 font-medium text-slate-500">{f.player.name}</td>
+                      <td className="px-3 py-3">
+                        <IplTeamPill code={f.player.iplTeam} />
+                      </td>
+                      <td className="px-3 py-3">
+                        <span className={roleBadgeClass(f.player.role)}>{f.player.role}</span>
+                      </td>
+                      <td className="px-3 py-3">
+                        <span className={natBadgeClass(f.player.nationality)}>
+                          {natLabel(f.player.nationality)}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3 text-right font-semibold tabular-nums text-slate-500">
+                        {f.attributedPoints.toFixed(1)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              )}
             </table>
           </div>
         </div>

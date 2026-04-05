@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { IplTeamPill } from "../components/IplTeamPill";
 import { OwnerBadge } from "../components/OwnerBadge";
 import { useLeagueStandings } from "../context/WaiverContext";
+import { abbreviateMatchLabel, formatMatchDate } from "../lib/matchLabel";
 import { franchiseBySlug, ownerSlug } from "../lib/slug";
 import type { Player } from "../types";
 
@@ -29,7 +30,8 @@ function MatchBreakdown({ player }: { player: Player }) {
               className="flex justify-between gap-2 border-b border-cyan-500/15 py-1 last:border-0"
             >
               <span className="text-slate-400">
-                <span className="text-slate-500">{m.matchDate}</span> — {m.matchLabel}
+                <span className="text-slate-500">{formatMatchDate(m.matchDate)}</span>{" "}
+                — {abbreviateMatchLabel(m.matchLabel)}
               </span>
               <span className="shrink-0 tabular-nums font-semibold text-cyan-400">
                 +{m.points}
