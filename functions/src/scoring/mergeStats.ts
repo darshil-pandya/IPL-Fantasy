@@ -1,4 +1,4 @@
-import type { EspnBatterAgg, EspnBowlerAgg } from "../scrape/espn.js";
+import { espnDismissalAsString, type EspnBatterAgg, type EspnBowlerAgg } from "../scrape/espn.js";
 import type { PlayerMatchStat } from "./points.js";
 
 export function statFromEspn(
@@ -12,7 +12,7 @@ export function statFromEspn(
     s.fours = bat.fours;
     s.sixes = bat.sixes;
     s.isOut = bat.isOut;
-    s.dismissalText = bat.dismissalText ?? "";
+    s.dismissalText = espnDismissalAsString(bat.dismissalText);
   }
   if (bowl) {
     s.ballsBowled = bowl.balls;

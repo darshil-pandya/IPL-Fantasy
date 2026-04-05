@@ -1,6 +1,7 @@
 import { getFirestore } from "firebase-admin/firestore";
 import {
   discoverEspnMatch,
+  espnDismissalAsString,
   espnMatchStartIso,
   espnMatchTitleFromHtml,
   espnScorecardLooksComplete,
@@ -37,7 +38,7 @@ export type AdminSyncResult = {
 function dismissalRowsFromEspn(batters: Map<string, EspnBatterAgg>): { dismissal: string }[] {
   const out: { dismissal: string }[] = [];
   for (const b of batters.values()) {
-    const t = b.dismissalText ?? "";
+    const t = espnDismissalAsString(b.dismissalText);
     if (t.trim()) out.push({ dismissal: t });
   }
   return out;

@@ -1,6 +1,20 @@
 import { fetchText } from "./http.js";
 import { normalizePlayerName, queryTokens, scoreAgainstTokens } from "../util/names.js";
 
+/** ESPN JSON sometimes uses a string; sometimes a nested object with `text` / `plainText`. */
+export function espnDismissalAsString(v: unknown): string {
+  if (v == null) return "";
+  if (typeof v === "string") return v;
+  if (typeof v === "object") {
+    const o = v as Record<string, unknown>;
+    for (const k of ["text", "plainText", "shortText", "html"]) {
+      const x = o[k];
+      if (typeof x === "string" && x.length > 0) return x;
+    }
+  }
+  return "";
+}
+
 /**
  * IPL season fixtures (all matches + dates). Update `series` segment when ESPN uses a new series id.
  * @see https://www.espncricinfo.com/series/ipl-2026-1510719/match-schedule-fixtures-and-results
@@ -179,14 +193,20 @@ function mergeBat(m: Map<string, EspnBatterAgg>, row: any): void {
   if (!name) return;
   const key = normalizePlayerName(name);
   const cur = m.get(key);
+  const dt = espnDismissalAsString(row.dismissalText) || espnDismissalAsString(cur?.dismissalText);
   const next: EspnBatterAgg = {
     runs: (cur?.runs ?? 0) + Number(row.runs ?? 0),
     balls: (cur?.balls ?? 0) + Number(row.balls ?? 0),
     fours: (cur?.fours ?? 0) + Number(row.fours ?? 0),
     sixes: (cur?.sixes ?? 0) + Number(row.sixes ?? 0),
     isOut: Boolean(row.isOut) || cur?.isOut === true,
-    dismissalType: row.dismissalType ?? cur?.dismissalType,
-    dismissalText: row.dismissalText ?? cur?.dismissalText,
+    dismissalType:
+      typeof row.dismissalType === "string"
+        ? row.dismissalType
+        : typeof cur?.dismissalType === "string"
+          ? cur.dismissalType
+          : undefined,
+    dismissalText: dt || undefined,
   };
   m.set(key, next);
 }

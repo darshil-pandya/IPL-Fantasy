@@ -64,7 +64,9 @@ export function AdminScoreSync() {
       });
       setResult(data);
     } catch (e) {
-      setErr(e instanceof Error ? e.message : String(e));
+      const any = e as { message?: string; code?: string; details?: unknown };
+      const parts = [any.code, any.message].filter(Boolean);
+      setErr(parts.length ? parts.join(": ") : String(e));
     } finally {
       setBusy(false);
     }

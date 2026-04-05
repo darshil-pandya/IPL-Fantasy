@@ -34,6 +34,16 @@ export const adminSyncMatchScores = onCall(
       throw new HttpsError("invalid-argument", "matchDateYmd is required (YYYY-MM-DD).");
     }
     const writeToFirestore = raw?.writeToFirestore === true;
-    return runAdminScoreSync({ matchQuery, matchDateYmd, writeToFirestore });
+    try {
+      return await runAdminScoreSync({ matchQuery, matchDateYmd, writeToFirestore });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error("adminSyncMatchScores failed", msg, e);
+      const short = msg.length > 400 ? `${msg.slice(0, 400)}…` : msg;
+      throw new HttpsError(
+        "failed-precondition",
+        short || "Score sync failed (check Cloud Function logs).",
+      );
+    }
   },
 );
