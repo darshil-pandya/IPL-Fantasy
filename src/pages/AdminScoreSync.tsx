@@ -1,4 +1,12 @@
 import { useMemo, useState } from "react";
+
+function todayYmdLocal(): string {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
 import { Link } from "react-router-dom";
 import { useLeague } from "../context/LeagueContext";
 import { useWaiver } from "../context/WaiverContext";
@@ -13,6 +21,7 @@ export function AdminScoreSync() {
   const { bundle } = useLeague();
   const { session } = useWaiver();
   const [matchQuery, setMatchQuery] = useState("");
+  const [matchDateYmd, setMatchDateYmd] = useState(todayYmdLocal);
   const [adminSyncSecret, setAdminSyncSecret] = useState("");
   const [writeToFirestore, setWriteToFirestore] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -41,10 +50,15 @@ export function AdminScoreSync() {
       setErr("Enter the score-sync secret (set as Cloud Function secret ADMIN_SCORE_SYNC_SECRET).");
       return;
     }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(matchDateYmd)) {
+      setErr("Pick a valid match date.");
+      return;
+    }
     setBusy(true);
     try {
       const data = await callAdminScoreSync({
         matchQuery: matchQuery.trim(),
+        matchDateYmd,
         adminSyncSecret: adminSyncSecret.trim(),
         writeToFirestore,
       });
@@ -97,10 +111,11 @@ export function AdminScoreSync() {
       <div>
         <h2 className="text-xl font-bold text-brand-dark">Admin — score sync</h2>
         <p className="mt-1 text-sm text-slate-600">
-          Finds the match on Cricbuzz and ESPN, compares scorecard-derived fantasy points, and
-          optionally writes validated results to{" "}
+          Looks up the IPL match on <strong>ESPNcricinfo</strong> using your team query and{" "}
+          <strong>match date</strong> (calendar day in India, IST), pulls the full scorecard JSON,
+          computes fantasy points, and optionally writes to{" "}
           <code className="rounded bg-brand-pale px-1 text-brand-dark">iplFantasy/fantasyMatchScores</code>
-          .
+          . Only fixtures linked from ESPN&apos;s live scores page can be found.
         </p>
       </div>
 
@@ -113,6 +128,15 @@ export function AdminScoreSync() {
             value={matchQuery}
             onChange={(e) => setMatchQuery(e.target.value)}
             autoComplete="off"
+          />
+        </label>
+        <label className="block text-sm font-medium text-brand-dark">
+          Match date (IST calendar day)
+          <input
+            type="date"
+            className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+            value={matchDateYmd}
+            onChange={(e) => setMatchDateYmd(e.target.value)}
           />
         </label>
         <label className="block text-sm font-medium text-brand-dark">
@@ -132,7 +156,7 @@ export function AdminScoreSync() {
             checked={writeToFirestore}
             onChange={(e) => setWriteToFirestore(e.target.checked)}
           />
-          Write to Firestore when Cricbuzz and ESPN agree (and the scorecard looks complete)
+          Write to Firestore when the scorecard is complete and there are no blocking issues
         </label>
         <button
           type="submit"
@@ -154,30 +178,22 @@ export function AdminScoreSync() {
           <p>
             <span className="font-medium text-brand-dark">Match:</span> {result.matchLabel}
           </p>
-          <p className="flex flex-col gap-1 sm:flex-row sm:flex-wrap sm:gap-x-4">
+          <p>
             <a
-              href={result.cricbuzzUrl}
+              href={result.scorecardUrl}
               target="_blank"
               rel="noreferrer"
               className="text-brand-ocean underline"
             >
-              Cricbuzz scorecard
-            </a>
-            <a
-              href={result.espnUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="text-brand-ocean underline"
-            >
-              ESPN scorecard
+              Open ESPNcricinfo scorecard
             </a>
           </p>
           <p>
-            <span className="font-medium text-brand-dark">Cross-source validation:</span>{" "}
+            <span className="font-medium text-brand-dark">Roster mapping:</span>{" "}
             {result.validated ? (
-              <span className="text-emerald-700">passed for roster-mapped players</span>
+              <span className="text-emerald-700">ok for mapped players</span>
             ) : (
-              <span className="text-amber-800">failed — see log below</span>
+              <span className="text-amber-800">issues — see log below</span>
             )}
           </p>
           {result.wroteFirestore ? (

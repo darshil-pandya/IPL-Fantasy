@@ -1,19 +1,16 @@
 import { getFirestore } from "firebase-admin/firestore";
 import {
-  discoverCricbuzzMatch,
-  fetchCricbuzzScorecard,
-  parseCricbuzzScorecardHtml,
-  scorecardLooksComplete,
-} from "../scrape/cricbuzz.js";
-import {
   discoverEspnMatch,
+  espnMatchStartIso,
+  espnMatchTitleFromHtml,
+  espnScorecardLooksComplete,
   fetchEspnScorecard,
   parseEspnScorecardHtml,
   type EspnBatterAgg,
 } from "../scrape/espn.js";
 import { normalizePlayerName } from "../util/names.js";
 import { fantasyPointsForPlayer, type Role } from "../scoring/points.js";
-import { rawStatsAgree, statFromCricbuzz, statFromEspn } from "../scoring/mergeStats.js";
+import { statFromEspn } from "../scoring/mergeStats.js";
 
 export type LeaguePlayerRow = {
   id: string;
@@ -26,14 +23,12 @@ export type AdminSyncResult = {
   matchLabel: string;
   matchKey: string;
   matchDate: string;
-  cricbuzzUrl: string;
-  espnUrl: string;
-  cricbuzzComplete: boolean;
+  scorecardUrl: string;
+  source: "espncricinfo";
+  scorecardComplete: boolean;
   validated: boolean;
   playerPoints: Record<string, number>;
-  /** Stat / points mismatches or missing player in one source — blocks Firestore write. */
   inconsistencies: string[];
-  /** Non-fatal notices (duplicate names, incomplete-looking page, etc.). */
   warnings: string[];
   wroteFirestore: boolean;
   note?: string;
@@ -44,16 +39,6 @@ function dismissalRowsFromEspn(batters: Map<string, EspnBatterAgg>): { dismissal
   for (const b of batters.values()) {
     const t = b.dismissalText ?? "";
     if (t.trim()) out.push({ dismissal: t });
-  }
-  return out;
-}
-
-function dismissalRowsFromCb(
-  batters: Map<string, import("../scrape/cricbuzz.js").CbBatter>,
-): { dismissal: string }[] {
-  const out: { dismissal: string }[] = [];
-  for (const b of batters.values()) {
-    if (b.dismissal.trim()) out.push({ dismissal: b.dismissal });
   }
   return out;
 }
@@ -76,74 +61,68 @@ function buildNameToIds(players: LeaguePlayerRow[]): {
   return { map, dupes };
 }
 
-function stableMatchKey(cricbuzzId: string, espnPath: string): string {
-  const slug = espnPath.replace(/\//g, "_").replace(/^series_/, "");
-  return `m_${cricbuzzId}_${slug}`;
+function stableMatchKey(path: string): string {
+  return `espn_${path.replace(/\//g, "_").replace(/^\/+/, "")}`;
 }
 
 export async function runAdminScoreSync(opts: {
   matchQuery: string;
+  matchDateYmd: string;
   writeToFirestore: boolean;
 }): Promise<AdminSyncResult> {
   const inconsistencies: string[] = [];
   const warnings: string[] = [];
   const matchQuery = opts.matchQuery.trim();
+  const matchDateYmd = opts.matchDateYmd.trim();
 
-  const cbPick = await discoverCricbuzzMatch(matchQuery);
-  if (!cbPick) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(matchDateYmd)) {
     return {
       ok: false,
       matchLabel: matchQuery,
       matchKey: "",
-      matchDate: new Date().toISOString(),
-      cricbuzzUrl: "",
-      espnUrl: "",
-      cricbuzzComplete: false,
+      matchDate: "",
+      scorecardUrl: "",
+      source: "espncricinfo",
+      scorecardComplete: false,
       validated: false,
       playerPoints: {},
-      inconsistencies: ["Cricbuzz: no IPL scorecard link matched this query on live scores."],
+      inconsistencies: ["Invalid matchDate (use YYYY-MM-DD)."],
       warnings: [],
       wroteFirestore: false,
     };
   }
 
-  const esPick = await discoverEspnMatch(matchQuery);
+  const esPick = await discoverEspnMatch(matchQuery, matchDateYmd);
   if (!esPick) {
     return {
       ok: false,
-      matchLabel: cbPick.label,
+      matchLabel: matchQuery,
       matchKey: "",
-      matchDate: new Date().toISOString(),
-      cricbuzzUrl: `https://m.cricbuzz.com/live-cricket-scorecard/${cbPick.id}/${cbPick.slug}`,
-      espnUrl: "",
-      cricbuzzComplete: false,
+      matchDate: `${matchDateYmd}T00:00:00.000Z`,
+      scorecardUrl: "",
+      source: "espncricinfo",
+      scorecardComplete: false,
       validated: false,
       playerPoints: {},
-      inconsistencies: ["ESPNcricinfo: no IPL full-scorecard link matched this query."],
+      inconsistencies: [
+        "ESPNcricinfo: no IPL scorecard matched this query and date. Matches must appear on the live scores page; pick the correct calendar date (IST) and team names.",
+      ],
       warnings: [],
       wroteFirestore: false,
     };
   }
 
-  const cricbuzzUrl = `https://m.cricbuzz.com/live-cricket-scorecard/${cbPick.id}/${cbPick.slug}`;
-  const espnUrl = `https://www.espncricinfo.com${esPick.path}`;
+  const scorecardUrl = `https://www.espncricinfo.com${esPick.path}`;
+  const esHtml = await fetchEspnScorecard(esPick.path);
 
-  const [cbHtml, esHtml] = await Promise.all([
-    fetchCricbuzzScorecard(cbPick.id, cbPick.slug),
-    fetchEspnScorecard(esPick.path),
-  ]);
-
-  const cricbuzzComplete = scorecardLooksComplete(cbHtml);
-  if (!cricbuzzComplete) {
+  const scorecardComplete = espnScorecardLooksComplete(esHtml);
+  if (!scorecardComplete) {
     warnings.push(
-      "Cricbuzz page does not look finished (no result keywords). Confirm the match has ended; Firestore write is disabled until it looks complete.",
+      "This match does not look finished on ESPN (state/status). Firestore write is disabled until the match is complete.",
     );
   }
 
-  const cbParsed = parseCricbuzzScorecardHtml(cbHtml);
   const esParsed = parseEspnScorecardHtml(esHtml);
-
-  const dismissCb = dismissalRowsFromCb(cbParsed.batters);
   const dismissEs = dismissalRowsFromEspn(esParsed.batters);
 
   const db = getFirestore();
@@ -181,8 +160,6 @@ export async function runAdminScoreSync(opts: {
   }
 
   const keys = new Set<string>();
-  for (const k of cbParsed.batters.keys()) keys.add(k);
-  for (const k of cbParsed.bowlers.keys()) keys.add(k);
   for (const k of esParsed.batters.keys()) keys.add(k);
   for (const k of esParsed.bowlers.keys()) keys.add(k);
 
@@ -197,61 +174,31 @@ export async function runAdminScoreSync(opts: {
     const leagueRow = rows.find((r) => r.id === id);
     if (!leagueRow) continue;
 
-    const cbBat = cbParsed.batters.get(norm);
-    const cbBowl = cbParsed.bowlers.get(norm);
     const esBat = esParsed.batters.get(norm);
     const esBowl = esParsed.bowlers.get(norm);
 
-    if (!cbBat && !cbBowl && !esBat && !esBowl) continue;
+    if (!esBat && !esBowl) continue;
 
-    const hasCb = Boolean(cbBat || cbBowl);
-    const hasEs = Boolean(esBat || esBowl);
-    if (hasCb !== hasEs) {
-      validated = false;
-      inconsistencies.push(
-        `${leagueRow.name}: appears in only one of the two scorecards (Cricbuzz vs ESPN).`,
-      );
-      continue;
-    }
-
-    const stCb = statFromCricbuzz(cbBat, cbBowl);
     const stEs = statFromEspn(esBat, esBowl);
 
-    if (!rawStatsAgree(stCb, stEs)) {
-      validated = false;
-      inconsistencies.push(
-        `Stats differ for ${leagueRow.name}: Cricbuzz vs ESPN (runs ${stCb.runsBat ?? "—"} vs ${stEs.runsBat ?? "—"}, wkts ${stCb.wickets ?? "—"} vs ${stEs.wickets ?? "—"}, etc.).`,
-      );
-    }
-
-    const ptsCb = fantasyPointsForPlayer(leagueRow.role, stCb, {
-      allDismissals: dismissCb,
-      playerNorm: norm,
-    });
-    const ptsEs = fantasyPointsForPlayer(leagueRow.role, stEs, {
+    const pts = fantasyPointsForPlayer(leagueRow.role, stEs, {
       allDismissals: dismissEs,
       playerNorm: norm,
     });
 
-    if (Math.abs(ptsCb - ptsEs) > 0.75) {
-      validated = false;
-      inconsistencies.push(
-        `Points differ for ${leagueRow.name}: Cricbuzz-derived ${ptsCb.toFixed(2)} vs ESPN-derived ${ptsEs.toFixed(2)}.`,
-      );
-    }
-
-    playerPoints[id] = Math.round(((ptsCb + ptsEs) / 2) * 100) / 100;
+    playerPoints[id] = Math.round(pts * 100) / 100;
   }
 
-  const matchKey = stableMatchKey(cbPick.id, esPick.path);
-  const matchLabel = cbParsed.title || cbPick.label;
-  const matchDate = new Date().toISOString();
+  const matchKey = stableMatchKey(esPick.path);
+  const title = espnMatchTitleFromHtml(esHtml);
+  const matchLabel = title || esPick.label.replace(/-/g, " ");
+  const matchDate = espnMatchStartIso(esHtml) ?? `${matchDateYmd}T12:00:00.000Z`;
 
   const scoredIds = Object.keys(playerPoints).length;
   if (rows.length > 0 && scoredIds === 0) {
     validated = false;
     inconsistencies.push(
-      "No league roster players matched scorecard names — check display names vs Cricbuzz/ESPN.",
+      "No league roster players matched the ESPN scorecard — check display names vs ESPN.",
     );
   }
 
@@ -260,7 +207,7 @@ export async function runAdminScoreSync(opts: {
     opts.writeToFirestore &&
     validated &&
     inconsistencies.length === 0 &&
-    cricbuzzComplete &&
+    scorecardComplete &&
     rows.length > 0 &&
     scoredIds > 0;
 
@@ -283,21 +230,21 @@ export async function runAdminScoreSync(opts: {
     wroteFirestore = true;
   } else if (opts.writeToFirestore) {
     warnings.push(
-      "Firestore write skipped: resolve blocking inconsistencies, ensure the Cricbuzz page looks complete, and that leagueBundle has players.",
+      "Firestore write skipped: resolve blocking issues, ensure the match is complete on ESPN, and that leagueBundle has players.",
     );
   }
 
   const note =
-    "Automated sync excludes fielding, named-in-XI, and impact-player points; add those manually if needed.";
+    "Points are derived from ESPNcricinfo scorecards only. Fielding, named-in-XI, and impact-player points are not automated.";
 
   return {
     ok: true,
     matchLabel,
     matchKey,
     matchDate,
-    cricbuzzUrl,
-    espnUrl,
-    cricbuzzComplete,
+    scorecardUrl,
+    source: "espncricinfo",
+    scorecardComplete,
     validated,
     playerPoints,
     inconsistencies,

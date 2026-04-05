@@ -4,7 +4,7 @@ This is **one checklist** from “nothing configured” to “live site + option
 
 Skim **Before you start**, then follow **Phase A → C → D** in order.
 
-**Match scores:** the app no longer uses a paid Cricket Data API. Points can stay in git (`players.json`) or you can write **`iplFantasy/fantasyMatchScores`** in Firestore (Admin SDK / script). The site also supports an **admin Score sync** flow: a Cloud Function scrapes Cricbuzz + ESPN, cross-checks points, and merges into `fantasyMatchScores` when you set secret **`ADMIN_SCORE_SYNC_SECRET`** (see [firebase-waiver-setup.md](./firebase-waiver-setup.md)). The site **reads** that document and merges per-match points when Firebase is configured.
+**Match scores:** the app no longer uses a paid Cricket Data API. Points can stay in git (`players.json`) or you can write **`iplFantasy/fantasyMatchScores`** in Firestore (Admin SDK / script). The site also supports an **admin Score sync** flow: a Cloud Function reads **ESPNcricinfo** scorecards and merges into `fantasyMatchScores` when you set secret **`ADMIN_SCORE_SYNC_SECRET`** (see [firebase-waiver-setup.md](./firebase-waiver-setup.md)). The site **reads** that document and merges per-match points when Firebase is configured.
 
 ---
 

@@ -95,7 +95,7 @@ If a secret is missing, the build still succeeds; the app uses **static JSON onl
 
 ### Admin score sync (Cloud Functions)
 
-After **Waivers → Admin** login, the **Score sync** nav link runs a callable that scrapes Cricbuzz + ESPN server-side, compares derived fantasy points, and can merge a match into `iplFantasy/fantasyMatchScores`.
+After **Waivers → Admin** login, the **Score sync** nav link runs a callable that reads **ESPNcricinfo** scorecards server-side (match query + date), computes fantasy points, and can merge a match into `iplFantasy/fantasyMatchScores`.
 
 1. **Deploy functions** (local Firebase CLI or GitHub Action **Deploy Firebase backend**). First deploy must succeed after you create the secret below.
 2. Create the function secret (interactive; value is not stored in git):

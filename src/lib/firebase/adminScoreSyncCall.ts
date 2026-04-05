@@ -5,9 +5,10 @@ export type AdminScoreSyncResponse = {
   matchLabel: string;
   matchKey: string;
   matchDate: string;
-  cricbuzzUrl: string;
-  espnUrl: string;
-  cricbuzzComplete: boolean;
+  /** ESPN full scorecard URL (single source of truth). */
+  scorecardUrl: string;
+  source: "espncricinfo";
+  scorecardComplete: boolean;
   validated: boolean;
   playerPoints: Record<string, number>;
   inconsistencies: string[];
@@ -22,6 +23,7 @@ function functionsRegion(): string {
 
 export async function callAdminScoreSync(params: {
   matchQuery: string;
+  matchDateYmd: string;
   adminSyncSecret: string;
   writeToFirestore: boolean;
 }): Promise<AdminScoreSyncResponse> {

@@ -28,7 +28,12 @@ export const adminSyncMatchScores = onCall(
     if (!matchQuery) {
       throw new HttpsError("invalid-argument", "matchQuery is required.");
     }
+    const matchDateYmd =
+      typeof raw?.matchDateYmd === "string" ? raw.matchDateYmd.trim() : "";
+    if (!matchDateYmd) {
+      throw new HttpsError("invalid-argument", "matchDateYmd is required (YYYY-MM-DD).");
+    }
     const writeToFirestore = raw?.writeToFirestore === true;
-    return runAdminScoreSync({ matchQuery, writeToFirestore });
+    return runAdminScoreSync({ matchQuery, matchDateYmd, writeToFirestore });
   },
 );
