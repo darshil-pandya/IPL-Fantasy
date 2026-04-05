@@ -9,6 +9,116 @@ import { abbreviateMatchLabel, formatMatchDate } from "../lib/matchLabel";
 import { natBadgeClass, roleBadgeClass } from "../lib/playerBadges";
 import type { FranchiseStanding, Player } from "../types";
 
+function OwnerSummaryTable({
+  columns,
+  perOwnerPerMatch,
+  standings,
+}: {
+  columns: MatchColumn[];
+  perOwnerPerMatch: Record<string, number[]>;
+  standings: FranchiseStanding[];
+}) {
+  const owners = useMemo(
+    () => [...standings].sort((a, b) => a.owner.localeCompare(b.owner)).map((s) => s.owner),
+    [standings],
+  );
+
+  const ownerTotals = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const o of owners) {
+      m[o] = (perOwnerPerMatch[o] ?? []).reduce((a, b) => a + b, 0);
+    }
+    return m;
+  }, [owners, perOwnerPerMatch]);
+
+  if (columns.length === 0 || owners.length === 0) return null;
+
+  return (
+    <section className="space-y-2">
+      <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+        Owner Points by Match
+      </h3>
+      <div className="app-table">
+        <table className="w-full min-w-[480px] border-collapse text-left text-xs md:text-sm">
+          <thead>
+            <tr className="border-b border-cyan-500/25 bg-slate-950/95">
+              <th className="sticky left-0 z-[1] bg-slate-950 px-3 py-3 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                Match
+              </th>
+              {owners.map((o) => (
+                <th
+                  key={o}
+                  className="px-3 py-3 text-right text-[10px] font-semibold uppercase tracking-wide text-slate-400"
+                >
+                  {o}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {columns.map((c, j) => {
+              const vals = owners.map((o) => (perOwnerPerMatch[o] ?? [])[j] ?? 0);
+              const maxVal = Math.max(...vals);
+              return (
+                <tr key={c.id} className="app-table-row border-cyan-500/25">
+                  <td className="sticky left-0 z-[1] bg-slate-900 px-3 py-2.5 font-medium text-white shadow-[2px_0_12px_-2px_rgba(0,0,0,0.5)]">
+                    <span className="block text-slate-300">
+                      {abbreviateMatchLabel(c.label, c.teams)}
+                    </span>
+                    <span className="text-[10px] text-slate-500">
+                      {formatMatchDate(c.date)}
+                    </span>
+                  </td>
+                  {owners.map((o, i) => {
+                    const v = vals[i];
+                    const isBest = v > 0 && v === maxVal;
+                    return (
+                      <td
+                        key={o}
+                        className={`px-3 py-2.5 text-right tabular-nums ${
+                          isBest
+                            ? "font-bold text-amber-400"
+                            : "text-slate-300"
+                        }`}
+                      >
+                        {v.toFixed(1)}
+                      </td>
+                    );
+                  })}
+                </tr>
+              );
+            })}
+          </tbody>
+          <tfoot>
+            <tr className="border-t-2 border-cyan-500/30 bg-slate-950/80">
+              <td className="sticky left-0 z-[1] bg-slate-950 px-3 py-3 text-[10px] font-bold uppercase tracking-wide text-amber-400">
+                Total
+              </td>
+              {owners.map((o) => {
+                const t = ownerTotals[o] ?? 0;
+                const maxTotal = Math.max(...Object.values(ownerTotals));
+                const isBest = t > 0 && t === maxTotal;
+                return (
+                  <td
+                    key={o}
+                    className={`px-3 py-3 text-right tabular-nums ${
+                      isBest
+                        ? "font-bold text-amber-400"
+                        : "font-semibold text-white"
+                    }`}
+                  >
+                    {t.toFixed(1)}
+                  </td>
+                );
+              })}
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </section>
+  );
+}
+
 function FranchiseMatchTable({
   standing,
   columns,
@@ -234,6 +344,12 @@ export function MatchPoints() {
           </select>
         </label>
       </div>
+
+      <OwnerSummaryTable
+        columns={columns}
+        perOwnerPerMatch={displaySummary.perOwnerPerMatch}
+        standings={standings}
+      />
 
       {scoringMode === "legacy" ? (
         <p className="rounded-lg border border-amber-500/30 bg-amber-950/25 px-3 py-2 text-sm text-amber-100/90">
