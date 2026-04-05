@@ -132,6 +132,7 @@ The GitHub Actions service account needs permission to deploy Cloud Functions an
 | Home shows “Firestore league document is empty” | Expected in `auto` until you publish; static JSON is used meanwhile. |
 | Two browsers show different waivers | One build has Firebase env, the other doesn’t; or rules blocked writes on one side. |
 | `Missing or insufficient permissions` | Rules too strict; or wrong project ID. |
+| Deploy error: function in project but **not in local source** (non-interactive) | An old function name/region is still deployed. The **Deploy Firebase backend** workflow uses `--force` so GitHub Actions can remove orphans. Or delete once locally: `firebase functions:delete OLD_NAME --region REGION`. |
 
 ## 9. What stays in the repo (GitHub)
 

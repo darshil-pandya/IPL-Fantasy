@@ -53,8 +53,10 @@ jobs:
           npm ci
           npm run build
 
+      # --force: remove Cloud Functions that exist in GCP but not in this repo (e.g. renamed
+      # functions). Required in non-interactive CI; otherwise deploy aborts.
       - name: Deploy Firestore rules and Cloud Functions
-        run: firebase deploy --only firestore:rules,functions --project "$PROJECT_ID" --non-interactive
+        run: firebase deploy --only firestore:rules,functions --project "$PROJECT_ID" --non-interactive --force
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/gcp-sa.json
           GOOGLE_CLOUD_PROJECT: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
