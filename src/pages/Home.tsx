@@ -59,7 +59,7 @@ function StatCard({
 }
 
 export function Home() {
-  const { bundle, refresh, leagueNotice, fantasyOverlayNotice } = useLeague();
+  const { bundle, leagueNotice, fantasyOverlayNotice } = useLeague();
   const summary = useLeagueStandings();
   const [tick, setTick] = useState(0);
 
@@ -121,7 +121,6 @@ export function Home() {
 
   if (!bundle || !summary || !statLeaders) return null;
 
-  const { meta } = bundle;
   const pred = bundle.predictions;
 
   return (
@@ -136,38 +135,6 @@ export function Home() {
           Firestore fantasy scores: {fantasyOverlayNotice}
         </div>
       ) : null}
-      <section className="app-card p-5">
-        <h2 className="font-display text-2xl tracking-wide text-white">{meta.seasonLabel}</h2>
-        <p className="mt-2 text-sm leading-relaxed text-slate-400">
-          {meta.pointsUpdateNote}
-        </p>
-        {meta.lastPointsUpdate && (
-          <p className="mt-2 text-xs text-slate-500">
-            Last points update:{" "}
-            <time dateTime={meta.lastPointsUpdate}>{meta.lastPointsUpdate}</time>
-          </p>
-        )}
-        <div className="mt-4 flex flex-wrap gap-2">
-          <a
-            href={meta.cricbuzzBaseUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="app-btn-primary"
-          >
-            Open Cricbuzz scores
-          </a>
-          <button type="button" onClick={() => void refresh()} className="app-btn-secondary">
-            Refresh data
-          </button>
-          <Link to="/predictions" className="app-btn-secondary">
-            Predictions
-          </Link>
-          <Link to="/waivers" className="app-btn-secondary">
-            Waivers
-          </Link>
-        </div>
-      </section>
-
       <section>
         <h2 className="font-display mb-2 text-2xl tracking-wide text-white">Leaderboard</h2>
         <p className="mb-3 text-sm text-slate-400">
@@ -211,7 +178,7 @@ export function Home() {
                           {r.bestPlayer.name}
                         </span>
                         <span className="ml-2 tabular-nums text-slate-500">
-                          ({r.bestPlayer.seasonTotal.toFixed(1)} pts)
+                          ({Math.round(r.bestPlayer.seasonTotal)} pts)
                         </span>
                       </>
                     ) : (
@@ -219,7 +186,7 @@ export function Home() {
                     )}
                   </td>
                   <td className="px-3 py-3 text-right text-base font-bold tabular-nums text-amber-400">
-                    {r.total.toFixed(1)}
+                    {Math.round(r.total)}
                   </td>
                 </tr>
               ))}

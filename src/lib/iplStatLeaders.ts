@@ -21,7 +21,7 @@ export function leaderMostFantasyPoints(players: Player[]): StatLeader {
       best = p;
     }
   }
-  return { player: best, display: max.toFixed(1) };
+  return { player: best, display: String(Math.round(max)) };
 }
 
 export function leaderTopRuns(players: Player[]): StatLeader {

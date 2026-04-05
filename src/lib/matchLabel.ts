@@ -31,7 +31,10 @@ export function abbreviateMatchLabel(label: string, teams?: string[]): string {
     out = out.replaceAll(name, FULL_NAME_TO_CODE[name]);
   }
   out = out.replace(/,?\s*\d+\w*\s+match$/i, "").trim();
-  if (out === label && teams && teams.length === 2) {
+  if (out && out !== label) {
+    return out;
+  }
+  if (teams && teams.length === 2) {
     return `${teams[0]} vs ${teams[1]}`;
   }
   return out || label;

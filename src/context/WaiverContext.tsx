@@ -24,7 +24,7 @@ import {
   type WaiverEngineAction,
 } from "../lib/waiver/engine";
 import { seedWaiverState } from "../lib/waiver/seed";
-import type { WaiverPersistentState } from "../lib/waiver/types";
+import type { RosterChangeEvent, WaiverPersistentState } from "../lib/waiver/types";
 import { matchColumnsFromPlayers } from "../lib/matchColumns";
 import { summarizeDisplayFranchises } from "../lib/waiver/summarize";
 import { isPlayerAvailable } from "../lib/waiver/available";
@@ -33,7 +33,9 @@ import {
   pushWaiverRemote,
   subscribeWaiverRemote,
   writeCompletedTransfers,
+  loadCompletedTransfers,
 } from "../lib/firebase/waiverRemote";
+import { WAIVER_BUDGET_START } from "../lib/waiver/constants";
 import {
   callWaiverNominate,
   callWaiverBid,
@@ -116,6 +118,7 @@ export function WaiverProvider({ children }: { children: ReactNode }) {
   const skipNextPush = useRef(false);
   const localPushInFlight = useRef(false);
   const bundleKeyRef = useRef<string>("");
+  const budgetRepairDone = useRef(false);
 
   const allPlayersForScoring = useMemo(() => {
     const list: Player[] = [];
@@ -198,6 +201,92 @@ export function WaiverProvider({ children }: { children: ReactNode }) {
     }, 400);
     return () => window.clearTimeout(t);
   }, [state, bundle]);
+
+  useEffect(() => {
+    if (!remoteConnected || budgetRepairDone.current) return;
+    budgetRepairDone.current = true;
+
+    const cols = matchColumnsFromPlayers(allPlayersForScoring);
+
+    void (async () => {
+      try {
+        const transfers = await loadCompletedTransfers();
+        if (transfers.length === 0) return;
+
+        const spent: Record<string, number> = {};
+        for (const t of transfers) {
+          const won = t.bids.find((b) => b.result === "WON");
+          if (won) {
+            spent[won.owner] = (spent[won.owner] ?? 0) + won.amount;
+          }
+        }
+
+        setState((prev) => {
+          let changed = false;
+
+          // --- Budget repair ---
+          const corrected = { ...prev.budgets };
+          for (const [owner, amountSpent] of Object.entries(spent)) {
+            const expected = WAIVER_BUDGET_START - amountSpent;
+            if (corrected[owner] !== expected) {
+              corrected[owner] = expected;
+              changed = true;
+            }
+          }
+
+          // --- RosterHistory repair ---
+          const existingKeys = new Set(
+            prev.rosterHistory.map(
+              (e) => `${e.playerInId}|${e.winner}|${e.roundId}`,
+            ),
+          );
+          const missing: RosterChangeEvent[] = [];
+          const roundGroups = new Map<number, typeof transfers>();
+          for (const t of transfers) {
+            const g = roundGroups.get(t.roundId) ?? [];
+            g.push(t);
+            roundGroups.set(t.roundId, g);
+          }
+          for (const [roundId, group] of roundGroups) {
+            group.sort((a, b) => a.revealedAt.localeCompare(b.revealedAt));
+            group.forEach((t, idx) => {
+              const won = t.bids.find((b) => b.result === "WON");
+              if (!won) return;
+              const key = `${t.playerInId}|${won.owner}|${roundId}`;
+              if (existingKeys.has(key)) return;
+              let effCol: string | null = null;
+              for (const c of cols) {
+                if (c.date <= t.revealedAt) effCol = c.id;
+                else break;
+              }
+              missing.push({
+                at: t.revealedAt,
+                roundId,
+                orderInRound: idx,
+                winner: won.owner,
+                playerOutId: won.playerOutId,
+                playerInId: t.playerInId,
+                effectiveAfterColumnId: effCol,
+              });
+            });
+          }
+
+          if (missing.length > 0) changed = true;
+
+          if (!changed) return prev;
+          return {
+            ...prev,
+            budgets: corrected,
+            rosterHistory: missing.length > 0
+              ? [...prev.rosterHistory, ...missing]
+              : prev.rosterHistory,
+          };
+        });
+      } catch {
+        // Non-critical — repairs will run on next load
+      }
+    })();
+  }, [remoteConnected, allPlayersForScoring]);
 
   const displayFranchises = useMemo(() => {
     if (!bundle || !state) return [];

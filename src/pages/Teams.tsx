@@ -71,7 +71,7 @@ export function Teams() {
         >
           {ownersByPoints.map((s) => (
             <option key={s.owner} value={s.owner}>
-              {s.owner} ({s.totalPoints.toFixed(1)} pts)
+              {s.owner} ({Math.round(s.totalPoints)} pts)
             </option>
           ))}
         </select>
@@ -83,7 +83,7 @@ export function Teams() {
             <h3 className="text-lg font-bold text-white">{selected.owner}</h3>
             <OwnerBadge owner={selected.owner} />
             <span className="text-sm text-slate-500">
-              {selected.totalPoints.toFixed(1)} season pts
+              {Math.round(selected.totalPoints)} season pts
             </span>
             <Link
               to={`/teams/${ownerSlug(selected.owner)}`}
@@ -122,7 +122,7 @@ export function Teams() {
                         </span>
                       </td>
                       <td className="px-3 py-3 text-right font-semibold tabular-nums text-amber-400">
-                        {p.seasonTotal.toFixed(1)}
+                        {Math.round(p.seasonTotal)}
                       </td>
                     </tr>
                   ))}
@@ -152,7 +152,7 @@ export function Teams() {
                         </span>
                       </td>
                       <td className="px-3 py-3 text-right font-semibold tabular-nums text-slate-500">
-                        {f.attributedPoints.toFixed(1)}
+                        {Math.round(f.attributedPoints)}
                       </td>
                     </tr>
                   ))}

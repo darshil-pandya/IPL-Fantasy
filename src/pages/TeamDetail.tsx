@@ -82,7 +82,7 @@ export function TeamDetail() {
           <OwnerBadge owner={row.owner} />
         </div>
         <p className="mt-3 text-3xl font-bold tabular-nums text-cyan-400">
-          {row.totalPoints.toFixed(1)}{" "}
+          {Math.round(row.totalPoints)}{" "}
           <span className="text-lg font-normal text-slate-500">season pts</span>
         </p>
       </div>
@@ -119,7 +119,7 @@ export function TeamDetail() {
                     </p>
                   </div>
                   <p className="text-lg font-bold tabular-nums text-cyan-400">
-                    {p.seasonTotal.toFixed(1)}
+                    {Math.round(p.seasonTotal)}
                   </p>
                 </div>
                 <MatchBreakdown player={p} />

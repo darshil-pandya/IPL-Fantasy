@@ -81,7 +81,7 @@ function OwnerSummaryTable({
                             : "text-slate-300"
                         }`}
                       >
-                        {v.toFixed(1)}
+                        {Math.round(v)}
                       </td>
                     );
                   })}
@@ -107,7 +107,7 @@ function OwnerSummaryTable({
                         : "font-semibold text-white"
                     }`}
                   >
-                    {t.toFixed(1)}
+                    {Math.round(t)}
                   </td>
                 );
               })}
@@ -216,11 +216,11 @@ function FranchiseMatchTable({
             </td>
             {columns.map((c, j) => (
               <td key={c.id} className="px-2 py-3 text-right tabular-nums text-slate-300">
-                {(perOwnerRounds[j] ?? 0).toFixed(1)}
+                {Math.round(perOwnerRounds[j] ?? 0)}
               </td>
             ))}
             <td className="px-3 py-3 text-right tabular-nums text-amber-400">
-              {franchiseMatchTotal.toFixed(1)}
+              {Math.round(franchiseMatchTotal)}
             </td>
           </tr>
         </tbody>
@@ -286,12 +286,12 @@ function PlayerRow({
               onRoster ? "text-slate-300" : "text-slate-600"
             }`}
           >
-            {show ? pts.toFixed(1) : "—"}
+            {show ? Math.round(pts) : "—"}
           </td>
         );
       })}
       <td className="px-3 py-2.5 text-right tabular-nums font-medium text-amber-400">
-        {rowMatchTotal.toFixed(1)}
+        {Math.round(rowMatchTotal)}
       </td>
     </tr>
   );
@@ -367,7 +367,7 @@ export function MatchPoints() {
               <OwnerBadge owner={s.owner} />
             </div>
             <span className="rounded-full border border-cyan-500/30 bg-slate-900/80 px-3 py-1 text-xs text-cyan-200">
-              Fantasy total (leaderboard): {s.totalPoints.toFixed(1)} pts
+              Fantasy total (leaderboard): {Math.round(s.totalPoints)} pts
             </span>
           </div>
           <FranchiseMatchTable

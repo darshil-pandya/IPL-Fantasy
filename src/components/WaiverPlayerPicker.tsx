@@ -18,7 +18,7 @@ function PlayerRowInner({ p }: { p: Player }) {
         <span className={roleBadgeClass(p.role)}>{p.role}</span>
         <span className={natBadgeClass(p.nationality)}>{natLabel(p.nationality)}</span>
         <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-amber-300">
-          {p.seasonTotal.toFixed(1)} pts
+          {Math.round(p.seasonTotal)} pts
         </span>
       </div>
     </>

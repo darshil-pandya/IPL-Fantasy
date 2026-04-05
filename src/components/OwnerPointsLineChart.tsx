@@ -36,7 +36,7 @@ function ChartTooltip({
           <li key={String(p.name)} className="flex justify-between gap-6 tabular-nums">
             <span style={{ color: p.color ?? "#e2e8f0" }}>{p.name}</span>
             <span className="text-slate-100">
-              {typeof p.value === "number" ? p.value.toFixed(1) : "—"}
+              {typeof p.value === "number" ? Math.round(p.value) : "—"}
             </span>
           </li>
         ))}

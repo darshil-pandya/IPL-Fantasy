@@ -8,7 +8,6 @@ import { ownerForPlayerId } from "../lib/buildStandings";
 import { natBadgeClass, roleBadgeClass } from "../lib/playerBadges";
 import {
   breakdownMatchesSeasonTotal,
-  countPlayersWithBreakdownIssues,
 } from "../lib/playerFantasyPoints";
 import { ownerNameClass } from "../lib/ownerTheme";
 import type {
@@ -29,7 +28,7 @@ function natLabel(n?: PlayerNationality): string {
 
 function fmtPts(n?: number): string {
   if (n == null || Number.isNaN(n)) return "—";
-  return n.toFixed(1);
+  return String(Math.round(n));
 }
 
 function fp(p: Player) {
@@ -306,11 +305,6 @@ export function Players() {
     );
   }, [pool]);
 
-  const breakdownIssueCount = useMemo(
-    () => countPlayersWithBreakdownIssues(pool, BREAKDOWN_EPSILON),
-    [pool],
-  );
-
   const filteredPool = useMemo(() => {
     if (!bundle) return [];
     const q = filterPlayer.trim().toLowerCase();
@@ -374,32 +368,7 @@ export function Players() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h2 className="font-display text-3xl tracking-wide text-white">Players</h2>
-        <p className="mt-1 text-sm text-slate-400">
-          Every player in <code className="app-code-inline">players.json</code> plus the
-          waiver pool. Category columns are cumulative <strong>fantasy points</strong>. Click
-          any column header to sort. Default sort: player name (A–Z).
-        </p>
-        <div className="mt-3 app-card p-4 text-sm text-slate-400">
-          <p className="font-semibold text-white">Franchise totals &amp; waivers</p>
-          <p className="mt-2 leading-relaxed">
-            A franchise&apos;s fantasy total is the sum of <code className="app-code-inline">seasonTotal</code> for
-            every player <em>currently</em> on its roster, plus <strong>waiver carryover</strong>{" "}
-            (points banked when a player is dropped on waiver reveal). Player totals here are
-            always the full player record.
-          </p>
-        </div>
-        {breakdownIssueCount > 0 ? (
-          <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
-            <strong>{breakdownIssueCount}</strong> player
-            {breakdownIssueCount === 1 ? "" : "s"} have{" "}
-            <code className="rounded bg-amber-100/80 px-1">seasonFantasyPoints</code> that do
-            not sum to <code className="rounded bg-amber-100/80 px-1">seasonTotal</code> (±
-            {BREAKDOWN_EPSILON}). See Δ column.
-          </div>
-        ) : null}
-      </div>
+      <h2 className="font-display text-3xl tracking-wide text-white">Players</h2>
 
       <div className="app-card flex flex-col gap-3 p-4 sm:flex-row sm:flex-wrap sm:items-end">
         <label className="flex min-w-[10rem] flex-1 flex-col gap-1 text-xs font-medium text-slate-300">
@@ -597,7 +566,7 @@ export function Players() {
                     </span>
                   </td>
                   <td className="px-2 py-2 text-right font-semibold tabular-nums text-amber-400 sm:px-3 sm:py-2.5">
-                    {p.seasonTotal.toFixed(1)}
+                    {Math.round(p.seasonTotal)}
                   </td>
                   {FANTASY_POINT_COLUMNS.map((c) => (
                     <td
@@ -616,7 +585,7 @@ export function Players() {
                       ? "—"
                       : br.inSync
                         ? "✓"
-                        : (br.delta >= 0 ? "+" : "") + br.delta.toFixed(1)}
+                        : (br.delta >= 0 ? "+" : "") + Math.round(br.delta)}
                   </td>
                 </tr>
               );
