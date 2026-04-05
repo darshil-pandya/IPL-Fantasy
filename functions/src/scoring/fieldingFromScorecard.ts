@@ -13,10 +13,12 @@ export type EspnFieldingTallies = {
   appearedInScorecardNorms: Set<string>;
 };
 
-function fielderNorm(f: { player?: { fieldingName?: string; mobileName?: string; name?: string; battingName?: string } }): string | null {
+function fielderNorm(f: { player?: { longName?: string; fieldingName?: string; mobileName?: string; name?: string; battingName?: string } }): string | null {
   const p = f?.player;
   if (!p) return null;
-  const raw = p.fieldingName || p.mobileName || p.name || p.battingName;
+  // Prefer longName ("Phil Salt") over fieldingName ("Salt") — bare surnames
+  // fail league-ID resolution because the name map expects full names.
+  const raw = p.longName || p.name || p.mobileName || p.fieldingName || p.battingName;
   if (!raw || typeof raw !== "string") return null;
   return normalizePlayerName(raw);
 }

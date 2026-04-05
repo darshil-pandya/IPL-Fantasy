@@ -35,6 +35,34 @@ export type LeaguePlayerRow = {
   role: Role;
 };
 
+export type SyncDiagnostics = {
+  /** Raw fielding tallies keyed by ESPN normalized name (before league-ID resolution). */
+  espnFieldingTallies: {
+    catches: Record<string, number>;
+    stumpings: Record<string, number>;
+    runOutDirect: Record<string, number>;
+    runOutAssist: Record<string, number>;
+    appearedInScorecard: string[];
+  };
+  /** Shows which fielding norms resolved to a league ID and which were dropped. */
+  fieldingResolution: {
+    resolved: Record<string, string>;
+    unresolved: string[];
+  };
+  /** Per-player fantasy breakdown (all categories, before summing). */
+  playerBreakdowns: Record<string, Record<string, number>>;
+  /** Raw ESPN batting stats by normalized name. */
+  espnBatters: Record<string, {
+    runs: number; balls: number; fours: number; sixes: number;
+    isOut: boolean; dismissalText: string;
+  }>;
+  /** Raw ESPN bowling stats by normalized name. */
+  espnBowlers: Record<string, {
+    balls: number; maidens: number; conceded: number;
+    wickets: number; dots: number;
+  }>;
+};
+
 export type AdminSyncResult = {
   ok: boolean;
   matchLabel: string;
@@ -53,6 +81,7 @@ export type AdminSyncResult = {
   scorecardUniquePlayerCount: number;
   /** ESPN normalized names that did not map to exactly one league roster / waiver player. */
   unmappedScorecardNames: string[];
+  diagnostics?: SyncDiagnostics;
 };
 
 function mergeBattersForNorms(
@@ -252,6 +281,25 @@ export async function runAdminScoreSync(opts: {
   const fieldTallies = tallyEspnScorecardFielding(innings);
   const fieldRoll = rollUpFieldingTalliesToLeagueIds(fieldTallies, resolveLeagueId);
 
+  // Collect fielding resolution diagnostics
+  const allFieldingNorms = new Set<string>();
+  for (const m of [fieldTallies.catchesByNorm, fieldTallies.stumpingsByNorm,
+    fieldTallies.runOutDirectByNorm, fieldTallies.runOutAssistByNorm]) {
+    for (const k of m.keys()) allFieldingNorms.add(k);
+  }
+  const fieldingResolved: Record<string, string> = {};
+  const fieldingUnresolved: string[] = [];
+  for (const norm of allFieldingNorms) {
+    const id = resolveLeagueId(norm);
+    if (id) fieldingResolved[norm] = id;
+    else fieldingUnresolved.push(norm);
+  }
+  if (fieldingUnresolved.length > 0) {
+    warnings.push(
+      `${fieldingUnresolved.length} fielding name(s) could not be mapped to a league player and were dropped: ${fieldingUnresolved.join(", ")}`,
+    );
+  }
+
   const playerPoints: Record<string, number> = {};
   const playerBreakdown: Record<string, Record<string, number>> = {};
   const unmappedScorecardNames: string[] = [];
@@ -374,6 +422,41 @@ export async function runAdminScoreSync(opts: {
   const note =
     "Points are derived from ESPNcricinfo scorecards. Catches, stumpings, and run-outs use dismissal JSON. Everyone listed on the batting or bowling card gets a single +4 playing-XII bonus (namedInXi); impact/concussion is not awarded separately.";
 
+  const mapToObj = (m: Map<string, number>): Record<string, number> => {
+    const o: Record<string, number> = {};
+    for (const [k, v] of m) o[k] = v;
+    return o;
+  };
+
+  const espnBattersObj: SyncDiagnostics["espnBatters"] = {};
+  for (const [norm, agg] of esParsed.batters) {
+    espnBattersObj[norm] = {
+      runs: agg.runs, balls: agg.balls, fours: agg.fours, sixes: agg.sixes,
+      isOut: agg.isOut, dismissalText: espnDismissalAsString(agg.dismissalText),
+    };
+  }
+  const espnBowlersObj: SyncDiagnostics["espnBowlers"] = {};
+  for (const [norm, agg] of esParsed.bowlers) {
+    espnBowlersObj[norm] = {
+      balls: agg.balls, maidens: agg.maidens, conceded: agg.conceded,
+      wickets: agg.wickets, dots: agg.dots,
+    };
+  }
+
+  const diagnostics: SyncDiagnostics = {
+    espnFieldingTallies: {
+      catches: mapToObj(fieldTallies.catchesByNorm),
+      stumpings: mapToObj(fieldTallies.stumpingsByNorm),
+      runOutDirect: mapToObj(fieldTallies.runOutDirectByNorm),
+      runOutAssist: mapToObj(fieldTallies.runOutAssistByNorm),
+      appearedInScorecard: [...fieldTallies.appearedInScorecardNorms].sort(),
+    },
+    fieldingResolution: { resolved: fieldingResolved, unresolved: fieldingUnresolved },
+    playerBreakdowns: playerBreakdown,
+    espnBatters: espnBattersObj,
+    espnBowlers: espnBowlersObj,
+  };
+
   return {
     ok: true,
     matchLabel,
@@ -390,5 +473,6 @@ export async function runAdminScoreSync(opts: {
     note,
     scorecardUniquePlayerCount,
     unmappedScorecardNames: [...unmappedScorecardNames].sort(),
+    diagnostics,
   };
 }
