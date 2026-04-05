@@ -45,15 +45,15 @@ export function Teams() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-bold text-brand-dark">Teams</h2>
-        <p className="mt-1 text-sm text-slate-600">
+        <h2 className="font-display text-3xl tracking-wide text-white">Teams</h2>
+        <p className="mt-1 text-sm text-slate-400">
           Roster by owner (owners sorted by season points high → low). Player rows
           sorted the same way.
         </p>
       </div>
 
-      <label className="flex flex-col gap-1 text-sm text-brand-dark/90">
-        <span className="text-xs font-medium uppercase tracking-wide text-brand-dark/50">
+      <label className="flex flex-col gap-1 text-sm text-slate-200">
+        <span className="text-xs font-medium uppercase tracking-wide text-slate-500">
           Owner
         </span>
         <select
@@ -80,14 +80,14 @@ export function Teams() {
       {selected && (
         <div className="space-y-3">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-lg font-semibold text-brand-dark">{selected.owner}</h3>
+            <h3 className="text-lg font-bold text-white">{selected.owner}</h3>
             <OwnerBadge owner={selected.owner} />
             <span className="text-sm text-slate-500">
               {selected.totalPoints.toFixed(1)} season pts
             </span>
             <Link
               to={`/teams/${ownerSlug(selected.owner)}`}
-              className="ml-auto text-sm font-medium text-brand-ocean hover:text-brand-dark"
+              className="ml-auto text-sm font-medium text-cyan-400 hover:text-white"
             >
               Open squad details (match breakdown) →
             </Link>
@@ -109,7 +109,7 @@ export function Teams() {
                   .sort((a, b) => b.seasonTotal - a.seasonTotal)
                   .map((p) => (
                     <tr key={p.id} className="app-table-row">
-                      <td className="px-3 py-3 font-medium text-brand-dark">{p.name}</td>
+                      <td className="px-3 py-3 font-medium text-white">{p.name}</td>
                       <td className="px-3 py-3">
                         <IplTeamPill code={p.iplTeam} />
                       </td>
@@ -121,7 +121,7 @@ export function Teams() {
                           {natLabel(p.nationality)}
                         </span>
                       </td>
-                      <td className="px-3 py-3 text-right font-semibold tabular-nums text-brand-ocean">
+                      <td className="px-3 py-3 text-right font-semibold tabular-nums text-amber-400">
                         {p.seasonTotal.toFixed(1)}
                       </td>
                     </tr>

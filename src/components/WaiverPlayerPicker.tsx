@@ -12,12 +12,12 @@ function natLabel(n?: PlayerNationality): string {
 function PlayerRowInner({ p }: { p: Player }) {
   return (
     <>
-      <span className="block font-medium text-brand-dark">{p.name}</span>
+      <span className="block font-medium text-white">{p.name}</span>
       <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
         <IplTeamPill code={p.iplTeam} />
         <span className={roleBadgeClass(p.role)}>{p.role}</span>
         <span className={natBadgeClass(p.nationality)}>{natLabel(p.nationality)}</span>
-        <span className="rounded-full bg-brand-dark/10 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-brand-ocean">
+        <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-amber-300">
           {p.seasonTotal.toFixed(1)} pts
         </span>
       </div>
@@ -93,14 +93,14 @@ export function WaiverPlayerPicker({
 
   return (
     <div ref={rootRef} className="flex flex-col gap-1">
-      <span className="text-xs font-medium text-slate-600">{label}</span>
+      <span className="text-xs font-semibold text-slate-400">{label}</span>
       <div className="relative">
         <div
           className={[
-            "flex min-h-[2.75rem] w-full items-stretch overflow-hidden rounded-xl border bg-white shadow-sm transition-[box-shadow,border-color]",
+            "flex min-h-[2.75rem] w-full items-stretch overflow-hidden rounded-xl border border-cyan-500/25 bg-slate-950/80 shadow-inner transition-[box-shadow,border-color]",
             open
-              ? "border-brand-ocean ring-2 ring-brand-cyan/50"
-              : "border-brand-cyan/60 hover:border-brand-ocean/50",
+              ? "border-amber-400/50 ring-2 ring-amber-400/25"
+              : "hover:border-cyan-400/40",
           ].join(" ")}
         >
           <input
@@ -120,7 +120,7 @@ export function WaiverPlayerPicker({
             aria-label={`${label} — type to filter by name`}
             aria-expanded={open}
             aria-controls={listId}
-            className="min-w-0 flex-1 border-0 bg-transparent px-3 py-2 text-sm text-brand-dark outline-none placeholder:text-slate-400"
+            className="min-w-0 flex-1 border-0 bg-transparent px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-500"
           />
           <button
             type="button"
@@ -131,13 +131,13 @@ export function WaiverPlayerPicker({
               setOpen((o) => !o);
               if (!open) inputRef.current?.focus();
             }}
-            className="shrink-0 border-l border-brand-cyan/40 bg-brand-pale/40 px-2.5 text-brand-dark/60 transition-colors hover:bg-brand-cyan/30 hover:text-brand-dark"
+            className="shrink-0 border-l border-cyan-500/25 bg-slate-900/80 px-2.5 text-slate-400 transition-colors hover:bg-cyan-500/10 hover:text-white"
           >
             {open ? "▴" : "▾"}
           </button>
         </div>
         {selected && (
-          <div className="mt-1.5 rounded-lg border border-brand-cyan/40 bg-brand-pale/50 px-2.5 py-2">
+          <div className="mt-1.5 rounded-lg border border-cyan-500/25 bg-slate-900/60 px-2.5 py-2">
             <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
               Selected
             </p>
@@ -147,7 +147,7 @@ export function WaiverPlayerPicker({
         {open && (
           <ul
             id={listId}
-            className="absolute left-0 right-0 z-30 mt-1 max-h-72 overflow-y-auto rounded-xl border border-brand-cyan/60 bg-white py-1 shadow-lg ring-1 ring-brand-dark/5"
+            className="absolute left-0 right-0 z-30 mt-1 max-h-72 overflow-y-auto rounded-xl border border-cyan-500/30 bg-slate-950 py-1 shadow-xl shadow-black/50 ring-1 ring-cyan-500/20"
             role="listbox"
             aria-label={label}
           >
@@ -165,7 +165,7 @@ export function WaiverPlayerPicker({
                   <li key={id} role="option" aria-selected={value === id}>
                     <button
                       type="button"
-                      className="w-full border-b border-brand-pale/80 px-3 py-2.5 text-left transition-colors last:border-b-0 hover:bg-brand-pale/70 focus:bg-brand-pale/70 focus:outline-none"
+                      className="w-full border-b border-slate-800 px-3 py-2.5 text-left transition-colors last:border-b-0 hover:bg-cyan-500/10 focus:bg-cyan-500/15 focus:outline-none"
                       onClick={() => {
                         onChange(id);
                         setOpen(false);

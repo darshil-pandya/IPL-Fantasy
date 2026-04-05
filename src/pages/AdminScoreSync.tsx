@@ -22,8 +22,7 @@ export function AdminScoreSync() {
   const { session } = useWaiver();
   const [matchQuery, setMatchQuery] = useState("");
   const [matchDateYmd, setMatchDateYmd] = useState(todayYmdLocal);
-  const [adminSyncSecret, setAdminSyncSecret] = useState("");
-  const [writeToFirestore, setWriteToFirestore] = useState(false);
+  const [writeToFirestore, setWriteToFirestore] = useState(true);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [result, setResult] = useState<AdminScoreSyncResponse | null>(null);
@@ -46,10 +45,6 @@ export function AdminScoreSync() {
       setErr("Enter a match query (e.g. CSK vs RR).");
       return;
     }
-    if (!adminSyncSecret.trim()) {
-      setErr("Enter the score-sync secret (set as Cloud Function secret ADMIN_SCORE_SYNC_SECRET).");
-      return;
-    }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(matchDateYmd)) {
       setErr("Pick a valid match date.");
       return;
@@ -59,7 +54,6 @@ export function AdminScoreSync() {
       const data = await callAdminScoreSync({
         matchQuery: matchQuery.trim(),
         matchDateYmd,
-        adminSyncSecret: adminSyncSecret.trim(),
         writeToFirestore,
       });
       setResult(data);
@@ -75,10 +69,10 @@ export function AdminScoreSync() {
   if (session?.role !== "admin") {
     return (
       <div className="space-y-4">
-        <h2 className="text-xl font-bold text-brand-dark">Score sync</h2>
-        <p className="text-sm text-slate-700">
-          This page is only available after you log in as <strong>Admin</strong> on the{" "}
-          <Link to="/waivers" className="text-brand-ocean underline">
+        <h2 className="font-display text-2xl tracking-wide text-white">Score sync</h2>
+        <p className="text-sm text-slate-400">
+          This page is only available after you log in as <strong className="text-cyan-200">Admin</strong> on the{" "}
+          <Link to="/waivers" className="font-medium text-amber-400 underline decoration-amber-400/50 hover:text-amber-300">
             Waivers
           </Link>{" "}
           page (same session).
@@ -90,10 +84,10 @@ export function AdminScoreSync() {
   if (!isFirebaseConfigured()) {
     return (
       <div className="space-y-4">
-        <h2 className="text-xl font-bold text-brand-dark">Score sync</h2>
-        <p className="text-sm text-slate-700">
-          Configure all three <code className="text-slate-600">VITE_FIREBASE_*</code> variables at
-          build time. See docs for Firebase setup.
+        <h2 className="font-display text-2xl tracking-wide text-white">Score sync</h2>
+        <p className="text-sm text-slate-400">
+          Configure all three <code className="app-code-inline">VITE_FIREBASE_*</code> variables at build time. See
+          docs for Firebase setup.
         </p>
       </div>
     );
@@ -111,120 +105,105 @@ export function AdminScoreSync() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-bold text-brand-dark">Admin — score sync</h2>
-        <p className="mt-1 text-sm text-slate-600">
-          Looks up the IPL match on <strong>ESPNcricinfo</strong> using your team query and{" "}
-          <strong>match date</strong> (calendar day in India, IST), pulls the full scorecard JSON,
-          computes fantasy points, and optionally writes to{" "}
-          <code className="rounded bg-brand-pale px-1 text-brand-dark">iplFantasy/fantasyMatchScores</code>
-          . Fixtures come from ESPN&apos;s IPL 2026 schedule/results page (same source as the Cloud Function).
-          The points list only includes players who appear in your Firestore{" "}
-          <code className="rounded bg-brand-pale px-1 text-brand-dark">iplFantasy/leagueBundle</code> roster
-          or waiver pool and who played in this match — not the full 22+ scorecard.
+        <h2 className="font-display text-3xl tracking-wide text-white">Admin — score sync</h2>
+        <p className="mt-2 text-sm leading-relaxed text-slate-400">
+          Looks up the IPL match on <strong className="text-cyan-300">ESPNcricinfo</strong> using your team query and{" "}
+          <strong className="text-cyan-300">match date</strong> (calendar day in India, IST), pulls the full scorecard
+          JSON, computes fantasy points, and by default writes to{" "}
+          <code className="app-code-inline">iplFantasy/fantasyMatchScores</code> when the run is valid. Fixtures use
+          ESPN&apos;s IPL 2026 schedule. Points include roster / waiver players who played in this match.
         </p>
       </div>
 
-      <form onSubmit={(e) => void onSubmit(e)} className="space-y-4 rounded-xl border border-brand-cyan/40 bg-white/80 p-4 shadow-sm">
-        <label className="block text-sm font-medium text-brand-dark">
+      <form
+        onSubmit={(e) => void onSubmit(e)}
+        className="app-panel space-y-4 border-amber-500/20 p-5 ring-1 ring-amber-500/10"
+      >
+        <label className="block text-sm font-semibold text-slate-200">
           Match query
           <input
-            className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+            className="app-input mt-2 w-full"
             placeholder="e.g. CSK vs RR"
             value={matchQuery}
             onChange={(e) => setMatchQuery(e.target.value)}
             autoComplete="off"
           />
         </label>
-        <label className="block text-sm font-medium text-brand-dark">
+        <label className="block text-sm font-semibold text-slate-200">
           Match date (IST calendar day)
           <input
             type="date"
-            className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+            className="app-input mt-2 w-full"
             value={matchDateYmd}
             onChange={(e) => setMatchDateYmd(e.target.value)}
           />
         </label>
-        <label className="block text-sm font-medium text-brand-dark">
-          Score-sync secret
-          <input
-            type="password"
-            className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-            placeholder="ADMIN_SCORE_SYNC_SECRET (Cloud Function secret)"
-            value={adminSyncSecret}
-            onChange={(e) => setAdminSyncSecret(e.target.value)}
-            autoComplete="off"
-          />
-        </label>
-        <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
+        <label className="flex cursor-pointer items-center gap-3 text-sm text-slate-300">
           <input
             type="checkbox"
+            className="size-4 rounded border-cyan-500/40 bg-slate-950 text-amber-500 focus:ring-amber-400/50"
             checked={writeToFirestore}
             onChange={(e) => setWriteToFirestore(e.target.checked)}
           />
           Write to Firestore when the scorecard is complete and there are no blocking issues
         </label>
-        <button
-          type="submit"
-          disabled={busy}
-          className="app-btn-primary disabled:opacity-50"
-        >
+        <button type="submit" disabled={busy} className="app-btn-primary disabled:opacity-50">
           {busy ? "Running…" : "Run sync"}
         </button>
       </form>
 
       {err ? (
-        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+        <p className="rounded-xl border border-red-500/40 bg-red-950/50 px-4 py-3 text-sm text-red-200">
           {err}
         </p>
       ) : null}
 
       {result?.ok ? (
-        <div className="space-y-3 text-sm">
+        <div className="space-y-3 text-sm text-slate-300">
           <p>
-            <span className="font-medium text-brand-dark">Match:</span> {result.matchLabel}
+            <span className="font-semibold text-white">Match:</span> {result.matchLabel}
           </p>
           <p>
             <a
               href={result.scorecardUrl}
               target="_blank"
               rel="noreferrer"
-              className="text-brand-ocean underline"
+              className="font-medium text-cyan-400 underline decoration-cyan-500/40 hover:text-cyan-300"
             >
               Open ESPNcricinfo scorecard
             </a>
           </p>
           <p>
-            <span className="font-medium text-brand-dark">Roster mapping:</span>{" "}
+            <span className="font-semibold text-white">Roster mapping:</span>{" "}
             {result.validated ? (
-              <span className="text-emerald-700">ok for mapped players</span>
+              <span className="text-emerald-400">ok for mapped players</span>
             ) : (
-              <span className="text-amber-800">issues — see log below</span>
+              <span className="text-amber-400">issues — see log below</span>
             )}
           </p>
           {typeof result.scorecardUniquePlayerCount === "number" ? (
-            <p className="text-slate-700">
-              <span className="font-medium text-brand-dark">Scorecard:</span>{" "}
+            <p className="text-slate-400">
+              <span className="font-semibold text-slate-200">Scorecard:</span>{" "}
               {result.scorecardUniquePlayerCount} distinct batter/bowler names on ESPN;{" "}
-              <span className="font-medium">{pointRows?.length ?? 0}</span> matched your Firestore league players
-              and received points in this run.
+              <span className="font-semibold text-cyan-300">{pointRows?.length ?? 0}</span> matched your Firestore league
+              players and received points in this run.
             </p>
           ) : null}
           {result.wroteFirestore ? (
-            <p className="font-medium text-emerald-800">Firestore updated for this match.</p>
+            <p className="font-semibold text-emerald-400">Firestore updated for this match.</p>
           ) : null}
-          {result.note ? <p className="text-slate-600">{result.note}</p> : null}
+          {result.note ? <p className="text-slate-500">{result.note}</p> : null}
 
           {result.unmappedScorecardNames && result.unmappedScorecardNames.length > 0 ? (
-            <details className="rounded-lg border border-slate-200 bg-slate-50/80 p-3">
-              <summary className="cursor-pointer text-sm font-medium text-brand-dark">
+            <details className="app-panel border-amber-500/15 p-4">
+              <summary className="cursor-pointer text-sm font-semibold text-white">
                 ESPN names not mapped to your league roster ({result.unmappedScorecardNames.length})
               </summary>
-              <p className="mt-2 text-xs text-slate-600">
+              <p className="mt-2 text-xs text-slate-500">
                 These appear on the scorecard but did not match exactly one player in{" "}
-                <code className="rounded bg-white px-1">iplFantasy/leagueBundle</code> (missing from your bundle,
-                duplicate display names, or spelling mismatch).
+                <code className="app-code-inline">iplFantasy/leagueBundle</code>.
               </p>
-              <ul className="mt-2 max-h-40 overflow-auto font-mono text-xs text-slate-800">
+              <ul className="mt-2 max-h-40 overflow-auto font-mono text-xs text-slate-300">
                 {result.unmappedScorecardNames.map((n) => (
                   <li key={n}>{n}</li>
                 ))}
@@ -234,12 +213,15 @@ export function AdminScoreSync() {
 
           {pointRows && pointRows.length > 0 ? (
             <div>
-              <p className="mb-2 font-medium text-brand-dark">Player points (league roster)</p>
-              <ul className="max-h-64 overflow-auto rounded-lg border border-slate-200 bg-white p-2 text-xs sm:text-sm">
+              <p className="mb-2 font-semibold text-white">Player points (league roster)</p>
+              <ul className="max-h-64 overflow-auto rounded-xl border border-cyan-500/20 bg-slate-950/50 p-3 text-xs sm:text-sm">
                 {pointRows.map(({ id, name, pts }) => (
-                  <li key={id} className="flex justify-between gap-2 border-b border-slate-100 py-1 last:border-0">
-                    <span>{name}</span>
-                    <span className="tabular-nums">{pts.toFixed(2)}</span>
+                  <li
+                    key={id}
+                    className="flex justify-between gap-2 border-b border-cyan-500/10 py-1.5 last:border-0"
+                  >
+                    <span className="text-slate-200">{name}</span>
+                    <span className="tabular-nums font-semibold text-amber-400">{pts.toFixed(2)}</span>
                   </li>
                 ))}
               </ul>
@@ -250,8 +232,8 @@ export function AdminScoreSync() {
 
       {result?.warnings && result.warnings.length > 0 ? (
         <div>
-          <h3 className="mb-2 text-sm font-semibold text-brand-dark">Warnings</h3>
-          <ul className="list-inside list-disc space-y-1 rounded-lg border border-amber-200 bg-amber-50/80 p-3 text-sm text-amber-950">
+          <h3 className="mb-2 text-sm font-semibold text-amber-200">Warnings</h3>
+          <ul className="list-inside list-disc space-y-1 rounded-xl border border-amber-500/30 bg-amber-950/30 p-4 text-sm text-amber-100/90">
             {result.warnings.map((w, i) => (
               <li key={i}>{w}</li>
             ))}
@@ -261,8 +243,8 @@ export function AdminScoreSync() {
 
       {result?.inconsistencies && result.inconsistencies.length > 0 ? (
         <div>
-          <h3 className="mb-2 text-sm font-semibold text-red-900">Inconsistencies / blocking issues</h3>
-          <ul className="list-inside list-disc space-y-1 rounded-lg border border-red-200 bg-red-50/80 p-3 text-sm text-red-950">
+          <h3 className="mb-2 text-sm font-semibold text-red-300">Inconsistencies / blocking issues</h3>
+          <ul className="list-inside list-disc space-y-1 rounded-xl border border-red-500/35 bg-red-950/40 p-4 text-sm text-red-100">
             {result.inconsistencies.map((w, i) => (
               <li key={i}>{w}</li>
             ))}

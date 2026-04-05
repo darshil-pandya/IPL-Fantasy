@@ -72,8 +72,8 @@ export function WaiverBidField({
               className={[
                 "rounded-full border px-2.5 py-1 text-[11px] font-semibold transition-colors",
                 disabled
-                  ? "cursor-not-allowed border-slate-200 bg-slate-50 text-slate-300"
-                  : "border-brand-ocean/35 bg-brand-pale/60 text-brand-dark hover:border-brand-ocean hover:bg-brand-cyan/50",
+                  ? "cursor-not-allowed border-slate-700 bg-slate-900 text-slate-600"
+                  : "border-cyan-500/35 bg-cyan-500/10 text-cyan-100 hover:border-amber-400/50 hover:bg-amber-500/15",
               ].join(" ")}
             >
               {moneyShort(p)}

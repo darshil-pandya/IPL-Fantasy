@@ -272,8 +272,8 @@ function compareRows(a: Row, b: Row, key: SortColumnId, dir: "asc" | "desc"): nu
 }
 
 function SortArrow({ active, dir }: { active: boolean; dir: "asc" | "desc" }) {
-  if (!active) return <span className="ml-0.5 text-brand-dark/25">↕</span>;
-  return <span className="ml-0.5 text-brand-ocean">{dir === "asc" ? "↑" : "↓"}</span>;
+  if (!active) return <span className="ml-0.5 text-slate-600">↕</span>;
+  return <span className="ml-0.5 text-cyan-400">{dir === "asc" ? "↑" : "↓"}</span>;
 }
 
 export function Players() {
@@ -366,24 +366,25 @@ export function Players() {
   };
 
   const thBase =
-    "font-medium transition-colors hover:bg-brand-cyan/40 cursor-pointer select-none";
-  const thSticky = "sticky left-0 z-[2] bg-brand-pale/95 shadow-[2px_0_6px_-2px_rgba(2,62,138,0.12)]";
+    "font-medium transition-colors hover:bg-cyan-500/15 cursor-pointer select-none";
+  const thSticky =
+    "sticky left-0 z-[2] bg-slate-950 shadow-[2px_0_12px_-2px_rgba(0,0,0,0.5)]";
 
   if (!bundle) return null;
 
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-xl font-bold text-brand-dark">Players</h2>
-        <p className="mt-1 text-sm text-slate-600">
-          Every player in <code className="rounded bg-brand-pale px-1 text-brand-dark">players.json</code> plus the
+        <h2 className="font-display text-3xl tracking-wide text-white">Players</h2>
+        <p className="mt-1 text-sm text-slate-400">
+          Every player in <code className="app-code-inline">players.json</code> plus the
           waiver pool. Category columns are cumulative <strong>fantasy points</strong>. Click
           any column header to sort. Default sort: player name (A–Z).
         </p>
-        <div className="mt-3 app-card p-4 text-sm text-slate-600">
-          <p className="font-medium text-brand-dark">Franchise totals &amp; waivers</p>
+        <div className="mt-3 app-card p-4 text-sm text-slate-400">
+          <p className="font-semibold text-white">Franchise totals &amp; waivers</p>
           <p className="mt-2 leading-relaxed">
-            A franchise&apos;s fantasy total is the sum of <code className="rounded bg-white px-1">seasonTotal</code> for
+            A franchise&apos;s fantasy total is the sum of <code className="app-code-inline">seasonTotal</code> for
             every player <em>currently</em> on its roster, plus <strong>waiver carryover</strong>{" "}
             (points banked when a player is dropped on waiver reveal). Player totals here are
             always the full player record.
@@ -401,7 +402,7 @@ export function Players() {
       </div>
 
       <div className="app-card flex flex-col gap-3 p-4 sm:flex-row sm:flex-wrap sm:items-end">
-        <label className="flex min-w-[10rem] flex-1 flex-col gap-1 text-xs font-medium text-brand-dark/80">
+        <label className="flex min-w-[10rem] flex-1 flex-col gap-1 text-xs font-medium text-slate-300">
           Player
           <input
             type="search"
@@ -411,7 +412,7 @@ export function Players() {
             className="app-input"
           />
         </label>
-        <label className="flex min-w-[9rem] flex-col gap-1 text-xs font-medium text-brand-dark/80">
+        <label className="flex min-w-[9rem] flex-col gap-1 text-xs font-medium text-slate-300">
           Franchise
           <select
             value={filterFranchise}
@@ -428,7 +429,7 @@ export function Players() {
             <option value="__avail__">Available</option>
           </select>
         </label>
-        <label className="flex min-w-[7rem] flex-col gap-1 text-xs font-medium text-brand-dark/80">
+        <label className="flex min-w-[7rem] flex-col gap-1 text-xs font-medium text-slate-300">
           IPL team
           <select
             value={filterIpl}
@@ -443,7 +444,7 @@ export function Players() {
             ))}
           </select>
         </label>
-        <label className="flex min-w-[7rem] flex-col gap-1 text-xs font-medium text-brand-dark/80">
+        <label className="flex min-w-[7rem] flex-col gap-1 text-xs font-medium text-slate-300">
           Role
           <select
             value={filterRole}
@@ -458,7 +459,7 @@ export function Players() {
             ))}
           </select>
         </label>
-        <label className="flex min-w-[8rem] flex-col gap-1 text-xs font-medium text-brand-dark/80">
+        <label className="flex min-w-[8rem] flex-col gap-1 text-xs font-medium text-slate-300">
           Nationality
           <select
             value={filterNat}
@@ -475,7 +476,7 @@ export function Players() {
 
       <p className="text-xs text-slate-500">
         Showing {rows.length} of {pool.length} players. Sort:{" "}
-        <span className="font-medium text-brand-dark">{sort.key}</span>{" "}
+        <span className="font-semibold text-white">{sort.key}</span>{" "}
         {sort.dir === "asc" ? "ascending" : "descending"}.
       </p>
 
@@ -540,7 +541,7 @@ export function Players() {
                   className={`${thBase} min-w-[2.6rem] px-1.5 py-2 text-right sm:px-2 sm:py-3`}
                   onClick={() => onHeaderClick(c.key as SortColumnId)}
                 >
-                  <span className="border-b border-dotted border-brand-dark/30">{c.label}</span>
+                  <span className="border-b border-dotted border-slate-500">{c.label}</span>
                   <SortArrow active={sort.key === c.key} dir={sort.dir} />
                 </th>
               ))}
@@ -563,12 +564,12 @@ export function Players() {
                   key={p.id}
                   className={
                     mismatch
-                      ? "border-b border-brand-cyan/30 bg-red-50/80 hover:bg-red-50"
+                      ? "border-b border-red-500/20 bg-red-950/50 hover:bg-red-950/70"
                       : "app-table-row"
                   }
                 >
                   <td
-                    className={`sticky left-0 z-[1] bg-white px-2 py-2 font-medium text-brand-dark shadow-[2px_0_6px_-2px_rgba(2,62,138,0.08)] sm:px-3 sm:py-2.5 ${mismatch ? "bg-red-50/90" : ""}`}
+                    className={`sticky left-0 z-[1] bg-slate-900 px-2 py-2 font-medium text-white shadow-[2px_0_12px_-2px_rgba(0,0,0,0.5)] sm:px-3 sm:py-2.5 ${mismatch ? "bg-red-950/95" : ""}`}
                   >
                     <span title={p.id}>{p.name}</span>
                   </td>
@@ -595,13 +596,13 @@ export function Players() {
                       {natLabel(p.nationality)}
                     </span>
                   </td>
-                  <td className="px-2 py-2 text-right font-semibold tabular-nums text-brand-dark sm:px-3 sm:py-2.5">
+                  <td className="px-2 py-2 text-right font-semibold tabular-nums text-amber-400 sm:px-3 sm:py-2.5">
                     {p.seasonTotal.toFixed(1)}
                   </td>
                   {FANTASY_POINT_COLUMNS.map((c) => (
                     <td
                       key={c.key}
-                      className="px-1.5 py-2 text-right tabular-nums text-slate-700 sm:px-2 sm:py-2.5"
+                      className="px-1.5 py-2 text-right tabular-nums text-slate-300 sm:px-2 sm:py-2.5"
                     >
                       {fmtPts(c.get(p))}
                     </td>
@@ -625,8 +626,8 @@ export function Players() {
       </div>
 
       <p className="text-xs leading-relaxed text-slate-500">
-        Reconciliation: sum of <code className="rounded bg-brand-pale px-1">seasonFantasyPoints</code> should
-        match <code className="rounded bg-brand-pale px-1">seasonTotal</code> when every source is bucketed.
+        Reconciliation: sum of <code className="app-code-inline">seasonFantasyPoints</code> should match{" "}
+        <code className="app-code-inline">seasonTotal</code> when every source is bucketed.
         Prediction bonuses are franchise-level only.
       </p>
     </div>

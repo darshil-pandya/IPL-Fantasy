@@ -1,5 +1,8 @@
 import { getFirebaseApp, isFirebaseConfigured } from "./client";
 
+/** Hardcoded passphrase sent to Cloud Function (must match `functions/src/index.ts`). */
+export const ADMIN_SCORE_SYNC_SECRET = "ViratAnushka";
+
 export type AdminScoreSyncResponse = {
   ok: boolean;
   matchLabel: string;
@@ -28,8 +31,8 @@ function functionsRegion(): string {
 export async function callAdminScoreSync(params: {
   matchQuery: string;
   matchDateYmd: string;
-  adminSyncSecret: string;
-  writeToFirestore: boolean;
+  /** Defaults to true. */
+  writeToFirestore?: boolean;
 }): Promise<AdminScoreSyncResponse> {
   if (!isFirebaseConfigured()) {
     throw new Error("Firebase is not configured (missing VITE_FIREBASE_* env).");
@@ -38,6 +41,11 @@ export async function callAdminScoreSync(params: {
   const app = await getFirebaseApp();
   const fns = getFunctions(app, functionsRegion());
   const fn = httpsCallable(fns, "adminSyncMatchScores");
-  const res = await fn(params);
+  const res = await fn({
+    matchQuery: params.matchQuery,
+    matchDateYmd: params.matchDateYmd,
+    adminSyncSecret: ADMIN_SCORE_SYNC_SECRET,
+    writeToFirestore: params.writeToFirestore !== false,
+  });
   return res.data as AdminScoreSyncResponse;
 }

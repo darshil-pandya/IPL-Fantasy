@@ -1,49 +1,49 @@
-/** Distinct accent per fantasy franchise owner (not IPL team colours). */
+/** Distinct accent per fantasy franchise owner (not IPL team colours). Dark stadium UI. */
 const OWNERS: Record<
   string,
   { pill: string; text: string; card: string; cardMuted: string }
 > = {
   Darshil: {
-    pill: "bg-sky-100 text-sky-900 ring-sky-400/50",
-    text: "text-sky-800",
-    card: "border-sky-300/60 bg-gradient-to-br from-sky-50 via-white to-sky-100/70 shadow-sm ring-1 ring-sky-400/20",
-    cardMuted: "text-sky-900/75",
+    pill: "bg-sky-400/20 text-sky-100 ring-sky-400/45",
+    text: "text-sky-300",
+    card: "border-sky-500/35 bg-gradient-to-br from-sky-950/70 via-slate-900/90 to-slate-950 shadow-lg shadow-sky-500/10 ring-1 ring-sky-400/25",
+    cardMuted: "text-sky-200/65",
   },
   Bhavya: {
-    pill: "bg-fuchsia-100 text-fuchsia-900 ring-fuchsia-400/50",
-    text: "text-fuchsia-800",
-    card: "border-fuchsia-300/55 bg-gradient-to-br from-fuchsia-50 via-white to-fuchsia-100/70 shadow-sm ring-1 ring-fuchsia-400/20",
-    cardMuted: "text-fuchsia-900/75",
+    pill: "bg-fuchsia-500/25 text-fuchsia-100 ring-fuchsia-400/40",
+    text: "text-fuchsia-300",
+    card: "border-fuchsia-500/35 bg-gradient-to-br from-fuchsia-950/60 via-slate-900/90 to-slate-950 shadow-lg shadow-fuchsia-500/10 ring-1 ring-fuchsia-400/25",
+    cardMuted: "text-fuchsia-200/65",
   },
   Prajin: {
-    pill: "bg-teal-100 text-teal-900 ring-teal-400/50",
-    text: "text-teal-800",
-    card: "border-teal-300/55 bg-gradient-to-br from-teal-50 via-white to-teal-100/70 shadow-sm ring-1 ring-teal-400/20",
-    cardMuted: "text-teal-900/75",
+    pill: "bg-teal-400/20 text-teal-100 ring-teal-400/45",
+    text: "text-teal-300",
+    card: "border-teal-500/35 bg-gradient-to-br from-teal-950/65 via-slate-900/90 to-slate-950 shadow-lg shadow-teal-500/10 ring-1 ring-teal-400/25",
+    cardMuted: "text-teal-200/65",
   },
   Sanket: {
-    pill: "bg-orange-100 text-orange-900 ring-orange-400/50",
-    text: "text-orange-800",
-    card: "border-orange-300/55 bg-gradient-to-br from-orange-50 via-white to-orange-100/70 shadow-sm ring-1 ring-orange-400/20",
-    cardMuted: "text-orange-900/75",
+    pill: "bg-orange-400/25 text-orange-100 ring-orange-400/45",
+    text: "text-orange-300",
+    card: "border-orange-500/35 bg-gradient-to-br from-orange-950/55 via-slate-900/90 to-slate-950 shadow-lg shadow-orange-500/10 ring-1 ring-orange-400/25",
+    cardMuted: "text-orange-200/65",
   },
   Hersh: {
-    pill: "bg-lime-100 text-lime-900 ring-lime-500/45",
-    text: "text-lime-800",
-    card: "border-lime-400/50 bg-gradient-to-br from-lime-50 via-white to-lime-100/70 shadow-sm ring-1 ring-lime-500/20",
-    cardMuted: "text-lime-900/75",
+    pill: "bg-lime-400/20 text-lime-100 ring-lime-400/40",
+    text: "text-lime-300",
+    card: "border-lime-500/35 bg-gradient-to-br from-lime-950/50 via-slate-900/90 to-slate-950 shadow-lg shadow-lime-500/10 ring-1 ring-lime-400/25",
+    cardMuted: "text-lime-200/65",
   },
   Jash: {
-    pill: "bg-indigo-100 text-indigo-900 ring-indigo-400/50",
-    text: "text-indigo-800",
-    card: "border-indigo-300/55 bg-gradient-to-br from-indigo-50 via-white to-indigo-100/70 shadow-sm ring-1 ring-indigo-400/20",
-    cardMuted: "text-indigo-900/75",
+    pill: "bg-indigo-400/25 text-indigo-100 ring-indigo-400/45",
+    text: "text-indigo-300",
+    card: "border-indigo-500/35 bg-gradient-to-br from-indigo-950/65 via-slate-900/90 to-slate-950 shadow-lg shadow-indigo-500/10 ring-1 ring-indigo-400/25",
+    cardMuted: "text-indigo-200/65",
   },
   Karan: {
-    pill: "bg-rose-100 text-rose-900 ring-rose-400/50",
-    text: "text-rose-800",
-    card: "border-rose-300/55 bg-gradient-to-br from-rose-50 via-white to-rose-100/70 shadow-sm ring-1 ring-rose-400/20",
-    cardMuted: "text-rose-900/75",
+    pill: "bg-rose-400/25 text-rose-100 ring-rose-400/45",
+    text: "text-rose-300",
+    card: "border-rose-500/35 bg-gradient-to-br from-rose-950/60 via-slate-900/90 to-slate-950 shadow-lg shadow-rose-500/10 ring-1 ring-rose-400/25",
+    cardMuted: "text-rose-200/65",
   },
 };
 
@@ -55,20 +55,20 @@ const CARD_BASE =
 
 export function ownerPillClass(owner: string): string {
   const t = OWNERS[owner];
-  return PILL + (t?.pill ?? "bg-slate-200 text-slate-800 ring-slate-400/50");
+  return PILL + (t?.pill ?? "bg-slate-600/40 text-slate-100 ring-slate-500/40");
 }
 
 export function ownerNameClass(owner: string): string {
-  return OWNERS[owner]?.text ?? "text-slate-700";
+  return OWNERS[owner]?.text ?? "text-slate-300";
 }
 
 /** Card shell (border, wash, ring) for waiver / roster summaries. */
 export function ownerCardClass(owner: string): string {
   const t = OWNERS[owner];
-  return `${CARD_BASE} ${t?.card ?? "border-slate-300/60 bg-gradient-to-br from-slate-50 via-white to-slate-100/80 shadow-sm ring-1 ring-slate-400/15"}`;
+  return `${CARD_BASE} ${t?.card ?? "border-slate-600/50 bg-gradient-to-br from-slate-900/90 via-slate-950 to-slate-950 shadow-md ring-1 ring-slate-500/25"}`;
 }
 
 /** Muted label text on an owner card (owner name, captions). */
 export function ownerCardMutedClass(owner: string): string {
-  return OWNERS[owner]?.cardMuted ?? "text-slate-700/80";
+  return OWNERS[owner]?.cardMuted ?? "text-slate-400";
 }

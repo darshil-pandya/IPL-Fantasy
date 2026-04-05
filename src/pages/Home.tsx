@@ -39,14 +39,12 @@ function StatCard({
   valueSuffix?: string;
 }) {
   return (
-    <div className="rounded-xl border border-brand-cyan/50 bg-white p-4 shadow-sm">
-      <p className="text-xs font-medium uppercase tracking-wide text-brand-dark/50">
-        {title}
-      </p>
+    <div className="rounded-xl border border-cyan-500/20 bg-slate-900/60 p-4 shadow-md shadow-black/20 ring-1 ring-cyan-500/10">
+      <p className="text-xs font-semibold uppercase tracking-wider text-amber-400/80">{title}</p>
       {leader ? (
         <>
-          <p className="mt-2 font-semibold text-brand-dark">{leader.player.name}</p>
-          <p className="mt-1 text-sm tabular-nums text-brand-ocean">
+          <p className="mt-2 font-bold text-white">{leader.player.name}</p>
+          <p className="mt-1 text-sm tabular-nums text-cyan-300">
             {leader.display}
             {valueSuffix ? ` ${valueSuffix}` : ""}
           </p>
@@ -116,18 +114,18 @@ export function Home() {
   return (
     <div className="space-y-8">
       {leagueNotice ? (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+        <div className="rounded-xl border border-amber-500/35 bg-amber-950/35 px-4 py-3 text-sm text-amber-100">
           {leagueNotice}
         </div>
       ) : null}
       {fantasyOverlayNotice ? (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">
+        <div className="rounded-xl border border-red-500/35 bg-red-950/40 px-4 py-3 text-sm text-red-100">
           Firestore fantasy scores: {fantasyOverlayNotice}
         </div>
       ) : null}
       <section className="app-card p-5">
-        <h2 className="text-lg font-semibold text-brand-dark">{meta.seasonLabel}</h2>
-        <p className="mt-2 text-sm leading-relaxed text-slate-600">
+        <h2 className="font-display text-2xl tracking-wide text-white">{meta.seasonLabel}</h2>
+        <p className="mt-2 text-sm leading-relaxed text-slate-400">
           {meta.pointsUpdateNote}
         </p>
         {meta.lastPointsUpdate && (
@@ -158,8 +156,8 @@ export function Home() {
       </section>
 
       <section>
-        <h2 className="mb-2 text-lg font-semibold text-brand-dark">Leaderboard</h2>
-        <p className="mb-3 text-sm text-slate-600">
+        <h2 className="font-display mb-2 text-2xl tracking-wide text-white">Leaderboard</h2>
+        <p className="mb-3 text-sm text-slate-400">
           Sorted by rank (fantasy points plus prediction bonus: {pred.pointsPerCorrect}{" "}
           pts per correct when results are set). Squad totals use live waiver rosters.
         </p>
@@ -170,7 +168,7 @@ export function Home() {
                 <th className="px-3 py-3 font-medium">Rank</th>
                 <th className="px-3 py-3 font-medium">Owner</th>
                 <th className="px-3 py-3 font-medium">Best player</th>
-                <th className="px-3 py-3 text-right font-medium text-brand-ocean">
+                <th className="px-3 py-3 text-right font-medium text-amber-400">
                   Total pts
                 </th>
               </tr>
@@ -184,7 +182,7 @@ export function Home() {
                   <td className="px-3 py-3">
                     <Link
                       to={`/teams?owner=${encodeURIComponent(r.owner)}`}
-                      className="font-medium text-brand-dark hover:text-brand-ocean"
+                      className="font-semibold text-white hover:text-cyan-300"
                     >
                       {r.owner}
                     </Link>
@@ -192,10 +190,10 @@ export function Home() {
                       <OwnerBadge owner={r.owner} />
                     </div>
                   </td>
-                  <td className="px-3 py-3 text-slate-700">
+                  <td className="px-3 py-3 text-slate-300">
                     {r.bestPlayer ? (
                       <>
-                        <span className="font-medium text-brand-dark">
+                        <span className="font-medium text-slate-100">
                           {r.bestPlayer.name}
                         </span>
                         <span className="ml-2 tabular-nums text-slate-500">
@@ -206,7 +204,7 @@ export function Home() {
                       <span className="text-slate-400">—</span>
                     )}
                   </td>
-                  <td className="px-3 py-3 text-right text-base font-bold tabular-nums text-brand-ocean">
+                  <td className="px-3 py-3 text-right text-base font-bold tabular-nums text-amber-400">
                     {r.total.toFixed(1)}
                   </td>
                 </tr>
@@ -217,14 +215,12 @@ export function Home() {
       </section>
 
       <section>
-        <h2 className="mb-2 text-lg font-semibold text-brand-dark">Season highlights</h2>
-        <p className="mb-3 text-sm text-slate-600">
+        <h2 className="font-display mb-2 text-2xl tracking-wide text-white">Season highlights</h2>
+        <p className="mb-3 text-sm text-slate-400">
           IPL counting stats come from optional{" "}
-          <code className="rounded bg-brand-pale px-1 text-brand-dark">seasonStats</code> on
-          each player in{" "}
-          <code className="rounded bg-brand-pale px-1 text-brand-dark">players.json</code>.
-          Fantasy points use{" "}
-          <code className="rounded bg-brand-pale px-1 text-brand-dark">seasonTotal</code>.
+          <code className="app-code-inline">seasonStats</code> on each player in{" "}
+          <code className="app-code-inline">players.json</code>. Fantasy points use{" "}
+          <code className="app-code-inline">seasonTotal</code>.
         </p>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <StatCard

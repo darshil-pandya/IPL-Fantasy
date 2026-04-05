@@ -16,22 +16,22 @@ function MatchBreakdown({ player }: { player: Player }) {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="text-xs font-medium text-brand-ocean hover:text-brand-dark"
+        className="text-xs font-medium text-cyan-400 hover:text-white"
         aria-expanded={open}
       >
         {open ? "Hide" : "Show"} match breakdown ({player.byMatch.length})
       </button>
       {open && (
-        <ul className="mt-2 space-y-1 rounded-xl border border-brand-cyan/40 bg-brand-pale/50 p-3 text-xs">
+        <ul className="mt-2 space-y-1 rounded-xl border border-cyan-500/25 bg-slate-950/60 p-3 text-xs">
           {player.byMatch.map((m) => (
             <li
               key={`${m.matchDate}-${m.matchLabel}`}
-              className="flex justify-between gap-2 border-b border-brand-cyan/30 py-1 last:border-0"
+              className="flex justify-between gap-2 border-b border-cyan-500/15 py-1 last:border-0"
             >
-              <span className="text-slate-600">
+              <span className="text-slate-400">
                 <span className="text-slate-500">{m.matchDate}</span> — {m.matchLabel}
               </span>
-              <span className="shrink-0 tabular-nums font-semibold text-brand-ocean">
+              <span className="shrink-0 tabular-nums font-semibold text-cyan-400">
                 +{m.points}
               </span>
             </li>
@@ -57,9 +57,9 @@ export function TeamDetail() {
 
   if (!slug || !row) {
     return (
-      <div className="app-card p-6 text-center text-slate-600">
+      <div className="app-card p-6 text-center text-slate-400">
         <p>Team not found.</p>
-        <Link to="/teams" className="mt-3 inline-block font-medium text-brand-ocean hover:underline">
+        <Link to="/teams" className="mt-3 inline-block font-medium text-cyan-400 hover:underline">
           Back to teams
         </Link>
       </div>
@@ -71,38 +71,38 @@ export function TeamDetail() {
       <div>
         <Link
           to={`/teams?owner=${encodeURIComponent(row.owner)}`}
-          className="text-sm font-medium text-brand-ocean hover:text-brand-dark"
+          className="text-sm font-medium text-cyan-400 hover:text-white"
         >
           ← Back to roster table
         </Link>
-        <h2 className="mt-2 text-2xl font-bold text-brand-dark">{row.owner}</h2>
+        <h2 className="mt-2 text-2xl font-bold text-white">{row.owner}</h2>
         <div className="mt-2">
           <OwnerBadge owner={row.owner} />
         </div>
-        <p className="mt-3 text-3xl font-bold tabular-nums text-brand-ocean">
+        <p className="mt-3 text-3xl font-bold tabular-nums text-cyan-400">
           {row.totalPoints.toFixed(1)}{" "}
           <span className="text-lg font-normal text-slate-500">season pts</span>
         </p>
       </div>
 
       {row.missingPlayerIds.length > 0 && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+        <div className="rounded-xl border border-amber-500/35 bg-amber-950/40 p-4 text-sm text-amber-100">
           <p className="font-medium">Missing player IDs in players.json</p>
-          <p className="mt-1 text-xs text-amber-800">
+          <p className="mt-1 text-xs text-amber-200/90">
             {row.missingPlayerIds.join(", ")}
           </p>
         </div>
       )}
 
       <section>
-        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-brand-dark/50">
+        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
           Squad
         </h3>
         {row.playersResolved.length === 0 ? (
-          <p className="text-sm text-slate-600">
-            No players linked yet. Add <code className="rounded bg-brand-pale px-1">playerIds</code>{" "}
-            in <code className="rounded bg-brand-pale px-1">franchises.json</code> and matching entries
-            in <code className="rounded bg-brand-pale px-1">players.json</code>.
+          <p className="text-sm text-slate-400">
+            No players linked yet. Add <code className="app-code-inline">playerIds</code> in{" "}
+            <code className="app-code-inline">franchises.json</code> and matching entries in{" "}
+            <code className="app-code-inline">players.json</code>.
           </p>
         ) : (
           <ul className="space-y-3">
@@ -110,13 +110,13 @@ export function TeamDetail() {
               <li key={p.id} className="app-card p-4">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <div>
-                    <p className="font-semibold text-brand-dark">{p.name}</p>
+                    <p className="font-semibold text-white">{p.name}</p>
                     <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
                       <IplTeamPill code={p.iplTeam} />
                       <span>{p.role}</span>
                     </p>
                   </div>
-                  <p className="text-lg font-bold tabular-nums text-brand-ocean">
+                  <p className="text-lg font-bold tabular-nums text-cyan-400">
                     {p.seasonTotal.toFixed(1)}
                   </p>
                 </div>

@@ -17,7 +17,7 @@ const PILL =
 
 export function iplTeamPillClass(teamCode: string): string {
   const key = teamCode.trim().toUpperCase();
-  return PILL + (IPL[key] ?? "bg-slate-200 text-slate-800 ring-slate-400/50");
+  return PILL + (IPL[key] ?? "bg-slate-600/40 text-slate-200 ring-slate-500/45");
 }
 
 export const IPL_TEAM_CODES = [

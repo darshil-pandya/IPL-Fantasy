@@ -97,24 +97,19 @@ If a secret is missing, the build still succeeds; the app uses **static JSON onl
 
 After **Waivers → Admin** login, the **Score sync** nav link runs a callable that reads **ESPNcricinfo** scorecards server-side (match query + date), computes fantasy points, and can merge a match into `iplFantasy/fantasyMatchScores`.
 
-1. **Deploy functions** (local Firebase CLI or GitHub Action **Deploy Firebase backend**). First deploy must succeed after you create the secret below.
-2. Create the function secret (interactive; value is not stored in git):
-
-   ```bash
-   firebase functions:secrets:set ADMIN_SCORE_SYNC_SECRET
-   ```
-
+1. **Deploy functions** (local Firebase CLI or GitHub Action **Deploy Firebase backend**).
+2. The score-sync callable uses a **hardcoded passphrase** in the repo (`ViratAnushka`), shared between `functions/src/index.ts` and `src/lib/firebase/adminScoreSyncCall.ts`. No `ADMIN_SCORE_SYNC_SECRET` in Secret Manager is required. Change both files together if you want a different value.
 3. Optional: set the web app region to match the function (default **`asia-south1`**):
 
    ```env
    VITE_FIREBASE_FUNCTIONS_REGION=asia-south1
    ```
 
-4. On **Score sync**, paste the same passphrase you stored in `ADMIN_SCORE_SYNC_SECRET`. The Waivers Admin password is separate (honor-system login only).
+4. On **Score sync**, enter match query + date; **Write to Firestore** is on by default. The Waivers Admin password is separate (honor-system login only).
 
 **IPL season URL:** score sync loads the full fixture list from ESPN (currently **IPL 2026** — `match-schedule-fixtures-and-results` for series `ipl-2026-1510719`). When ESPN publishes a new IPL edition, update `IPL_FIXTURES_AND_RESULTS_URL` in `functions/src/scrape/espn.ts` and redeploy functions.
 
-The GitHub Actions service account needs permission to deploy Cloud Functions and to access that secret (Secret Manager **Secret Accessor** on the project). If deploy fails on secrets, run `firebase functions:secrets:set` once from a machine with the Firebase CLI, then re-run the workflow.
+The GitHub Actions service account needs permission to deploy Cloud Functions. Secret Manager is not required for score sync unless you add other secrets later.
 
 ## 7. Data model in Firestore
 

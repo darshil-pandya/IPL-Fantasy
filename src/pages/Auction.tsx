@@ -33,14 +33,14 @@ export function Auction() {
   return (
     <div className="space-y-10">
       <section>
-        <h2 className="text-lg font-semibold text-brand-dark">Unsold pool</h2>
-        <p className="mt-2 text-sm leading-relaxed text-slate-600">
+        <h2 className="font-display text-2xl tracking-wide text-white">Unsold pool</h2>
+        <p className="mt-2 text-sm leading-relaxed text-slate-400">
           These player IDs are listed in{" "}
-          <code className="rounded bg-brand-pale px-1 text-brand-dark">auction.json</code> under{" "}
-          <code className="rounded bg-brand-pale px-1 text-brand-dark">unsoldPlayerIds</code>. After your group
+          <code className="app-code-inline">auction.json</code> under{" "}
+          <code className="app-code-inline">unsoldPlayerIds</code>. After your group
           agrees on a winning bid, the commissioner updates{" "}
-          <code className="rounded bg-brand-pale px-1 text-brand-dark">franchises.json</code>,{" "}
-          <code className="rounded bg-brand-pale px-1 text-brand-dark">auction.json</code>, and pushes — everyone
+          <code className="app-code-inline">franchises.json</code>,{" "}
+          <code className="app-code-inline">auction.json</code>, and pushes — everyone
           sees the change on refresh.
         </p>
         {unsoldPlayers.length === 0 ? (
@@ -53,7 +53,7 @@ export function Auction() {
                 className="app-card flex flex-wrap items-center justify-between gap-2 px-4 py-3"
               >
                 <div>
-                  <p className="font-medium text-brand-dark">{p!.name}</p>
+                  <p className="font-medium text-white">{p!.name}</p>
                   <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
                     <IplTeamPill code={p!.iplTeam} />
                     <span>
@@ -61,7 +61,7 @@ export function Auction() {
                     </span>
                   </p>
                 </div>
-                <span className="text-xs font-medium uppercase tracking-wide text-brand-ocean">
+                <span className="text-xs font-medium uppercase tracking-wide text-cyan-400">
                   Open
                 </span>
               </li>
@@ -71,7 +71,7 @@ export function Auction() {
       </section>
 
       <section>
-        <h2 className="text-lg font-semibold text-brand-dark">Auction history</h2>
+        <h2 className="font-display text-2xl tracking-wide text-white">Auction history</h2>
         {sales.length === 0 ? (
           <p className="mt-4 text-sm text-slate-500">No completed sales recorded yet.</p>
         ) : (
@@ -81,10 +81,10 @@ export function Auction() {
                 key={`${s.playerId}-${s.soldAt}-${s.soldToOwner}`}
                 className="app-card px-4 py-3 text-sm"
               >
-                <p className="font-medium text-brand-dark">{s.name}</p>
-                <p className="mt-2 flex flex-wrap items-center gap-2 text-slate-600">
+                <p className="font-medium text-white">{s.name}</p>
+                <p className="mt-2 flex flex-wrap items-center gap-2 text-slate-400">
                   Sold to <OwnerBadge owner={s.soldToOwner} /> for{" "}
-                  <span className="tabular-nums font-medium text-brand-ocean">{s.amountCr} Cr</span>
+                  <span className="tabular-nums font-medium text-cyan-400">{s.amountCr} Cr</span>
                   <span className="text-slate-400"> · {s.soldAt}</span>
                 </p>
               </li>
