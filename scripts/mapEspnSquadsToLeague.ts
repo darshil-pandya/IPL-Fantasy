@@ -21,6 +21,9 @@ const MANUAL_ESPN_SLUG_TO_LEAGUE_ID: Record<string, string> = {
   "avesh-khan": "avesh-kumar",
 };
 
+/** ESPN squad slugs excluded on purpose (not in league JSON). */
+const IGNORED_ESPN_SLUGS = new Set(["mustafizur-rahman"]);
+
 const SQUAD_PATHS = [
   "/series/ipl-2026-1510719/chennai-super-kings-squad-1511148/series-squads",
   "/series/ipl-2026-1510719/delhi-capitals-squad-1511107/series-squads",
@@ -72,7 +75,10 @@ async function fetchSquadPlayers(): Promise<EspnP[]> {
   for (const pth of SQUAD_PATHS) {
     const html = await fetchText(`https://www.espncricinfo.com${pth}`);
     const j = extractNextDataJson(html);
-    const teamSlug = String(j?.props?.appPageProps?.data?.content?.squadDetails?.team?.slug ?? "");
+    const fromPath = pth.match(/\/([a-z0-9-]+)-squad-\d+\//i)?.[1] ?? "";
+    const teamSlug = String(
+      j?.props?.appPageProps?.data?.content?.squadDetails?.team?.slug ?? fromPath,
+    );
     const players = j?.props?.appPageProps?.data?.content?.squadDetails?.players;
     if (!Array.isArray(players)) {
       throw new Error(`Missing squad players for ${pth}`);
@@ -102,12 +108,13 @@ function main(): void {
     for (const e of espnPlayers) {
       if (!byObjectId.has(e.objectId)) byObjectId.set(e.objectId, e);
     }
-    const uniqueEspn = [...byObjectId.values()];
+    const uniqueEspn = [...byObjectId.values()].filter((e) => !IGNORED_ESPN_SLUGS.has(e.slug));
 
     type Row = {
       espnObjectId: number;
       espnSlug: string;
       espnLongName: string;
+      espnTeamSlug: string;
       leaguePlayerId: string | null;
       method: string;
     };
@@ -163,6 +170,7 @@ function main(): void {
         espnObjectId: e.objectId,
         espnSlug: e.slug,
         espnLongName: e.longName,
+        espnTeamSlug: e.teamSlug,
         leaguePlayerId: leagueId,
         method,
       });
@@ -186,20 +194,38 @@ function main(): void {
     const leagueIdsInEspn = new Set(rows.filter((r) => r.leaguePlayerId).map((r) => r.leaguePlayerId!));
     const leagueOnly = [...leagueById.keys()].filter((id) => !leagueIdsInEspn.has(id));
 
+    const mappedRows = rows.filter((r) => r.leaguePlayerId);
+    const espnSquadPlayerRows = mappedRows
+      .map((r) => ({
+        espnObjectId: r.espnObjectId,
+        espnSlug: r.espnSlug,
+        espnLongName: r.espnLongName,
+        espnTeamSlug: r.espnTeamSlug,
+        leaguePlayerId: r.leaguePlayerId!,
+        leagueName: leagueById.get(r.leaguePlayerId!)?.name ?? "",
+        matchMethod: r.method,
+      }))
+      .sort((a, b) =>
+        a.leagueName.localeCompare(b.leagueName, "en") ||
+        a.leaguePlayerId.localeCompare(b.leaguePlayerId),
+      );
+
     const meta = {
       source: "https://www.espncricinfo.com/series/ipl-2026-1510719/squads",
       scrapedAt: new Date().toISOString(),
       espnSquadPlayerCount: uniqueEspn.length,
-      mappedCount: rows.filter((r) => r.leaguePlayerId).length,
+      mappedCount: mappedRows.length,
       unmappedCount: unmapped.length,
       leaguePlayerCount: leagueById.size,
       leagueOnlyInJsonCount: leagueOnly.length,
+      ignoredEspnSlugs: [...IGNORED_ESPN_SLUGS].sort(),
     };
 
     const payload = {
       meta,
       manualEspnSlugToLeaguePlayerId: MANUAL_ESPN_SLUG_TO_LEAGUE_ID,
       normalizedDisplayNameToLeaguePlayerId: nameAlias,
+      espnSquadPlayerRows,
       unmappedEspnPlayers: unmapped,
       leaguePlayerIdsNotInSquads: leagueOnly.sort(),
     };
