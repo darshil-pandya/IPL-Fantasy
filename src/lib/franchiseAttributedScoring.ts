@@ -3,7 +3,15 @@ import { buildStandings, playerMapFromList } from "./buildStandings";
 import type { RosterChangeEvent } from "./waiver/types";
 import { matchColumnsFromPlayers, pointsInMatch, type MatchColumn } from "./matchColumns";
 
-export type FranchiseScoringMode = "attributed" | "legacy";
+export type FranchiseScoringMode = "attributed" | "timestamp" | "legacy";
+
+/** Client-side representation of an ownership period from Firestore. */
+export interface ClientOwnershipPeriod {
+  playerId: string;
+  ownerId: string;
+  acquiredAt: string;
+  releasedAt: string | null;
+}
 
 export type FranchiseScoringSummary = {
   mode: FranchiseScoringMode;
@@ -171,8 +179,49 @@ function perOwnerPerMatchAttributed(
 }
 
 /**
- * Standings + per-match grid from one definition: points count only while a player was on that franchise,
- * using `rosterHistory` and auction rosters from `baseFranchises`.
+ * Timestamp-based attribution: for each match column, determine which owner
+ * held each player at the match date using ownership periods, then sum points.
+ */
+function perOwnerPerMatchTimestamp(
+  owners: string[],
+  columns: MatchColumn[],
+  pmap: Map<string, Player>,
+  ownershipPeriods: ClientOwnershipPeriod[],
+): Record<string, number[]> {
+  const out: Record<string, number[]> = {};
+  for (const o of owners) out[o] = columns.map(() => 0);
+
+  for (let j = 0; j < columns.length; j++) {
+    const col = columns[j];
+    const matchDate = col.date;
+
+    for (const period of ownershipPeriods) {
+      if (!owners.includes(period.ownerId)) continue;
+      const inRange =
+        period.acquiredAt <= matchDate &&
+        (period.releasedAt === null || matchDate < period.releasedAt);
+      if (!inRange) continue;
+
+      const p = pmap.get(period.playerId);
+      if (!p) continue;
+      const v = pointsInMatch(p, col.id);
+      if (v != null) {
+        out[period.ownerId][j] =
+          Math.round((out[period.ownerId][j] + v) * 100) / 100;
+      }
+    }
+  }
+
+  return out;
+}
+
+/**
+ * Standings + per-match grid from one definition: points count only while a player was on that franchise.
+ *
+ * Scoring authority order:
+ * 1. **Timestamp-based** (if `ownershipPeriods` provided and non-empty) — authoritative
+ * 2. **Column-based** replay via `rosterHistory` — fallback
+ * 3. **Legacy** (current rosters applied to all matches) — last resort
  */
 export function computeFranchiseScoring(
   bundle: LeagueBundle,
@@ -181,6 +230,7 @@ export function computeFranchiseScoring(
   currentRosters: Record<string, string[]>,
   rosterHistory: RosterChangeEvent[],
   pointCarryover: Record<string, number>,
+  ownershipPeriods?: ClientOwnershipPeriod[],
 ): FranchiseScoringSummary & {
   standings: FranchiseStanding[];
   sorted: FranchiseStanding[];
@@ -193,36 +243,50 @@ export function computeFranchiseScoring(
   const initial = initialRosterMap(baseFranchises);
 
   const baseStandings = buildStandings(displayFranchises, players);
-  const replayed = replayRostersAfterAllEvents(initial, rosterHistory, columns);
-  const hasHistory = rosterHistory.length > 0;
-  const replayOk = hasHistory && rostersDeepEqual(replayed, currentRosters, owners);
-  const idleNoMoves =
-    !hasHistory && rostersDeepEqual(initial, currentRosters, owners);
 
   let mode: FranchiseScoringMode;
   let perOwnerPerMatch: Record<string, number[]>;
   let rostersAtStartOfMatch: Record<string, string[]>[] | null;
 
-  if (replayOk || idleNoMoves) {
-    mode = "attributed";
-    const timeline =
-      columns.length === 0
-        ? []
-        : rostersAtStartOfEachMatch(initial, rosterHistory, columns);
-    rostersAtStartOfMatch = timeline.length > 0 ? timeline : null;
-    perOwnerPerMatch =
-      columns.length === 0
-        ? Object.fromEntries(owners.map((o) => [o, []]))
-        : perOwnerPerMatchAttributed(owners, columns, timeline, pmap);
-  } else {
-    mode = "legacy";
+  // Priority 1: timestamp-based ownership periods (authoritative when available)
+  if (ownershipPeriods && ownershipPeriods.length > 0 && columns.length > 0) {
+    mode = "timestamp";
     rostersAtStartOfMatch = null;
-    perOwnerPerMatch = perOwnerPerMatchFromCurrentRosters(
+    perOwnerPerMatch = perOwnerPerMatchTimestamp(
       owners,
       columns,
-      currentRosters,
       pmap,
+      ownershipPeriods,
     );
+  } else {
+    // Priority 2/3: column-based or legacy fallback
+    const replayed = replayRostersAfterAllEvents(initial, rosterHistory, columns);
+    const hasHistory = rosterHistory.length > 0;
+    const replayOk = hasHistory && rostersDeepEqual(replayed, currentRosters, owners);
+    const idleNoMoves =
+      !hasHistory && rostersDeepEqual(initial, currentRosters, owners);
+
+    if (replayOk || idleNoMoves) {
+      mode = "attributed";
+      const timeline =
+        columns.length === 0
+          ? []
+          : rostersAtStartOfEachMatch(initial, rosterHistory, columns);
+      rostersAtStartOfMatch = timeline.length > 0 ? timeline : null;
+      perOwnerPerMatch =
+        columns.length === 0
+          ? Object.fromEntries(owners.map((o) => [o, []]))
+          : perOwnerPerMatchAttributed(owners, columns, timeline, pmap);
+    } else {
+      mode = "legacy";
+      rostersAtStartOfMatch = null;
+      perOwnerPerMatch = perOwnerPerMatchFromCurrentRosters(
+        owners,
+        columns,
+        currentRosters,
+        pmap,
+      );
+    }
   }
 
   const standings: FranchiseStanding[] = baseStandings.map((s) => {

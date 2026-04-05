@@ -2,6 +2,29 @@ import { initializeApp } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { runAdminScoreSync } from "./sync/adminScoreSync.js";
+import { runMigration } from "./api/migrate.js";
+import {
+  handleNominate,
+  handleBid,
+  handleSettle,
+  handleSetWaiverPhase,
+  type NominateInput,
+  type BidInput,
+  type SettleInput,
+  type SetPhaseInput,
+} from "./api/waivers.js";
+import {
+  handleGetPlayers,
+  handleGetPlayerHistory,
+  type GetPlayerHistoryInput,
+} from "./api/players.js";
+import {
+  handleGetOwnerPoints,
+  handleGetOwnerSquad,
+  handleGetLeaderboard,
+  type GetOwnerPointsInput,
+  type GetOwnerSquadInput,
+} from "./api/owners.js";
 
 initializeApp();
 
@@ -11,12 +34,15 @@ const ADMIN_SCORE_SYNC_SECRET = "ViratAnushka";
 /** Region must match VITE_FIREBASE_FUNCTIONS_REGION in the web app. */
 const SYNC_REGION = "asia-south1";
 
+const CALLABLE_OPTS = { region: SYNC_REGION, timeoutSeconds: 60, memory: "256MiB" as const };
+const HEAVY_CALLABLE_OPTS = { region: SYNC_REGION, timeoutSeconds: 120, memory: "512MiB" as const };
+
+// ═══════════════════════════════════════════════════════════
+// Existing score-sync functions (unchanged API contract)
+// ═══════════════════════════════════════════════════════════
+
 export const adminSyncMatchScores = onCall(
-  {
-    region: SYNC_REGION,
-    timeoutSeconds: 120,
-    memory: "512MiB",
-  },
+  HEAVY_CALLABLE_OPTS,
   async (request) => {
     const raw = request.data as Record<string, unknown> | undefined;
     const token = typeof raw?.adminSyncSecret === "string" ? raw.adminSyncSecret : "";
@@ -47,13 +73,8 @@ export const adminSyncMatchScores = onCall(
   },
 );
 
-/** Clears all per-match overlay rows in `iplFantasy/fantasyMatchScores` (same secret as score sync). */
 export const adminResetFantasyMatchScores = onCall(
-  {
-    region: SYNC_REGION,
-    timeoutSeconds: 60,
-    memory: "256MiB",
-  },
+  CALLABLE_OPTS,
   async (request) => {
     const raw = request.data as Record<string, unknown> | undefined;
     const token = typeof raw?.adminSyncSecret === "string" ? raw.adminSyncSecret : "";
@@ -67,5 +88,96 @@ export const adminResetFantasyMatchScores = onCall(
       message:
         "Firestore iplFantasy/fantasyMatchScores: all match overlays removed. Republish league from Waivers if player totals in leagueBundle should match static JSON.",
     };
+  },
+);
+
+// ═══════════════════════════════════════════════════════════
+// Migration
+// ═══════════════════════════════════════════════════════════
+
+export const adminMigrateToCollections = onCall(
+  HEAVY_CALLABLE_OPTS,
+  async (request) => {
+    const raw = request.data as Record<string, unknown> | undefined;
+    const secret = typeof raw?.adminSecret === "string" ? raw.adminSecret : "";
+    return await runMigration(secret, ADMIN_SCORE_SYNC_SECRET);
+  },
+);
+
+// ═══════════════════════════════════════════════════════════
+// Waiver mutations
+// ═══════════════════════════════════════════════════════════
+
+export const waiverNominate = onCall(
+  CALLABLE_OPTS,
+  async (request) => {
+    const data = request.data as NominateInput;
+    return await handleNominate(data);
+  },
+);
+
+export const waiverBid = onCall(
+  CALLABLE_OPTS,
+  async (request) => {
+    const data = request.data as BidInput;
+    return await handleBid(data);
+  },
+);
+
+export const waiverSettle = onCall(
+  HEAVY_CALLABLE_OPTS,
+  async (request) => {
+    const data = request.data as SettleInput;
+    return await handleSettle(data, ADMIN_SCORE_SYNC_SECRET);
+  },
+);
+
+export const adminSetWaiverPhase = onCall(
+  CALLABLE_OPTS,
+  async (request) => {
+    const data = request.data as SetPhaseInput;
+    return await handleSetWaiverPhase(data, ADMIN_SCORE_SYNC_SECRET);
+  },
+);
+
+// ═══════════════════════════════════════════════════════════
+// Read endpoints
+// ═══════════════════════════════════════════════════════════
+
+export const getPlayers = onCall(
+  CALLABLE_OPTS,
+  async () => {
+    return await handleGetPlayers();
+  },
+);
+
+export const getPlayerHistory = onCall(
+  CALLABLE_OPTS,
+  async (request) => {
+    const data = request.data as GetPlayerHistoryInput;
+    return await handleGetPlayerHistory(data);
+  },
+);
+
+export const getOwnerPoints = onCall(
+  CALLABLE_OPTS,
+  async (request) => {
+    const data = request.data as GetOwnerPointsInput;
+    return await handleGetOwnerPoints(data);
+  },
+);
+
+export const getOwnerSquad = onCall(
+  CALLABLE_OPTS,
+  async (request) => {
+    const data = request.data as GetOwnerSquadInput;
+    return await handleGetOwnerSquad(data);
+  },
+);
+
+export const getLeaderboard = onCall(
+  CALLABLE_OPTS,
+  async () => {
+    return await handleGetLeaderboard();
   },
 );

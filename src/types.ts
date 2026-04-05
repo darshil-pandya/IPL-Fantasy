@@ -110,6 +110,10 @@ export interface Player {
   seasonStats?: PlayerSeasonStats;
   /** Fantasy points by category; Players page shows these instead of raw stats. */
   seasonFantasyPoints?: PlayerSeasonFantasyPoints;
+  /** Whether this player is currently on any owner's roster (populated from Firestore collections). */
+  isOwned?: boolean;
+  /** Display name of the owner who currently holds this player, or null. */
+  currentOwnerId?: string | null;
 }
 
 export interface Franchise {

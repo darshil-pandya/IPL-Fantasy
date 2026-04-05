@@ -33,6 +33,15 @@ import {
   pushWaiverRemote,
   subscribeWaiverRemote,
 } from "../lib/firebase/waiverRemote";
+import {
+  callWaiverNominate,
+  callWaiverBid,
+  callWaiverSettle,
+  callSetWaiverPhase,
+  callMigrateToCollections,
+  type SettleResult,
+  type MigrateResult,
+} from "../lib/firebase/waiverApi";
 
 function loadParsedState(): WaiverPersistentState | null {
   if (typeof localStorage === "undefined") return null;
@@ -64,10 +73,28 @@ type WaiverCtx = {
   state: WaiverPersistentState;
   displayFranchises: Franchise[];
   displaySummary: ReturnType<typeof summarizeDisplayFranchises> | null;
+  /** @deprecated Use cloud methods below for server-validated mutations. */
   dispatch: (a: WaiverEngineAction) => string | null;
   availableIds: string[];
   remoteConnected: boolean;
   remoteError: string | null;
+  /** Cloud Function backed mutations (server-validated, atomic writes). */
+  cloud: {
+    nominate: (params: {
+      nominatedPlayerId: string;
+      playerToDropId: string;
+    }) => Promise<{ nominationId: string }>;
+    bid: (params: {
+      nominationId: string;
+      bidAmount: number;
+      playerToDropId?: string;
+    }) => Promise<{ bidId: string }>;
+    settle: (nominationId: string) => Promise<SettleResult>;
+    setPhase: (
+      phase: "idle" | "nomination" | "bidding",
+    ) => Promise<{ phase: string; isWaiverWindowOpen: boolean }>;
+    migrate: () => Promise<MigrateResult>;
+  };
 };
 
 const WaiverContext = createContext<WaiverCtx | null>(null);
@@ -233,6 +260,44 @@ export function WaiverProvider({ children }: { children: ReactNode }) {
     saveSession(null);
   }, []);
 
+  const cloud = useMemo(() => {
+    const ownerName = session?.role === "owner" ? session.owner : "";
+    const ownerPassword = "";
+
+    return {
+      nominate: async (params: {
+        nominatedPlayerId: string;
+        playerToDropId: string;
+      }) => {
+        return callWaiverNominate({
+          ownerName,
+          ownerPassword,
+          ...params,
+        });
+      },
+      bid: async (params: {
+        nominationId: string;
+        bidAmount: number;
+        playerToDropId?: string;
+      }) => {
+        return callWaiverBid({
+          ownerName,
+          ownerPassword,
+          ...params,
+        });
+      },
+      settle: async (nominationId: string) => {
+        return callWaiverSettle({ nominationId });
+      },
+      setPhase: async (phase: "idle" | "nomination" | "bidding") => {
+        return callSetWaiverPhase({ targetPhase: phase });
+      },
+      migrate: async () => {
+        return callMigrateToCollections();
+      },
+    };
+  }, [session]);
+
   return (
     <WaiverContext.Provider
       value={{
@@ -246,6 +311,7 @@ export function WaiverProvider({ children }: { children: ReactNode }) {
         availableIds,
         remoteConnected,
         remoteError,
+        cloud,
       }}
     >
       {children}

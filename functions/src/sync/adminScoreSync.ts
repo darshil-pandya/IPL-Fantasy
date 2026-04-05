@@ -349,6 +349,21 @@ export async function runAdminScoreSync(opts: {
       },
       { merge: true },
     );
+
+    // Dual-write: individual matchPlayerPoints docs for the new collection model
+    const mppBatch = db.batch();
+    for (const [pid, pts] of Object.entries(playerPoints)) {
+      const recordId = `${matchKey}_${pid}`;
+      mppBatch.set(db.collection("matchPlayerPoints").doc(recordId), {
+        recordId,
+        playerId: pid,
+        matchId: matchKey,
+        matchPlayedAt: matchDate,
+        points: pts,
+      });
+    }
+    await mppBatch.commit();
+
     wroteFirestore = true;
   } else if (opts.writeToFirestore) {
     warnings.push(
