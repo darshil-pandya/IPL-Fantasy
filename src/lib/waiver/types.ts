@@ -65,6 +65,23 @@ export interface WaiverPersistentState {
   log: WaiverLogEntry[];
 }
 
+export interface CompletedBid {
+  owner: string;
+  amount: number;
+  playerOutId: string;
+  placedAt: string;
+  result: "WON" | "LOST";
+}
+
+export interface CompletedTransfer {
+  id: string;
+  roundId: number;
+  revealedAt: string;
+  playerInId: string;
+  nominatorOwner: string;
+  bids: CompletedBid[];
+}
+
 export type WaiverSession =
   | { role: "admin"; label: string }
   | { role: "owner"; label: string; owner: string };

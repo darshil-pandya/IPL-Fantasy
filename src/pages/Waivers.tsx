@@ -12,9 +12,10 @@ import {
 } from "../lib/waiver/constants";
 import { WAIVER_LOGIN_ROWS } from "../lib/waiver/auth";
 import type { Franchise, LeagueBundle, Player } from "../types";
-import type { WaiverBid, WaiverNomination, WaiverSession } from "../lib/waiver/types";
+import type { CompletedTransfer, WaiverBid, WaiverNomination, WaiverSession } from "../lib/waiver/types";
 import { isFirebaseConfigured } from "../lib/firebase/client";
 import { seedLeagueFromStaticToFirestore } from "../lib/firebase/leagueRemote";
+import { loadCompletedTransfers } from "../lib/firebase/waiverRemote";
 import { ownerCardClass, ownerCardMutedClass } from "../lib/ownerTheme";
 
 function money(n: number): string {
@@ -284,19 +285,23 @@ export function Waivers() {
         )}
       </section>
 
-      <section>
-        <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
-          Event log (recent)
-        </h3>
-        <ul className="mt-2 max-h-64 space-y-1 overflow-y-auto rounded-xl border border-cyan-500/25 bg-slate-950/60 p-3 font-mono text-xs text-slate-400">
-          {[...state.log].reverse().map((e, i) => (
-            <li key={`${e.at}-${i}`}>
-              <span className="text-slate-500">{e.at}</span> [{e.kind}]{" "}
-              {e.message}
-            </li>
-          ))}
-        </ul>
-      </section>
+      {session?.role === "admin" && (
+        <section>
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+            Event log
+          </h3>
+          <ul className="mt-2 max-h-64 space-y-1 overflow-y-auto rounded-xl border border-cyan-500/25 bg-slate-950/60 p-3 font-mono text-xs text-slate-400">
+            {[...state.log].reverse().map((e, i) => (
+              <li key={`${e.at}-${i}`}>
+                <span className="text-slate-500">{e.at}</span> [{e.kind}]{" "}
+                {e.message}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      <SuccessfulTransfers pmap={pmap} />
 
       <section className="app-card p-4">
         <h3 className="text-sm font-semibold text-white">Original auction</h3>
@@ -598,6 +603,8 @@ function NominationRow({
   tryDispatch: (a: WaiverEngineAction) => string | null;
 }) {
   const pIn = pmap.get(n.playerInId);
+  const isSelfNomination =
+    session?.role === "owner" && session.owner === n.nominatorOwner;
   const existing =
     session?.role === "owner"
       ? bids.find((b) => b.bidderOwner === session.owner)
@@ -619,11 +626,30 @@ function NominationRow({
           <p className="font-semibold text-white">{pIn?.name ?? n.playerInId}</p>
           <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
             {pIn && <IplTeamPill code={pIn.iplTeam} />}
+            {pIn && (
+              <span className="text-slate-400">
+                {pIn.role}{pIn.nationality ? ` · ${pIn.nationality}` : ""}
+              </span>
+            )}
             <span>
-              Listed by <OwnerBadge owner={n.nominatorOwner} /> · opens{" "}
-              {pmap.get(n.playerOutId)?.name ?? n.playerOutId} / {money(n.amount)}
+              Nominated by <OwnerBadge owner={n.nominatorOwner} />
+              {isSelfNomination && (
+                <>
+                  {" "}in exchange of{" "}
+                  {pmap.get(n.playerOutId)?.name ?? n.playerOutId}. Bid Amount:{" "}
+                  {money(n.amount)}
+                </>
+              )}
             </span>
           </p>
+          {n.createdAt && (
+            <p className="mt-0.5 text-[10px] text-slate-600">
+              {new Date(n.createdAt).toLocaleString("en-IN", {
+                dateStyle: "medium",
+                timeStyle: "short",
+              })}
+            </p>
+          )}
         </div>
       </div>
       {phase === "bidding" &&
@@ -684,6 +710,170 @@ function NominationRow({
           </p>
         )}
     </li>
+  );
+}
+
+function formatDate(iso: string): string {
+  try {
+    return new Date(iso).toLocaleString("en-IN", {
+      day: "numeric",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return iso;
+  }
+}
+
+function SuccessfulTransfers({ pmap }: { pmap: Map<string, Player> }) {
+  const [transfers, setTransfers] = useState<CompletedTransfer[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadCompletedTransfers()
+      .then((data) => {
+        if (!cancelled) setTransfers(data);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  if (loading) {
+    return (
+      <section>
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+          Successful transfers
+        </h3>
+        <p className="mt-2 text-sm text-slate-500">Loading…</p>
+      </section>
+    );
+  }
+
+  if (transfers.length === 0) {
+    return (
+      <section>
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+          Successful transfers
+        </h3>
+        <p className="mt-2 text-sm text-slate-500">No completed transfers yet.</p>
+      </section>
+    );
+  }
+
+  return (
+    <section>
+      <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+        Successful transfers
+      </h3>
+      <ul className="mt-3 space-y-3">
+        {transfers.map((t) => {
+          const pIn = pmap.get(t.playerInId);
+          const winBid = t.bids.find((b) => b.result === "WON");
+          const isExpanded = expandedId === t.id;
+          return (
+            <li key={t.id} className="app-panel border-cyan-500/25 overflow-hidden">
+              <div className="flex flex-wrap items-center justify-between gap-3 p-4">
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="text-xs text-slate-500">
+                    {formatDate(t.revealedAt)}
+                  </span>
+                  <OwnerBadge owner={t.nominatorOwner} />
+                  <span className="font-semibold text-white">
+                    {pIn?.name ?? t.playerInId}
+                  </span>
+                  {pIn && <IplTeamPill code={pIn.iplTeam} />}
+                  {pIn && (
+                    <span className="text-xs text-slate-400">
+                      {pIn.role}{pIn.nationality ? ` · ${pIn.nationality}` : ""}
+                    </span>
+                  )}
+                  {winBid && (
+                    <>
+                      <span className="text-xs text-slate-600">←</span>
+                      <span className="text-xs text-slate-400">
+                        {pmap.get(winBid.playerOutId)?.name ?? winBid.playerOutId}
+                      </span>
+                    </>
+                  )}
+                </div>
+                <div className="flex items-center gap-3">
+                  {winBid && (
+                    <span className="font-bold tabular-nums text-amber-400">
+                      {money(winBid.amount)}
+                    </span>
+                  )}
+                  <span className="rounded-full bg-emerald-600/20 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-400">
+                    Processed
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setExpandedId(isExpanded ? null : t.id)}
+                    className="text-xs font-medium text-cyan-400 hover:text-white"
+                  >
+                    {isExpanded ? "Hide bids" : "Show bids"}
+                  </button>
+                </div>
+              </div>
+              {isExpanded && (
+                <div className="border-t border-cyan-500/15 bg-slate-950/50 px-4 py-3">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="text-[10px] uppercase tracking-wide text-slate-500">
+                        <th className="pb-2 font-semibold">Franchise</th>
+                        <th className="pb-2 font-semibold">Bid Amount</th>
+                        <th className="pb-2 font-semibold">Transfer Out</th>
+                        <th className="pb-2 font-semibold">Placed At</th>
+                        <th className="pb-2 font-semibold">Result</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[...t.bids]
+                        .sort((a, b) => b.amount - a.amount)
+                        .map((bid) => (
+                          <tr
+                            key={bid.owner}
+                            className="border-t border-slate-800/60"
+                          >
+                            <td className="py-2 text-slate-300">
+                              <OwnerBadge owner={bid.owner} />
+                            </td>
+                            <td className="py-2 font-bold tabular-nums text-amber-400">
+                              {money(bid.amount)}
+                            </td>
+                            <td className="py-2 text-slate-400">
+                              {pmap.get(bid.playerOutId)?.name ?? bid.playerOutId}
+                            </td>
+                            <td className="py-2 text-slate-500">
+                              {formatDate(bid.placedAt)}
+                            </td>
+                            <td className="py-2">
+                              {bid.result === "WON" ? (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-600/20 px-2 py-0.5 text-[10px] font-bold uppercase text-emerald-400">
+                                  Won
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-slate-700/40 px-2 py-0.5 text-[10px] font-bold uppercase text-slate-500">
+                                  Lost
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </section>
   );
 }
 

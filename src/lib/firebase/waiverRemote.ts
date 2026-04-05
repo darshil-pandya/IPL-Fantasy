@@ -61,3 +61,37 @@ export async function pushWaiverRemote(payload: unknown): Promise<void> {
     { merge: true },
   );
 }
+
+import type { CompletedTransfer } from "../waiver/types";
+
+const TRANSFERS_COLLECTION = "completedTransfers";
+
+export async function writeCompletedTransfers(
+  transfers: CompletedTransfer[],
+): Promise<void> {
+  if (!isFirebaseWaiverConfigured() || transfers.length === 0) return;
+  const { getFirestore, doc, writeBatch } = await import("firebase/firestore");
+  const app = await getFirebaseApp();
+  const db = getFirestore(app);
+  const batch = writeBatch(db);
+  for (const t of transfers) {
+    const clean = stripUndefinedForFirestore(t);
+    batch.set(doc(db, TRANSFERS_COLLECTION, t.id), clean);
+  }
+  await batch.commit();
+}
+
+export async function loadCompletedTransfers(): Promise<CompletedTransfer[]> {
+  if (!isFirebaseWaiverConfigured()) return [];
+  const { getFirestore, collection, query, orderBy, getDocs } = await import(
+    "firebase/firestore"
+  );
+  const app = await getFirebaseApp();
+  const db = getFirestore(app);
+  const q = query(
+    collection(db, TRANSFERS_COLLECTION),
+    orderBy("revealedAt", "desc"),
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => d.data() as CompletedTransfer);
+}

@@ -32,6 +32,7 @@ import {
   isFirebaseWaiverConfigured,
   pushWaiverRemote,
   subscribeWaiverRemote,
+  writeCompletedTransfers,
 } from "../lib/firebase/waiverRemote";
 import {
   callWaiverNominate,
@@ -236,12 +237,17 @@ export function WaiverProvider({ children }: { children: ReactNode }) {
   const dispatch = useCallback(
     (action: WaiverEngineAction): string | null => {
       if (!bundle || !state) return "Loading…";
-      const { state: next, error } = reduceWaiver(state, action, {
+      const result = reduceWaiver(state, action, {
         baseFranchises: bundle.franchises,
         revealEffectiveAfterColumnId,
       });
-      if (error) return error;
-      setState(next);
+      if (result.error) return result.error;
+      setState(result.state);
+      if (result.completedTransfers?.length) {
+        void writeCompletedTransfers(result.completedTransfers).catch(
+          (e: Error) => setRemoteError(e.message),
+        );
+      }
       return null;
     },
     [bundle, state, revealEffectiveAfterColumnId],

@@ -42,5 +42,9 @@ service cloud.firestore {
       allow read: if true;
       allow write: if false;
     }
+    match /completedTransfers/{transferId} {
+      allow read: if true;
+      allow write: if true;
+    }
   }
 }

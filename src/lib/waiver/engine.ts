@@ -1,5 +1,5 @@
 import type { Franchise } from "../../types";
-import type { RosterChangeEvent } from "./types";
+import type { RosterChangeEvent, CompletedTransfer, CompletedBid } from "./types";
 import type {
   WaiverBid,
   WaiverLogEntry,
@@ -90,11 +90,17 @@ export type WaiverEngineAction =
       amount: number;
     };
 
+export type WaiverReduceResult = {
+  state: WaiverPersistentState;
+  error?: string;
+  completedTransfers?: CompletedTransfer[];
+};
+
 export function reduceWaiver(
   state: WaiverPersistentState,
   action: WaiverEngineAction,
   ctx: Ctx,
-): { state: WaiverPersistentState; error?: string } {
+): WaiverReduceResult {
   const owners = ctx.baseFranchises.map((f) => f.owner);
 
   const ensureOwner = (o: string) => {
@@ -340,11 +346,12 @@ type Candidate = {
 function resolveRound(
   state: WaiverPersistentState,
   ctx: Ctx,
-): { state: WaiverPersistentState; error?: string } {
+): WaiverReduceResult {
   let rosters = { ...state.rosters };
   const budgets = { ...state.budgets };
   let log = state.log;
   const rosterHistory = [...state.rosterHistory];
+  const completedTransfers: CompletedTransfer[] = [];
   let orderInRound = 0;
 
   const push = (entry: WaiverLogEntry) => {
@@ -415,6 +422,32 @@ function resolveRound(
       effectiveAfterColumnId: ctx.revealEffectiveAfterColumnId,
     });
 
+    // Build completed transfer record with all bids
+    const allBids: CompletedBid[] = [
+      {
+        owner: nom.nominatorOwner,
+        amount: nom.amount,
+        playerOutId: nom.playerOutId,
+        placedAt: nom.createdAt,
+        result: winner.owner === nom.nominatorOwner ? "WON" : "LOST",
+      },
+      ...bidsOn.map((b): CompletedBid => ({
+        owner: b.bidderOwner,
+        amount: b.amount,
+        playerOutId: b.playerOutId,
+        placedAt: b.createdAt,
+        result: winner.owner === b.bidderOwner ? "WON" : "LOST",
+      })),
+    ];
+    completedTransfers.push({
+      id: nom.id,
+      roundId: state.roundId,
+      revealedAt: tReveal,
+      playerInId: pidIn,
+      nominatorOwner: nom.nominatorOwner,
+      bids: allBids,
+    });
+
     push(
       logEntry(
         "reveal",
@@ -444,6 +477,7 @@ function resolveRound(
 
   return {
     state: pushLog(next, logEntry("phase", "Waiver round revealed; rosters updated.")),
+    completedTransfers,
   };
 }
 
