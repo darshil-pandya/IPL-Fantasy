@@ -115,7 +115,7 @@ export function AdminScoreSync() {
           <strong>match date</strong> (calendar day in India, IST), pulls the full scorecard JSON,
           computes fantasy points, and optionally writes to{" "}
           <code className="rounded bg-brand-pale px-1 text-brand-dark">iplFantasy/fantasyMatchScores</code>
-          . Only fixtures linked from ESPN&apos;s live scores page can be found.
+          . Fixtures come from ESPN&apos;s IPL 2026 schedule/results page (same source as the Cloud Function).
         </p>
       </div>
 

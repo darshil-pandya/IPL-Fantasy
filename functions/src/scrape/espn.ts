@@ -1,7 +1,12 @@
 import { fetchText } from "./http.js";
 import { normalizePlayerName, queryTokens, scoreAgainstTokens } from "../util/names.js";
 
-const LIVE_URL = "https://www.espncricinfo.com/live-cricket-score";
+/**
+ * IPL season fixtures (all matches + dates). Update `series` segment when ESPN uses a new series id.
+ * @see https://www.espncricinfo.com/series/ipl-2026-1510719/match-schedule-fixtures-and-results
+ */
+const IPL_FIXTURES_AND_RESULTS_URL =
+  "https://www.espncricinfo.com/series/ipl-2026-1510719/match-schedule-fixtures-and-results";
 
 export type EspnMatchPick = {
   path: string;
@@ -65,20 +70,27 @@ export function espnMatchStartIso(html: string): string | null {
   }
 }
 
-function collectIplScorecardPaths(html: string): string[] {
-  const re = /href="(\/series\/ipl-[^"]+-match-\d+\/full-scorecard)"/gi;
-  const seen = new Set<string>();
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(html))) {
-    seen.add(m[1]!);
-  }
-  return [...seen];
+/** Calendar day in Asia/Kolkata from ESPN ISO timestamps. */
+export function ymdISTFromEspnTime(startTime: unknown, startDate: unknown): string | null {
+  const iso = startTime ?? startDate;
+  if (iso == null) return null;
+  const d = new Date(typeof iso === "number" ? iso : String(iso));
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function fullScorecardPathFromFixtureMatch(match: any): string | null {
+  const series = match?.series;
+  const slug = match?.slug;
+  const oid = match?.objectId;
+  if (!series?.slug || typeof slug !== "string" || oid == null) return null;
+  const seriesSeg = `${series.slug}-${series.objectId}`;
+  return `/series/${seriesSeg}/${slug}-${oid}/full-scorecard`;
 }
 
 /**
- * From the live scores page, find an IPL scorecard whose slug matches the query and
- * whose match day (IST) equals matchDateYmd. Fetches each candidate scorecard until
- * dates align (only matches linked on the live page are discoverable).
+ * Load IPL fixtures/results JSON and pick the best match for query + calendar date (IST).
  */
 export async function discoverEspnMatch(
   matchQuery: string,
@@ -86,40 +98,52 @@ export async function discoverEspnMatch(
 ): Promise<EspnMatchPick | null> {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(matchDateYmd)) return null;
 
-  const listingHtml = await fetchText(LIVE_URL);
-  const paths = collectIplScorecardPaths(listingHtml);
+  const html = await fetchText(IPL_FIXTURES_AND_RESULTS_URL);
+  const j = extractNextDataJson(html);
+  const matches = j?.props?.appPageProps?.data?.content?.matches;
+  if (!Array.isArray(matches) || matches.length === 0) return null;
+
   const tokens = queryTokens(matchQuery);
 
-  type Scored = { path: string; label: string; score: number };
+  type Scored = { path: string; label: string; score: number; matchDayYmd: string };
   const scored: Scored[] = [];
-  for (const path of paths) {
-    const label = path.split("/").slice(-2, -1)[0] ?? path;
-    const s = scoreAgainstTokens(tokens, label.replace(/-/g, " "));
+
+  for (const m of matches) {
+    if (m?.isCancelled === true) continue;
+    const ymd = ymdISTFromEspnTime(m?.startTime, m?.startDate);
+    if (!ymd || ymd !== matchDateYmd) continue;
+
+    const path = fullScorecardPathFromFixtureMatch(m);
+    if (!path) continue;
+
+    const slug = String(m.slug ?? "");
+    const title = String(m.title ?? "");
+    const teamHay = Array.isArray(m.teams)
+      ? m.teams.map((t: { team?: { name?: string; longName?: string } }) =>
+          [t?.team?.name, t?.team?.longName].filter(Boolean).join(" "),
+        ).join(" ")
+      : "";
+    const haystack = `${slug} ${title} ${teamHay}`.replace(/-/g, " ");
+    const s = scoreAgainstTokens(tokens, haystack);
     if (s < 4) continue;
-    scored.push({ path, label, score: s });
+
+    scored.push({
+      path,
+      label: slug || path,
+      score: s,
+      matchDayYmd: ymd,
+    });
   }
-  scored.sort((a, b) => b.score - a.score);
+
   if (scored.length === 0) return null;
-
-  const maxTry = Math.min(scored.length, 30);
-  for (let i = 0; i < maxTry; i++) {
-    const c = scored[i]!;
-    try {
-      const h = await fetchText(espnScorecardUrl(c.path));
-      const ymd = matchStartYmdIST(h);
-      if (!ymd || ymd !== matchDateYmd) continue;
-      return {
-        path: c.path,
-        label: c.label,
-        score: c.score,
-        matchDayYmd: ymd,
-      };
-    } catch {
-      continue;
-    }
-  }
-
-  return null;
+  scored.sort((a, b) => b.score - a.score);
+  const best = scored[0]!;
+  return {
+    path: best.path,
+    label: best.label,
+    score: best.score,
+    matchDayYmd: best.matchDayYmd,
+  };
 }
 
 export function espnScorecardUrl(path: string): string {

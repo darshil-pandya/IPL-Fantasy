@@ -105,7 +105,7 @@ export async function runAdminScoreSync(opts: {
       validated: false,
       playerPoints: {},
       inconsistencies: [
-        "ESPNcricinfo: no IPL scorecard matched this query and date. Matches must appear on the live scores page; pick the correct calendar date (IST) and team names.",
+        "ESPNcricinfo: no IPL 2026 fixture matched this query and date. Check the match date (IST), team abbreviations (e.g. CSK vs RR), and that the season fixtures URL in the Cloud Function still matches ESPN.",
       ],
       warnings: [],
       wroteFirestore: false,

@@ -112,6 +112,8 @@ After **Waivers → Admin** login, the **Score sync** nav link runs a callable t
 
 4. On **Score sync**, paste the same passphrase you stored in `ADMIN_SCORE_SYNC_SECRET`. The Waivers Admin password is separate (honor-system login only).
 
+**IPL season URL:** score sync loads the full fixture list from ESPN (currently **IPL 2026** — `match-schedule-fixtures-and-results` for series `ipl-2026-1510719`). When ESPN publishes a new IPL edition, update `IPL_FIXTURES_AND_RESULTS_URL` in `functions/src/scrape/espn.ts` and redeploy functions.
+
 The GitHub Actions service account needs permission to deploy Cloud Functions and to access that secret (Secret Manager **Secret Accessor** on the project). If deploy fails on secrets, run `firebase functions:secrets:set` once from a machine with the Firebase CLI, then re-run the workflow.
 
 ## 7. Data model in Firestore
