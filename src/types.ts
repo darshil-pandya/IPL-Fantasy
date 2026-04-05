@@ -15,6 +15,8 @@ export interface FantasyMatchOverlayEntry {
   matchDate: string;
   status?: "final" | "abandoned" | "provisional";
   playerPoints: Record<string, number>;
+  /** Category points per player for this match (merged into `seasonFantasyPoints` on the Players page). */
+  playerBreakdown?: Record<string, PlayerSeasonFantasyPoints>;
 }
 
 export type PlayerNationality = "IND" | "OVS";

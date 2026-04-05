@@ -9,8 +9,16 @@ import {
   parseEspnScorecardHtml,
   type EspnBatterAgg,
 } from "../scrape/espn.js";
-import { normalizePlayerName } from "../util/names.js";
-import { fantasyPointsForPlayer, type Role } from "../scoring/points.js";
+import {
+  normalizePlayerName,
+  resolveLeaguePlayerIdForScorecardName,
+} from "../util/names.js";
+import {
+  compactFantasyBreakdownForFirestore,
+  fantasyBreakdownForPlayer,
+  sumComputedFantasyBreakdown,
+  type Role,
+} from "../scoring/points.js";
 import { statFromEspn } from "../scoring/mergeStats.js";
 
 export type LeaguePlayerRow = {
@@ -33,6 +41,10 @@ export type AdminSyncResult = {
   warnings: string[];
   wroteFirestore: boolean;
   note?: string;
+  /** How many distinct batter/bowler names ESPN returned (union of batting + bowling tables). */
+  scorecardUniquePlayerCount: number;
+  /** ESPN normalized names that did not map to exactly one league roster / waiver player. */
+  unmappedScorecardNames: string[];
 };
 
 function dismissalRowsFromEspn(batters: Map<string, EspnBatterAgg>): { dismissal: string }[] {
@@ -90,6 +102,8 @@ export async function runAdminScoreSync(opts: {
       inconsistencies: ["Invalid matchDate (use YYYY-MM-DD)."],
       warnings: [],
       wroteFirestore: false,
+      scorecardUniquePlayerCount: 0,
+      unmappedScorecardNames: [],
     };
   }
 
@@ -110,6 +124,8 @@ export async function runAdminScoreSync(opts: {
       ],
       warnings: [],
       wroteFirestore: false,
+      scorecardUniquePlayerCount: 0,
+      unmappedScorecardNames: [],
     };
   }
 
@@ -163,15 +179,20 @@ export async function runAdminScoreSync(opts: {
   const keys = new Set<string>();
   for (const k of esParsed.batters.keys()) keys.add(k);
   for (const k of esParsed.bowlers.keys()) keys.add(k);
+  const scorecardUniquePlayerCount = keys.size;
 
   const playerPoints: Record<string, number> = {};
+  const playerBreakdown: Record<string, Record<string, number>> = {};
+  const unmappedScorecardNames: string[] = [];
   let validated = true;
 
   for (const norm of keys) {
-    const ids = nameToIds.get(norm);
-    if (!ids?.length || ids.length > 1) continue;
+    const id = resolveLeaguePlayerIdForScorecardName(norm, nameToIds, rows);
+    if (!id) {
+      unmappedScorecardNames.push(norm);
+      continue;
+    }
 
-    const id = ids[0]!;
     const leagueRow = rows.find((r) => r.id === id);
     if (!leagueRow) continue;
 
@@ -182,12 +203,16 @@ export async function runAdminScoreSync(opts: {
 
     const stEs = statFromEspn(esBat, esBowl);
 
-    const pts = fantasyPointsForPlayer(leagueRow.role, stEs, {
+    const breakdown = fantasyBreakdownForPlayer(leagueRow.role, stEs, {
       allDismissals: dismissEs,
       playerNorm: norm,
     });
-
-    playerPoints[id] = Math.round(pts * 100) / 100;
+    playerPoints[id] =
+      Math.round(sumComputedFantasyBreakdown(breakdown) * 100) / 100;
+    const slice = compactFantasyBreakdownForFirestore(breakdown);
+    if (Object.keys(slice).length > 0) {
+      playerBreakdown[id] = slice;
+    }
   }
 
   const matchKey = stableMatchKey(esPick.path);
@@ -200,6 +225,12 @@ export async function runAdminScoreSync(opts: {
     validated = false;
     inconsistencies.push(
       "No league roster players matched the ESPN scorecard — check display names vs ESPN.",
+    );
+  }
+
+  if (unmappedScorecardNames.length > 0) {
+    warnings.push(
+      `${unmappedScorecardNames.length} scorecard player(s) were not mapped to your league roster or waiver pool (names use ESPN’s scorecard spelling; only owned players get points here).`,
     );
   }
 
@@ -223,6 +254,7 @@ export async function runAdminScoreSync(opts: {
             matchDate,
             status: "final",
             playerPoints,
+            playerBreakdown,
           },
         },
       },
@@ -252,5 +284,7 @@ export async function runAdminScoreSync(opts: {
     warnings,
     wroteFirestore,
     note,
+    scorecardUniquePlayerCount,
+    unmappedScorecardNames: [...unmappedScorecardNames].sort(),
   };
 }

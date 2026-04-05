@@ -16,6 +16,24 @@ export type PlayerMatchStat = {
   dots?: number;
 };
 
+/** Mirrors client `PlayerSeasonFantasyPoints` keys we auto-fill (Firestore → Players table). */
+export type ComputedMatchFantasyPoints = Partial<{
+  battingRuns: number;
+  boundaryFours: number;
+  boundarySixes: number;
+  battingMilestones: number;
+  ducks: number;
+  dotBalls: number;
+  wickets: number;
+  lbwOrBowled: number;
+  threeWicketHauls: number;
+  fourWicketHauls: number;
+  fiveWicketHauls: number;
+  maidens: number;
+  economy: number;
+  strikeRate: number;
+}>;
+
 /** 25/50/75/100 bonuses; century uses only the +16 tier (rules.json). */
 function milestonePoints(runs: number): number {
   if (runs >= 100) return 16;
@@ -46,21 +64,20 @@ function economyPoints(eco: number, ballsBowled: number): number {
   return -6;
 }
 
-function haulPoints(wickets: number): number {
-  let p = 0;
-  if (wickets >= 5) p += 16;
-  else if (wickets === 4) p += 8;
-  else if (wickets === 3) p += 4;
-  return p;
+function haulSlice(wickets: number): Pick<
+  ComputedMatchFantasyPoints,
+  "threeWicketHauls" | "fourWicketHauls" | "fiveWicketHauls"
+> {
+  if (wickets >= 5) return { fiveWicketHauls: 16 };
+  if (wickets === 4) return { fourWicketHauls: 8 };
+  if (wickets === 3) return { threeWicketHauls: 4 };
+  return {};
 }
 
 function isDuckEligible(role: Role): boolean {
   return role === "BAT" || role === "WK" || role === "AR";
 }
 
-/**
- * +8 per wicket taken via LBW or bowled (parsed from batter dismissal text).
- */
 function lbwBowledBonusForBowler(
   allBatters: { dismissal: string }[],
   bowlerNorm: string,
@@ -88,30 +105,30 @@ function batterIsOut(s: PlayerMatchStat): boolean {
   return true;
 }
 
-export function fantasyPointsForPlayer(
+export function fantasyBreakdownForPlayer(
   role: Role,
   s: PlayerMatchStat,
   ctx?: { allDismissals?: { dismissal: string }[]; playerNorm: string },
-): number {
-  let pts = 0;
+): ComputedMatchFantasyPoints {
+  const b: ComputedMatchFantasyPoints = {};
   const runs = s.runsBat ?? 0;
   const balls = s.ballsBat ?? 0;
   const fours = s.fours ?? 0;
   const sixes = s.sixes ?? 0;
 
   if (balls > 0 || runs > 0) {
-    pts += runs;
-    pts += fours * 2;
-    pts += sixes * 4;
-    pts += milestonePoints(runs);
+    b.battingRuns = runs;
+    b.boundaryFours = fours * 2;
+    b.boundarySixes = sixes * 4;
+    b.battingMilestones = milestonePoints(runs);
     if (runs === 0 && balls > 0 && isDuckEligible(role) && batterIsOut(s)) {
-      pts -= 2;
+      b.ducks = -2;
     }
   }
 
   if (role !== "BOWL" && balls >= 10) {
     const sr = (runs / balls) * 100;
-    pts += strikeRatePoints(sr);
+    b.strikeRate = strikeRatePoints(sr);
   }
 
   const bb = s.ballsBowled ?? 0;
@@ -121,17 +138,46 @@ export function fantasyPointsForPlayer(
   const maid = s.maidens ?? 0;
 
   if (bb > 0 || wk > 0) {
-    pts += wk * 25;
-    pts += maid * 12;
-    pts += dots;
-    pts += haulPoints(wk);
+    b.wickets = wk * 25;
+    b.maidens = maid * 12;
+    b.dotBalls = dots;
+    Object.assign(b, haulSlice(wk));
     const overs = bb / 6;
     const eco = overs > 0 ? conc / overs : 0;
-    pts += economyPoints(eco, bb);
+    b.economy = economyPoints(eco, bb);
     if (ctx?.allDismissals) {
-      pts += lbwBowledBonusForBowler(ctx.allDismissals, ctx.playerNorm);
+      const lbw = lbwBowledBonusForBowler(ctx.allDismissals, ctx.playerNorm);
+      if (lbw !== 0) b.lbwOrBowled = lbw;
     }
   }
 
-  return Math.round(pts * 100) / 100;
+  return b;
+}
+
+export function sumComputedFantasyBreakdown(b: ComputedMatchFantasyPoints): number {
+  let t = 0;
+  for (const v of Object.values(b)) {
+    if (typeof v === "number" && !Number.isNaN(v)) t += v;
+  }
+  return t;
+}
+
+export function fantasyPointsForPlayer(
+  role: Role,
+  s: PlayerMatchStat,
+  ctx?: { allDismissals?: { dismissal: string }[]; playerNorm: string },
+): number {
+  const b = fantasyBreakdownForPlayer(role, s, ctx);
+  return Math.round(sumComputedFantasyBreakdown(b) * 100) / 100;
+}
+
+/** Firestore JSON: omit zero fields to keep documents small. */
+export function compactFantasyBreakdownForFirestore(
+  b: ComputedMatchFantasyPoints,
+): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const [k, v] of Object.entries(b)) {
+    if (typeof v === "number" && Number.isFinite(v) && v !== 0) out[k] = v;
+  }
+  return out;
 }

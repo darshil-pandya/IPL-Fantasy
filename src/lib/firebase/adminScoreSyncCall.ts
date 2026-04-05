@@ -15,6 +15,10 @@ export type AdminScoreSyncResponse = {
   warnings: string[];
   wroteFirestore: boolean;
   note?: string;
+  /** Distinct names on the ESPN scorecard (batting + bowling). */
+  scorecardUniquePlayerCount?: number;
+  /** Normalized ESPN names with no single league roster/waiver match. */
+  unmappedScorecardNames?: string[];
 };
 
 function functionsRegion(): string {

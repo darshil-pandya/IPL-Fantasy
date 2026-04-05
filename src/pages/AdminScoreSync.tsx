@@ -118,6 +118,9 @@ export function AdminScoreSync() {
           computes fantasy points, and optionally writes to{" "}
           <code className="rounded bg-brand-pale px-1 text-brand-dark">iplFantasy/fantasyMatchScores</code>
           . Fixtures come from ESPN&apos;s IPL 2026 schedule/results page (same source as the Cloud Function).
+          The points list only includes players who appear in your Firestore{" "}
+          <code className="rounded bg-brand-pale px-1 text-brand-dark">iplFantasy/leagueBundle</code> roster
+          or waiver pool and who played in this match — not the full 22+ scorecard.
         </p>
       </div>
 
@@ -198,10 +201,36 @@ export function AdminScoreSync() {
               <span className="text-amber-800">issues — see log below</span>
             )}
           </p>
+          {typeof result.scorecardUniquePlayerCount === "number" ? (
+            <p className="text-slate-700">
+              <span className="font-medium text-brand-dark">Scorecard:</span>{" "}
+              {result.scorecardUniquePlayerCount} distinct batter/bowler names on ESPN;{" "}
+              <span className="font-medium">{pointRows?.length ?? 0}</span> matched your Firestore league players
+              and received points in this run.
+            </p>
+          ) : null}
           {result.wroteFirestore ? (
             <p className="font-medium text-emerald-800">Firestore updated for this match.</p>
           ) : null}
           {result.note ? <p className="text-slate-600">{result.note}</p> : null}
+
+          {result.unmappedScorecardNames && result.unmappedScorecardNames.length > 0 ? (
+            <details className="rounded-lg border border-slate-200 bg-slate-50/80 p-3">
+              <summary className="cursor-pointer text-sm font-medium text-brand-dark">
+                ESPN names not mapped to your league roster ({result.unmappedScorecardNames.length})
+              </summary>
+              <p className="mt-2 text-xs text-slate-600">
+                These appear on the scorecard but did not match exactly one player in{" "}
+                <code className="rounded bg-white px-1">iplFantasy/leagueBundle</code> (missing from your bundle,
+                duplicate display names, or spelling mismatch).
+              </p>
+              <ul className="mt-2 max-h-40 overflow-auto font-mono text-xs text-slate-800">
+                {result.unmappedScorecardNames.map((n) => (
+                  <li key={n}>{n}</li>
+                ))}
+              </ul>
+            </details>
+          ) : null}
 
           {pointRows && pointRows.length > 0 ? (
             <div>

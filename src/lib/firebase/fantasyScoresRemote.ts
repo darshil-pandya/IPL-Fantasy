@@ -3,7 +3,8 @@
  * Document: iplFantasy/fantasyMatchScores — field `matches` is a map of matchKey → entry.
  */
 
-import type { FantasyMatchOverlayEntry } from "../../types";
+import type { FantasyMatchOverlayEntry, PlayerSeasonFantasyPoints } from "../../types";
+import { SEASON_FANTASY_POINT_KEYS } from "../playerFantasyPoints";
 import { getFirebaseApp, isFirebaseConfigured } from "./client";
 
 export type Unsub = () => void;
@@ -18,6 +19,30 @@ function normalizePlayerPoints(x: unknown): Record<string, number> {
   for (const [k, v] of Object.entries(x)) {
     const n = Number(v);
     if (Number.isFinite(n)) out[k] = n;
+  }
+  return out;
+}
+
+function normalizeSeasonFantasySlice(raw: unknown): PlayerSeasonFantasyPoints | null {
+  if (!isPlainObject(raw)) return null;
+  const out: PlayerSeasonFantasyPoints = {};
+  for (const k of SEASON_FANTASY_POINT_KEYS) {
+    const v = raw[k as string];
+    const n = typeof v === "number" ? v : Number(v);
+    if (Number.isFinite(n) && n !== 0) out[k] = n;
+  }
+  return Object.keys(out).length > 0 ? out : null;
+}
+
+function normalizePlayerBreakdown(
+  x: unknown,
+): Record<string, PlayerSeasonFantasyPoints> {
+  if (!isPlainObject(x)) return {};
+  const out: Record<string, PlayerSeasonFantasyPoints> = {};
+  for (const [id, raw] of Object.entries(x)) {
+    if (typeof id !== "string" || id.length === 0) continue;
+    const slice = normalizeSeasonFantasySlice(raw);
+    if (slice) out[id] = slice;
   }
   return out;
 }
@@ -43,6 +68,7 @@ export function normalizeFantasyMatchEntry(
     dateStr = (matchDate as { toDate: () => Date }).toDate().toISOString();
   } else return null;
   const status = raw.status;
+  const playerBreakdown = normalizePlayerBreakdown(raw.playerBreakdown);
   return {
     matchKey,
     matchLabel,
@@ -54,6 +80,7 @@ export function normalizeFantasyMatchEntry(
         ? status
         : undefined,
     playerPoints: normalizePlayerPoints(raw.playerPoints),
+    ...(Object.keys(playerBreakdown).length > 0 ? { playerBreakdown } : {}),
   };
 }
 
