@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "deploy": "npm run build && gh-pages -d dist/IPL-Fantasy",
     "build:waiver-pool": "python scripts/build_waiver_pool.py",
-    "map-espn-squads": "npx tsx scripts/mapEspnSquadsToLeague.ts"
+    "map-espn-squads": "npx tsx scripts/mapEspnSquadsToLeague.ts",
+    "audit-scorecard-names": "npx tsx scripts/auditScorecardNameMapping.ts"
   },
   "dependencies": {
     "firebase": "^11.6.0",
