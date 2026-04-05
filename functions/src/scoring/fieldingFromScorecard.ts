@@ -101,11 +101,10 @@ export function tallyEspnScorecardFielding(innings: any[]): EspnFieldingTallies 
         }
         const fallback = norms.length === 0 ? runOutFielderNormsFromLong(long) : [];
         const use = norms.length > 0 ? norms : fallback;
-        if (use.length >= 1) {
-          const first = use[0]!;
-          runOutDirectByNorm.set(first, (runOutDirectByNorm.get(first) ?? 0) + 1);
-          for (let i = 1; i < use.length; i++) {
-            const n = use[i]!;
+        if (use.length === 1) {
+          runOutDirectByNorm.set(use[0]!, (runOutDirectByNorm.get(use[0]!) ?? 0) + 1);
+        } else if (use.length >= 2) {
+          for (const n of use) {
             runOutAssistByNorm.set(n, (runOutAssistByNorm.get(n) ?? 0) + 1);
           }
         }
