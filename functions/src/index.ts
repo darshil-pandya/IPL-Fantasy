@@ -1,4 +1,5 @@
 import { initializeApp } from "firebase-admin/app";
+import { getFirestore } from "firebase-admin/firestore";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { runAdminScoreSync } from "./sync/adminScoreSync.js";
 
@@ -43,5 +44,28 @@ export const adminSyncMatchScores = onCall(
         short || "Score sync failed (check Cloud Function logs).",
       );
     }
+  },
+);
+
+/** Clears all per-match overlay rows in `iplFantasy/fantasyMatchScores` (same secret as score sync). */
+export const adminResetFantasyMatchScores = onCall(
+  {
+    region: SYNC_REGION,
+    timeoutSeconds: 60,
+    memory: "256MiB",
+  },
+  async (request) => {
+    const raw = request.data as Record<string, unknown> | undefined;
+    const token = typeof raw?.adminSyncSecret === "string" ? raw.adminSyncSecret : "";
+    if (token !== ADMIN_SCORE_SYNC_SECRET) {
+      throw new HttpsError("permission-denied", "Invalid or missing score-sync secret.");
+    }
+    const db = getFirestore();
+    await db.doc("iplFantasy/fantasyMatchScores").set({ matches: {} });
+    return {
+      ok: true,
+      message:
+        "Firestore iplFantasy/fantasyMatchScores: all match overlays removed. Republish league from Waivers if player totals in leagueBundle should match static JSON.",
+    };
   },
 );

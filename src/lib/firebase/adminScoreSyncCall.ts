@@ -49,3 +49,22 @@ export async function callAdminScoreSync(params: {
   });
   return res.data as AdminScoreSyncResponse;
 }
+
+export type AdminResetFantasyResponse = {
+  ok: boolean;
+  message?: string;
+};
+
+export async function callAdminResetFantasyMatchScores(): Promise<AdminResetFantasyResponse> {
+  if (!isFirebaseConfigured()) {
+    throw new Error("Firebase is not configured (missing VITE_FIREBASE_* env).");
+  }
+  const { getFunctions, httpsCallable } = await import("firebase/functions");
+  const app = await getFirebaseApp();
+  const fns = getFunctions(app, functionsRegion());
+  const fn = httpsCallable(fns, "adminResetFantasyMatchScores");
+  const res = await fn({
+    adminSyncSecret: ADMIN_SCORE_SYNC_SECRET,
+  });
+  return res.data as AdminResetFantasyResponse;
+}

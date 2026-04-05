@@ -12,6 +12,7 @@
     "map-espn-squads": "npx tsx scripts/mapEspnSquadsToLeague.ts",
     "audit-scorecard-names": "npx tsx scripts/auditScorecardNameMapping.ts",
     "merge-scorecard-audit-into-espn-map": "npx tsx scripts/mergeScorecardAuditIntoEspnNameMap.ts",
+    "reset:player-fantasy-json": "node scripts/reset-player-fantasy-json.mjs",
     "firestore:clear-match-scores": "npx firebase-tools@13 firestore:delete iplFantasy/fantasyMatchScores -f --project ipl-fantasy-20260328"
   },
   "dependencies": {

@@ -11,6 +11,7 @@ import { Link } from "react-router-dom";
 import { useLeague } from "../context/LeagueContext";
 import { useWaiver } from "../context/WaiverContext";
 import {
+  callAdminResetFantasyMatchScores,
   callAdminScoreSync,
   type AdminScoreSyncResponse,
 } from "../lib/firebase/adminScoreSyncCall";
@@ -18,7 +19,7 @@ import { isFirebaseConfigured } from "../lib/firebase/client";
 import type { Player } from "../types";
 
 export function AdminScoreSync() {
-  const { bundle } = useLeague();
+  const { bundle, refresh } = useLeague();
   const { session } = useWaiver();
   const [matchQuery, setMatchQuery] = useState("");
   const [matchDateYmd, setMatchDateYmd] = useState(todayYmdLocal);
@@ -26,6 +27,9 @@ export function AdminScoreSync() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [result, setResult] = useState<AdminScoreSyncResponse | null>(null);
+  const [resetBusy, setResetBusy] = useState(false);
+  const [resetErr, setResetErr] = useState<string | null>(null);
+  const [resetOk, setResetOk] = useState<string | null>(null);
 
   const pmap = useMemo(() => {
     const m = new Map<string, Player>();
@@ -63,6 +67,22 @@ export function AdminScoreSync() {
       setErr(parts.length ? parts.join(": ") : String(e));
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function onResetFirestoreOverlays() {
+    setResetErr(null);
+    setResetOk(null);
+    setResetBusy(true);
+    try {
+      const data = await callAdminResetFantasyMatchScores();
+      setResetOk(data.message ?? "Firestore match overlays cleared.");
+      await refresh();
+    } catch (e) {
+      const any = e as { message?: string; code?: string };
+      setResetErr([any.code, any.message].filter(Boolean).join(": ") || String(e));
+    } finally {
+      setResetBusy(false);
     }
   }
 
@@ -113,6 +133,33 @@ export function AdminScoreSync() {
           <code className="app-code-inline">iplFantasy/fantasyMatchScores</code> when the run is valid. Fixtures use
           ESPN&apos;s IPL 2026 schedule. Points include roster / waiver players who played in this match.
         </p>
+      </div>
+
+      <div className="app-panel space-y-3 border-red-500/25 bg-red-950/15 p-5 ring-1 ring-red-500/15">
+        <h3 className="text-sm font-semibold text-red-200">Reset backend match points</h3>
+        <p className="text-sm text-slate-400">
+          Removes every stored match overlay in{" "}
+          <code className="app-code-inline">iplFantasy/fantasyMatchScores</code>. The site then uses
+          static <code className="app-code-inline">byMatch</code> /{" "}
+          <code className="app-code-inline">seasonTotal</code> from JSON (and whatever is in{" "}
+          <code className="app-code-inline">leagueBundle</code> in Firestore). After clearing, use{" "}
+          <strong className="text-slate-200">Waivers → Publish league to Firestore</strong> if the
+          live bundle should match your repo JSON.
+        </p>
+        <button
+          type="button"
+          disabled={resetBusy}
+          onClick={() => void onResetFirestoreOverlays()}
+          className="rounded-lg border border-red-500/40 bg-red-950/40 px-4 py-2 text-sm font-semibold text-red-100 hover:bg-red-900/50 disabled:opacity-50"
+        >
+          {resetBusy ? "Clearing…" : "Clear Firestore match overlays"}
+        </button>
+        {resetErr ? (
+          <p className="text-sm text-red-300">{resetErr}</p>
+        ) : null}
+        {resetOk ? (
+          <p className="text-sm text-emerald-300">{resetOk}</p>
+        ) : null}
       </div>
 
       <form
