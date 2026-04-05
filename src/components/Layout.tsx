@@ -1,4 +1,6 @@
 import { NavLink, Outlet } from "react-router-dom";
+import { useWaiver } from "../context/WaiverContext";
+import { isFirebaseConfigured } from "../lib/firebase/client";
 
 type NavItem = { readonly to: string; readonly label: string; readonly end?: boolean };
 
@@ -14,7 +16,11 @@ const navBase: readonly NavItem[] = [
 ];
 
 function NavItems({ className }: { className?: string }) {
+  const { session } = useWaiver();
   const items = [...navBase];
+  if (session?.role === "admin" && isFirebaseConfigured()) {
+    items.push({ to: "/score-sync", label: "Score sync" });
+  }
   return (
     <nav className={className} aria-label="Main">
       <ul className="flex max-w-[100vw] flex-nowrap items-center justify-start gap-1 overflow-x-auto pb-1 md:max-w-none md:flex-wrap md:justify-end md:gap-2 md:overflow-visible md:pb-0">

@@ -1,10 +1,10 @@
 # IPL Fantasy: full setup in plain language (GitHub + Firebase)
 
-This is **one checklist** from “nothing configured” to “live site + optional Firestore-backed league.” You do **not** need Firebase CLI on your computer. Deployments use **GitHub Actions**; configuration uses **web consoles** (Firebase, Google Cloud, GitHub).
+This is **one checklist** from “nothing configured” to “live site + optional Firestore-backed league.” **Rules and functions** deploy from **GitHub Actions**; you only need the **Firebase CLI once** (or any machine with it) to set the **`ADMIN_SCORE_SYNC_SECRET`** for score sync. Other configuration uses **web consoles** (Firebase, Google Cloud, GitHub).
 
 Skim **Before you start**, then follow **Phase A → C → D** in order.
 
-**Match scores:** the app no longer uses a paid Cricket Data API. Points can stay in git (`players.json`) or you can write **`iplFantasy/fantasyMatchScores`** in Firestore yourself (Admin SDK / script / future scraper). The site **reads** that document and merges per-match points into the roster when Firebase is configured.
+**Match scores:** the app no longer uses a paid Cricket Data API. Points can stay in git (`players.json`) or you can write **`iplFantasy/fantasyMatchScores`** in Firestore (Admin SDK / script). The site also supports an **admin Score sync** flow: a Cloud Function scrapes Cricbuzz + ESPN, cross-checks points, and merges into `fantasyMatchScores` when you set secret **`ADMIN_SCORE_SYNC_SECRET`** (see [firebase-waiver-setup.md](./firebase-waiver-setup.md)). The site **reads** that document and merges per-match points when Firebase is configured.
 
 ---
 
@@ -106,15 +106,21 @@ You only create **one** secret named `VITE_FIREBASE_PROJECT_ID`; it is used by *
 ### D2. Workflow files on `main`
 
 - `.github/workflows/deploy.yml` — builds and publishes the **website**.
-- `.github/workflows/firebase-backend.yml` — deploys **`firestore.rules`** only.
+- `.github/workflows/firebase-backend.yml` — deploys **`firestore.rules`** and **Cloud Functions** (`adminSyncMatchScores`).
 - `firebase.json`, `firestore.rules` in the repo root.
 
 ### D3. Run **Deploy Firebase backend** (first time)
 
-1. **Actions** → **Deploy Firebase backend** → **Run workflow**.
-2. Wait until green.
+1. **One-time (Firebase CLI):** create the score-sync secret so the callable can authenticate admin requests:
 
-This publishes **`firestore.rules`**: waivers + league bundle client-writable; **`fantasyMatchScores`** read-only from browsers (writes must use Admin SDK / trusted tooling).
+   `firebase functions:secrets:set ADMIN_SCORE_SYNC_SECRET`
+
+   (Use any strong passphrase; you will type it again on the **Score sync** page.)
+
+2. **Actions** → **Deploy Firebase backend** → **Run workflow**.
+3. Wait until green.
+
+This publishes **`firestore.rules`** (waivers + league bundle client-writable; **`fantasyMatchScores`** read-only from browsers) and deploys **Cloud Functions**. Callable writes to **`fantasyMatchScores`** using the Admin SDK.
 
 ### D4. **Deploy to GitHub Pages**
 
@@ -135,7 +141,7 @@ Open the live site; **Waivers** appears when the three `VITE_FIREBASE_*` secrets
 ### E2. Firestore
 
 - `iplFantasy` / `waiverState`, `leagueBundle` — after waivers / publish.
-- `iplFantasy` / `fantasyMatchScores` — optional; create/update with your own pipeline (field `matches`: map of `matchKey` → `{ matchKey, matchLabel, matchDate, playerPoints, status? }`).
+- `iplFantasy` / `fantasyMatchScores` — optional; update via **Score sync** (callable) or your own Admin SDK pipeline (field `matches`: map of `matchKey` → `{ matchKey, matchLabel, matchDate, playerPoints, status? }`).
 
 ### E3. Waivers
 

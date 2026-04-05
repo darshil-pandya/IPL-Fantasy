@@ -93,12 +93,34 @@ Vite embeds `VITE_*` variables at **build** time. The GitHub Pages workflow pass
 
 If a secret is missing, the build still succeeds; the app uses **static JSON only** for the league and **localStorage-only** waivers (no cross-device sync).
 
+### Admin score sync (Cloud Functions)
+
+After **Waivers → Admin** login, the **Score sync** nav link runs a callable that scrapes Cricbuzz + ESPN server-side, compares derived fantasy points, and can merge a match into `iplFantasy/fantasyMatchScores`.
+
+1. **Deploy functions** (local Firebase CLI or GitHub Action **Deploy Firebase backend**). First deploy must succeed after you create the secret below.
+2. Create the function secret (interactive; value is not stored in git):
+
+   ```bash
+   firebase functions:secrets:set ADMIN_SCORE_SYNC_SECRET
+   ```
+
+3. Optional: set the web app region to match the function (default **`asia-south1`**):
+
+   ```env
+   VITE_FIREBASE_FUNCTIONS_REGION=asia-south1
+   ```
+
+4. On **Score sync**, paste the same passphrase you stored in `ADMIN_SCORE_SYNC_SECRET`. The Waivers Admin password is separate (honor-system login only).
+
+The GitHub Actions service account needs permission to deploy Cloud Functions and to access that secret (Secret Manager **Secret Accessor** on the project). If deploy fails on secrets, run `firebase functions:secrets:set` once from a machine with the Firebase CLI, then re-run the workflow.
+
 ## 7. Data model in Firestore
 
 | Collection | Document ID | Fields |
 |------------|-------------|--------|
 | `iplFantasy` | `leagueBundle` | `payload` (object: full league bundle), `updatedAt` (server timestamp) |
 | `iplFantasy` | `waiverState` | `payload` (object: same shape as localStorage waiver state), `updatedAt` (server timestamp) |
+| `iplFantasy` | `fantasyMatchScores` | `matches` (map: `matchKey` → `{ matchKey, matchLabel, matchDate, status?, playerPoints }`) — read in the app; written by the `adminSyncMatchScores` callable (Admin SDK) |
 
 ## 8. Troubleshooting
 
