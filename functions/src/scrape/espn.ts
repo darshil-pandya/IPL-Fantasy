@@ -228,10 +228,16 @@ function mergeBowl(m: Map<string, EspnBowlerAgg>, row: any): void {
   m.set(key, next);
 }
 
-export function parseEspnScorecardHtml(html: string): EspnParsed {
+/** Raw innings array from scorecard JSON (fielding / dismissals). */
+export function extractInningsFromScorecardHtml(html: string): any[] {
   const j = extractNextDataJson(html);
   const innings = j?.props?.appPageProps?.data?.content?.innings;
-  if (!Array.isArray(innings)) throw new Error("ESPN innings missing");
+  return Array.isArray(innings) ? innings : [];
+}
+
+export function parseEspnScorecardHtml(html: string): EspnParsed {
+  const innings = extractInningsFromScorecardHtml(html);
+  if (innings.length === 0) throw new Error("ESPN innings missing");
 
   const batters = new Map<string, EspnBatterAgg>();
   const bowlers = new Map<string, EspnBowlerAgg>();

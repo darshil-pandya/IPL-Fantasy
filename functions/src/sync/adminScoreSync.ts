@@ -3,12 +3,14 @@ import espnSquadNameData from "../data/espnSquadNameToLeaguePlayerId.json" with 
 import {
   discoverEspnMatch,
   espnDismissalAsString,
+  extractInningsFromScorecardHtml,
   espnMatchStartIso,
   espnMatchTitleFromHtml,
   espnScorecardLooksComplete,
   fetchEspnScorecard,
   parseEspnScorecardHtml,
   type EspnBatterAgg,
+  type EspnBowlerAgg,
 } from "../scrape/espn.js";
 import {
   normalizePlayerName,
@@ -20,6 +22,11 @@ import {
   sumComputedFantasyBreakdown,
   type Role,
 } from "../scoring/points.js";
+import {
+  mergeFieldingRollupsIntoBreakdown,
+  rollUpFieldingTalliesToLeagueIds,
+  tallyEspnScorecardFielding,
+} from "../scoring/fieldingFromScorecard.js";
 import { statFromEspn } from "../scoring/mergeStats.js";
 
 export type LeaguePlayerRow = {
@@ -47,6 +54,52 @@ export type AdminSyncResult = {
   /** ESPN normalized names that did not map to exactly one league roster / waiver player. */
   unmappedScorecardNames: string[];
 };
+
+function mergeBattersForNorms(
+  norms: string[],
+  batters: Map<string, EspnBatterAgg>,
+): EspnBatterAgg | undefined {
+  let acc: EspnBatterAgg | undefined;
+  for (const n of norms) {
+    const b = batters.get(n);
+    if (!b) continue;
+    if (!acc) acc = { ...b };
+    else {
+      acc = {
+        runs: acc.runs + b.runs,
+        balls: acc.balls + b.balls,
+        fours: acc.fours + b.fours,
+        sixes: acc.sixes + b.sixes,
+        isOut: acc.isOut || b.isOut,
+        dismissalType: acc.dismissalType ?? b.dismissalType,
+        dismissalText: acc.dismissalText || b.dismissalText,
+      };
+    }
+  }
+  return acc;
+}
+
+function mergeBowlersForNorms(
+  norms: string[],
+  bowlers: Map<string, EspnBowlerAgg>,
+): EspnBowlerAgg | undefined {
+  let acc: EspnBowlerAgg | undefined;
+  for (const n of norms) {
+    const b = bowlers.get(n);
+    if (!b) continue;
+    if (!acc) acc = { ...b };
+    else {
+      acc = {
+        balls: acc.balls + b.balls,
+        maidens: acc.maidens + b.maidens,
+        conceded: acc.conceded + b.conceded,
+        wickets: acc.wickets + b.wickets,
+        dots: acc.dots + b.dots,
+      };
+    }
+  }
+  return acc;
+}
 
 function dismissalRowsFromEspn(batters: Map<string, EspnBatterAgg>): { dismissal: string }[] {
   const out: { dismissal: string }[] = [];
@@ -186,44 +239,69 @@ export async function runAdminScoreSync(opts: {
   for (const k of esParsed.bowlers.keys()) keys.add(k);
   const scorecardUniquePlayerCount = keys.size;
 
+  function resolveLeagueId(esNorm: string): string | null {
+    let id = resolveLeaguePlayerIdForScorecardName(esNorm, nameToIds, rows);
+    if (!id) {
+      const fromSquad = ESPN_SQUAD_NORM_TO_LEAGUE_ID[esNorm];
+      if (fromSquad && rows.some((r) => r.id === fromSquad)) id = fromSquad;
+    }
+    return id;
+  }
+
+  const innings = extractInningsFromScorecardHtml(esHtml);
+  const fieldTallies = tallyEspnScorecardFielding(innings);
+  const fieldRoll = rollUpFieldingTalliesToLeagueIds(fieldTallies, resolveLeagueId);
+
   const playerPoints: Record<string, number> = {};
   const playerBreakdown: Record<string, Record<string, number>> = {};
   const unmappedScorecardNames: string[] = [];
   let validated = true;
 
   for (const norm of keys) {
-    let id = resolveLeaguePlayerIdForScorecardName(norm, nameToIds, rows);
-    if (!id) {
-      const fromSquad = ESPN_SQUAD_NORM_TO_LEAGUE_ID[norm];
-      if (fromSquad && rows.some((r) => r.id === fromSquad)) {
-        id = fromSquad;
-      }
-    }
-    if (!id) {
-      unmappedScorecardNames.push(norm);
-      continue;
-    }
+    const id = resolveLeagueId(norm);
+    if (!id) unmappedScorecardNames.push(norm);
+  }
 
+  const allLeagueIds = new Set<string>();
+  for (const norm of keys) {
+    const id = resolveLeagueId(norm);
+    if (id) allLeagueIds.add(id);
+  }
+  for (const m of [
+    fieldRoll.catchCount,
+    fieldRoll.stumpingCount,
+    fieldRoll.runOutDirectCount,
+    fieldRoll.runOutAssistCount,
+  ]) {
+    for (const id of m.keys()) allLeagueIds.add(id);
+  }
+  for (const id of fieldRoll.appearedIds) allLeagueIds.add(id);
+
+  for (const id of allLeagueIds) {
     const leagueRow = rows.find((r) => r.id === id);
     if (!leagueRow) continue;
 
-    const esBat = esParsed.batters.get(norm);
-    const esBowl = esParsed.bowlers.get(norm);
+    const normsFor = [...keys].filter((n) => resolveLeagueId(n) === id);
+    const bowlNorm = normsFor.find((n) => esParsed.bowlers.has(n)) ?? "";
 
-    if (!esBat && !esBowl) continue;
-
+    const esBat = mergeBattersForNorms(normsFor, esParsed.batters);
+    const esBowl = mergeBowlersForNorms(normsFor, esParsed.bowlers);
     const stEs = statFromEspn(esBat, esBowl);
 
-    const breakdown = fantasyBreakdownForPlayer(leagueRow.role, stEs, {
-      allDismissals: dismissEs,
-      playerNorm: norm,
-    });
-    playerPoints[id] =
-      Math.round(sumComputedFantasyBreakdown(breakdown) * 100) / 100;
+    const hasBowl = (esBowl?.balls ?? 0) > 0 || (esBowl?.wickets ?? 0) > 0;
+    const breakdown = fantasyBreakdownForPlayer(leagueRow.role, stEs, hasBowl
+      ? {
+          allDismissals: dismissEs,
+          playerNorm: bowlNorm,
+        }
+      : undefined);
+
+    mergeFieldingRollupsIntoBreakdown(breakdown, fieldRoll, id);
+
+    const total = Math.round(sumComputedFantasyBreakdown(breakdown) * 100) / 100;
+    if (total !== 0) playerPoints[id] = total;
     const slice = compactFantasyBreakdownForFirestore(breakdown);
-    if (Object.keys(slice).length > 0) {
-      playerBreakdown[id] = slice;
-    }
+    if (Object.keys(slice).length > 0) playerBreakdown[id] = slice;
   }
 
   const matchKey = stableMatchKey(esPick.path);
@@ -279,7 +357,7 @@ export async function runAdminScoreSync(opts: {
   }
 
   const note =
-    "Points are derived from ESPNcricinfo scorecards only. Fielding, named-in-XI, and impact-player points are not automated.";
+    "Points are derived from ESPNcricinfo scorecards. Catches, stumpings, and run-outs use dismissal JSON. Everyone listed on the batting or bowling card gets a single +4 playing-XII bonus (namedInXi); impact/concussion is not awarded separately.";
 
   return {
     ok: true,

@@ -1,4 +1,4 @@
-/** IPL 2026 fantasy — automated subset (see rules.json). Fielding / some edge cases need manual review. */
+/** IPL 2026 fantasy — automated subset (see rules.json). Some edge cases may need manual review. */
 
 export type Role = "BAT" | "BOWL" | "AR" | "WK";
 
@@ -32,6 +32,13 @@ export type ComputedMatchFantasyPoints = Partial<{
   maidens: number;
   economy: number;
   strikeRate: number;
+  catches: number;
+  threeCatchBonus: number;
+  stumpings: number;
+  runOutDirect: number;
+  runOutAssist: number;
+  namedInXi: number;
+  impactOrConcussion: number;
 }>;
 
 /** 25/50/75/100 bonuses; century uses only the +16 tier (rules.json). */
