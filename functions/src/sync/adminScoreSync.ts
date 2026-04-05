@@ -1,4 +1,5 @@
 import { getFirestore } from "firebase-admin/firestore";
+import espnSquadNameData from "../data/espnSquadNameToLeaguePlayerId.json" with { type: "json" };
 import {
   discoverEspnMatch,
   espnDismissalAsString,
@@ -77,6 +78,10 @@ function buildNameToIds(players: LeaguePlayerRow[]): {
 function stableMatchKey(path: string): string {
   return `espn_${path.replace(/\//g, "_").replace(/^\/+/, "")}`;
 }
+
+const ESPN_SQUAD_NORM_TO_LEAGUE_ID: Record<string, string> =
+  (espnSquadNameData as { normalizedDisplayNameToLeaguePlayerId?: Record<string, string> })
+    .normalizedDisplayNameToLeaguePlayerId ?? {};
 
 export async function runAdminScoreSync(opts: {
   matchQuery: string;
@@ -187,7 +192,13 @@ export async function runAdminScoreSync(opts: {
   let validated = true;
 
   for (const norm of keys) {
-    const id = resolveLeaguePlayerIdForScorecardName(norm, nameToIds, rows);
+    let id = resolveLeaguePlayerIdForScorecardName(norm, nameToIds, rows);
+    if (!id) {
+      const fromSquad = ESPN_SQUAD_NORM_TO_LEAGUE_ID[norm];
+      if (fromSquad && rows.some((r) => r.id === fromSquad)) {
+        id = fromSquad;
+      }
+    }
     if (!id) {
       unmappedScorecardNames.push(norm);
       continue;
