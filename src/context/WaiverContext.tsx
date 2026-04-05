@@ -114,6 +114,7 @@ export function WaiverProvider({ children }: { children: ReactNode }) {
   const [remoteError, setRemoteError] = useState<string | null>(null);
   const [remoteConnected, setRemoteConnected] = useState(false);
   const skipNextPush = useRef(false);
+  const localPushInFlight = useRef(false);
   const bundleKeyRef = useRef<string>("");
 
   const allPlayersForScoring = useMemo(() => {
@@ -153,6 +154,7 @@ export function WaiverProvider({ children }: { children: ReactNode }) {
     void subscribeWaiverRemote(
       (payload) => {
         if (payload == null) return;
+        if (localPushInFlight.current) return;
         try {
           skipNextPush.current = true;
           setState(
@@ -243,6 +245,13 @@ export function WaiverProvider({ children }: { children: ReactNode }) {
       });
       if (result.error) return result.error;
       setState(result.state);
+      // Push to Firestore immediately to prevent the subscription from
+      // overwriting with stale data before the debounced push fires.
+      skipNextPush.current = true;
+      localPushInFlight.current = true;
+      void pushWaiverRemote(result.state)
+        .catch((e: Error) => setRemoteError(e.message))
+        .finally(() => { localPushInFlight.current = false; });
       if (result.completedTransfers?.length) {
         void writeCompletedTransfers(result.completedTransfers).catch(
           (e: Error) => setRemoteError(e.message),

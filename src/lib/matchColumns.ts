@@ -16,17 +16,25 @@ export interface MatchColumn {
   id: string;
   date: string;
   label: string;
+  /** IPL team codes derived from players who scored in this match (e.g. ["CSK", "RCB"]). */
+  teams: string[];
 }
 
 export function matchColumnsFromPlayers(players: Player[]): MatchColumn[] {
   const map = new Map<string, MatchColumn>();
+  const teamSets = new Map<string, Set<string>>();
   for (const p of players) {
     for (const m of p.byMatch) {
       const id = matchColumnId(m);
       if (!map.has(id)) {
-        map.set(id, { id, date: m.matchDate, label: m.matchLabel });
+        map.set(id, { id, date: m.matchDate, label: m.matchLabel, teams: [] });
+        teamSets.set(id, new Set());
       }
+      if (p.iplTeam) teamSets.get(id)!.add(p.iplTeam.toUpperCase());
     }
+  }
+  for (const [id, col] of map) {
+    col.teams = [...(teamSets.get(id) ?? [])].sort();
   }
   return [...map.values()].sort(
     (a, b) => a.date.localeCompare(b.date) || a.label.localeCompare(b.label),

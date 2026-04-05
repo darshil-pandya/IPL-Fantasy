@@ -21,13 +21,19 @@ const SORTED_NAMES = Object.keys(FULL_NAME_TO_CODE).sort(
  * match-number suffixes (e.g. ", 1st Match").
  *
  * "Royal Challengers Bengaluru vs Sunrisers Hyderabad, 1st Match" → "RCB vs SRH"
+ *
+ * If the label doesn't contain recognisable team names (e.g. "1st Match"),
+ * pass `teams` (derived from player data) to get "CSK vs RCB" instead.
  */
-export function abbreviateMatchLabel(label: string): string {
+export function abbreviateMatchLabel(label: string, teams?: string[]): string {
   let out = label;
   for (const name of SORTED_NAMES) {
     out = out.replaceAll(name, FULL_NAME_TO_CODE[name]);
   }
   out = out.replace(/,?\s*\d+\w*\s+match$/i, "").trim();
+  if (out === label && teams && teams.length === 2) {
+    return `${teams[0]} vs ${teams[1]}`;
+  }
   return out || label;
 }
 

@@ -72,7 +72,7 @@ function FranchiseMatchTable({
                 scope="col"
                 className="min-w-[5.5rem] px-2 py-3 text-right text-[10px] font-semibold uppercase leading-tight tracking-wide text-slate-500"
               >
-                <span className="block text-slate-300">{abbreviateMatchLabel(c.label)}</span>
+                <span className="block text-slate-300">{abbreviateMatchLabel(c.label, c.teams)}</span>
                 <span className="font-normal normal-case text-slate-500">
                   {formatMatchDate(c.date)}
                 </span>
