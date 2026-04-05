@@ -11,7 +11,8 @@
     "build:waiver-pool": "python scripts/build_waiver_pool.py",
     "map-espn-squads": "npx tsx scripts/mapEspnSquadsToLeague.ts",
     "audit-scorecard-names": "npx tsx scripts/auditScorecardNameMapping.ts",
-    "merge-scorecard-audit-into-espn-map": "npx tsx scripts/mergeScorecardAuditIntoEspnNameMap.ts"
+    "merge-scorecard-audit-into-espn-map": "npx tsx scripts/mergeScorecardAuditIntoEspnNameMap.ts",
+    "firestore:clear-match-scores": "npx firebase-tools@13 firestore:delete iplFantasy/fantasyMatchScores -f --project ipl-fantasy-20260328"
   },
   "dependencies": {
     "firebase": "^11.6.0",
