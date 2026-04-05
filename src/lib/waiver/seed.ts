@@ -1,5 +1,5 @@
 import type { Franchise } from "../../types";
-import type { WaiverPersistentState } from "./types";
+import type { RosterChangeEvent, WaiverPersistentState } from "./types";
 import {
   WAIVER_BUDGET_START,
   WAIVER_STATE_VERSION,
@@ -10,6 +10,7 @@ export function seedWaiverState(franchises: Franchise[]): WaiverPersistentState 
   const budgets: Record<string, number> = {};
   const pointCarryover: Record<string, number> = {};
   const joinSnapshot: Record<string, number> = {};
+  const rosterHistory: RosterChangeEvent[] = [];
   for (const f of franchises) {
     rosters[f.owner] = [...f.playerIds];
     budgets[f.owner] = WAIVER_BUDGET_START;
@@ -23,6 +24,7 @@ export function seedWaiverState(franchises: Franchise[]): WaiverPersistentState 
     budgets,
     pointCarryover,
     joinSnapshot,
+    rosterHistory,
     nominations: [],
     bids: [],
     log: [],

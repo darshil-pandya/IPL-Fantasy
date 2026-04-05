@@ -1,4 +1,5 @@
 import type { Franchise } from "../../types";
+import type { RosterChangeEvent } from "./types";
 import type {
   WaiverBid,
   WaiverLogEntry,
@@ -59,7 +60,11 @@ export function franchisesFromRosters(
 
 type Ctx = {
   baseFranchises: Franchise[];
-  playerSeasonTotals: Record<string, number>;
+  /**
+   * Last completed match column id when this reveal runs; swaps apply from the next match onward.
+   * `null` if no matches exist yet (swap applies from the first match).
+   */
+  revealEffectiveAfterColumnId: string | null;
 };
 
 export type WaiverEngineAction =
@@ -338,9 +343,9 @@ function resolveRound(
 ): { state: WaiverPersistentState; error?: string } {
   let rosters = { ...state.rosters };
   const budgets = { ...state.budgets };
-  const pointCarryover = { ...state.pointCarryover };
-  const joinSnapshot = { ...state.joinSnapshot };
   let log = state.log;
+  const rosterHistory = [...state.rosterHistory];
+  let orderInRound = 0;
 
   const push = (entry: WaiverLogEntry) => {
     log = [...log, entry].slice(-500);
@@ -371,7 +376,6 @@ function resolveRound(
 
     const winner = affordable[0];
     const pidIn = nom.playerInId;
-    const totals = ctx.playerSeasonTotals;
 
     if (!winner) {
       push(
@@ -394,16 +398,22 @@ function resolveRound(
       continue;
     }
 
-    const outSeason = totals[winner.playerOutId] ?? 0;
-    pointCarryover[winner.owner] =
-      (pointCarryover[winner.owner] ?? 0) + outSeason;
-
     const nextR = rWin.filter((id) => id !== winner.playerOutId);
     nextR.push(pidIn);
     rosters[winner.owner] = nextR;
 
     budgets[winner.owner] = budgets[winner.owner] - winner.amount;
-    joinSnapshot[pidIn] = totals[pidIn] ?? 0;
+
+    const tReveal = nowIso();
+    rosterHistory.push({
+      at: tReveal,
+      roundId: state.roundId,
+      orderInRound: orderInRound++,
+      winner: winner.owner,
+      playerOutId: winner.playerOutId,
+      playerInId: pidIn,
+      effectiveAfterColumnId: ctx.revealEffectiveAfterColumnId,
+    });
 
     push(
       logEntry(
@@ -413,6 +423,9 @@ function resolveRound(
           nominationId: nom.id,
           winner: winner.owner,
           amount: winner.amount,
+          playerInId: pidIn,
+          playerOutId: winner.playerOutId,
+          effectiveAfterColumnId: ctx.revealEffectiveAfterColumnId,
         },
       ),
     );
@@ -423,8 +436,7 @@ function resolveRound(
     phase: "idle",
     rosters,
     budgets,
-    pointCarryover,
-    joinSnapshot,
+    rosterHistory,
     nominations: [],
     bids: [],
     log,
@@ -440,13 +452,32 @@ export function alignStateWithFranchises(
   state: WaiverPersistentState,
   franchises: Franchise[],
 ): WaiverPersistentState {
-  const rosters = { ...state.rosters };
-  const budgets = { ...state.budgets };
-  const pointCarryover = { ...state.pointCarryover };
+  const raw = state as WaiverPersistentState & { rosterHistory?: RosterChangeEvent[] };
+  const migrated: WaiverPersistentState =
+    raw.version === 2 && Array.isArray(raw.rosterHistory)
+      ? raw
+      : {
+          ...raw,
+          version: 2,
+          rosterHistory: raw.rosterHistory ?? [],
+        };
+
+  const rosters = { ...migrated.rosters };
+  const budgets = { ...migrated.budgets };
+  const pointCarryover = { ...migrated.pointCarryover };
+  const joinSnapshot = { ...migrated.joinSnapshot };
+  const rosterHistory = [...migrated.rosterHistory];
   for (const f of franchises) {
     if (!rosters[f.owner]) rosters[f.owner] = [...f.playerIds];
     if (budgets[f.owner] == null) budgets[f.owner] = WAIVER_BUDGET_START;
     if (pointCarryover[f.owner] == null) pointCarryover[f.owner] = 0;
   }
-  return { ...state, rosters, budgets, pointCarryover };
+  return {
+    ...migrated,
+    rosters,
+    budgets,
+    pointCarryover,
+    joinSnapshot,
+    rosterHistory,
+  };
 }

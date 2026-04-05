@@ -1,5 +1,4 @@
-import type { FranchiseStanding } from "../types";
-import { pointsInMatch, type MatchColumn } from "./matchColumns";
+import type { MatchColumn } from "./matchColumns";
 
 export type OwnerPointsChartRow = {
   step: number;
@@ -10,41 +9,36 @@ export type OwnerPointsChartRow = {
 } & Record<string, number | string>;
 
 /**
- * Cumulative fantasy points per owner after each match column (current waiver squads).
- * Uses `byMatch` on each player; same columns as Match Center.
+ * Cumulative fantasy from `perOwnerPerMatch` (single source from franchiseAttributedScoring).
  */
-export function buildOwnerCumulativeMatchChartData(
-  standings: FranchiseStanding[],
+export function buildOwnerCumulativeFromPerMatch(
+  perOwnerPerMatch: Record<string, number[]>,
   columns: MatchColumn[],
   ownerOrder: string[],
+  ownersInStandings: string[],
 ): { data: OwnerPointsChartRow[]; owners: string[] } {
   const ownersBase =
     ownerOrder.length > 0
-      ? ownerOrder.filter((o) => standings.some((s) => s.owner === o))
-      : standings.map((s) => s.owner);
+      ? ownerOrder.filter((o) => ownersInStandings.includes(o))
+      : ownersInStandings;
 
   if (columns.length === 0) {
     return { data: [], owners: ownersBase };
   }
 
   const cumByOwner = new Map<string, number[]>();
-  for (const s of standings) {
+  for (const o of ownersBase) {
+    const rounds = perOwnerPerMatch[o] ?? [];
     let running = 0;
     const arr: number[] = [];
-    for (const col of columns) {
-      let round = 0;
-      for (const p of s.playersResolved) {
-        const v = pointsInMatch(p, col.id);
-        if (v != null) round += v;
-      }
-      running += round;
+    for (let i = 0; i < columns.length; i++) {
+      running += rounds[i] ?? 0;
       arr.push(Math.round(running * 100) / 100);
     }
-    cumByOwner.set(s.owner, arr);
+    cumByOwner.set(o, arr);
   }
 
   const owners = ownersBase;
-
   const data: OwnerPointsChartRow[] = [];
   const start: OwnerPointsChartRow = {
     step: 0,

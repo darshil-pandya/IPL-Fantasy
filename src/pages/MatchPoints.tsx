@@ -3,32 +3,27 @@ import { IplTeamPill } from "../components/IplTeamPill";
 import { OwnerBadge } from "../components/OwnerBadge";
 import { useLeague } from "../context/LeagueContext";
 import { useLeagueStandings } from "../context/WaiverContext";
-import {
-  matchColumnsFromPlayers,
-  pointsInMatch,
-  type MatchColumn,
-} from "../lib/matchColumns";
+import type { FranchiseScoringMode } from "../lib/franchiseAttributedScoring";
+import { pointsInMatch, type MatchColumn } from "../lib/matchColumns";
 import { natBadgeClass, roleBadgeClass } from "../lib/playerBadges";
 import type { FranchiseStanding, Player } from "../types";
 
 function FranchiseMatchTable({
   standing,
   columns,
+  scoringMode,
+  perOwnerRounds,
+  rostersAtStartOfMatch,
 }: {
   standing: FranchiseStanding;
   columns: MatchColumn[];
+  scoringMode: FranchiseScoringMode;
+  perOwnerRounds: number[];
+  rostersAtStartOfMatch: Record<string, string[]>[] | null;
 }) {
   const franchiseMatchTotal = useMemo(() => {
-    if (columns.length === 0) return 0;
-    let t = 0;
-    for (const p of standing.playersResolved) {
-      for (const c of columns) {
-        const pts = pointsInMatch(p, c.id);
-        if (pts != null) t += pts;
-      }
-    }
-    return t;
-  }, [standing.playersResolved, columns]);
+    return perOwnerRounds.reduce((a, b) => a + b, 0);
+  }, [perOwnerRounds]);
 
   if (columns.length === 0) {
     return (
@@ -38,6 +33,8 @@ function FranchiseMatchTable({
       </p>
     );
   }
+
+  const owner = standing.owner;
 
   return (
     <div className="app-table">
@@ -90,7 +87,14 @@ function FranchiseMatchTable({
         </thead>
         <tbody>
           {standing.playersResolved.map((p) => (
-            <PlayerRow key={p.id} player={p} columns={columns} />
+            <PlayerRow
+              key={p.id}
+              player={p}
+              columns={columns}
+              owner={owner}
+              scoringMode={scoringMode}
+              rostersAtStartOfMatch={rostersAtStartOfMatch}
+            />
           ))}
           <tr className="border-b border-cyan-500/20 bg-slate-950/80 font-semibold">
             <td
@@ -99,9 +103,9 @@ function FranchiseMatchTable({
             >
               Franchise match total
             </td>
-            {columns.map((c) => (
+            {columns.map((c, j) => (
               <td key={c.id} className="px-2 py-3 text-right tabular-nums text-slate-300">
-                {columnSum(standing.playersResolved, c.id).toFixed(1)}
+                {(perOwnerRounds[j] ?? 0).toFixed(1)}
               </td>
             ))}
             <td className="px-3 py-3 text-right tabular-nums text-amber-400">
@@ -114,24 +118,32 @@ function FranchiseMatchTable({
   );
 }
 
-function columnSum(players: Player[], colId: string): number {
-  let s = 0;
-  for (const p of players) {
-    const pts = pointsInMatch(p, colId);
-    if (pts != null) s += pts;
-  }
-  return s;
-}
-
-function PlayerRow({ player, columns }: { player: Player; columns: MatchColumn[] }) {
+function PlayerRow({
+  player,
+  columns,
+  owner,
+  scoringMode,
+  rostersAtStartOfMatch,
+}: {
+  player: Player;
+  columns: MatchColumn[];
+  owner: string;
+  scoringMode: FranchiseScoringMode;
+  rostersAtStartOfMatch: Record<string, string[]>[] | null;
+}) {
   const rowMatchTotal = useMemo(() => {
     let t = 0;
-    for (const c of columns) {
+    columns.forEach((c, j) => {
+      const onRoster =
+        scoringMode === "legacy" ||
+        (rostersAtStartOfMatch != null &&
+          (rostersAtStartOfMatch[j]?.[owner]?.includes(player.id) ?? false));
+      if (!onRoster) return;
       const pts = pointsInMatch(player, c.id);
       if (pts != null) t += pts;
-    }
+    });
     return t;
-  }, [player, columns]);
+  }, [player, columns, owner, scoringMode, rostersAtStartOfMatch]);
 
   return (
     <tr className="app-table-row border-brand-cyan/25">
@@ -149,14 +161,21 @@ function PlayerRow({ player, columns }: { player: Player; columns: MatchColumn[]
           {player.nationality ?? "—"}
         </span>
       </td>
-      {columns.map((c) => {
+      {columns.map((c, j) => {
+        const onRoster =
+          scoringMode === "legacy" ||
+          (rostersAtStartOfMatch != null &&
+            (rostersAtStartOfMatch[j]?.[owner]?.includes(player.id) ?? false));
         const pts = pointsInMatch(player, c.id);
+        const show = onRoster && pts != null;
         return (
           <td
             key={c.id}
-            className="px-2 py-2.5 text-right tabular-nums text-slate-300"
+            className={`px-2 py-2.5 text-right tabular-nums ${
+              onRoster ? "text-slate-300" : "text-slate-600"
+            }`}
           >
-            {pts != null ? pts.toFixed(1) : "—"}
+            {show ? pts.toFixed(1) : "—"}
           </td>
         );
       })}
@@ -176,10 +195,7 @@ export function MatchPoints() {
     return displaySummary?.standings ?? [];
   }, [displaySummary]);
 
-  const columns = useMemo(() => {
-    if (!bundle) return [];
-    return matchColumnsFromPlayers(bundle.players);
-  }, [bundle]);
+  const columns: MatchColumn[] = displaySummary?.columns ?? [];
 
   const filteredStandings = useMemo(() => {
     if (franchise === "all") return standings;
@@ -187,6 +203,8 @@ export function MatchPoints() {
   }, [standings, franchise]);
 
   if (!bundle || !displaySummary) return null;
+
+  const scoringMode = displaySummary.mode;
 
   return (
     <div className="space-y-6">
@@ -216,6 +234,14 @@ export function MatchPoints() {
         </label>
       </div>
 
+      {scoringMode === "legacy" ? (
+        <p className="rounded-lg border border-amber-500/30 bg-amber-950/25 px-3 py-2 text-sm text-amber-100/90">
+          Legacy scoring: waiver history does not replay to current rosters, so totals may use
+          older carryover rules. After the next successful waiver reveal, attributed scoring
+          should apply.
+        </p>
+      ) : null}
+
       {filteredStandings.map((s) => (
         <section key={s.owner} className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -224,18 +250,23 @@ export function MatchPoints() {
               <OwnerBadge owner={s.owner} />
             </div>
             <span className="rounded-full border border-cyan-500/30 bg-slate-900/80 px-3 py-1 text-xs text-cyan-200">
-              Season total (from data): {s.totalPoints.toFixed(1)} pts
+              Fantasy total (leaderboard): {s.totalPoints.toFixed(1)} pts
             </span>
           </div>
-          <FranchiseMatchTable standing={s} columns={columns} />
+          <FranchiseMatchTable
+            standing={s}
+            columns={columns}
+            scoringMode={scoringMode}
+            perOwnerRounds={displaySummary.perOwnerPerMatch[s.owner] ?? []}
+            rostersAtStartOfMatch={displaySummary.rostersAtStartOfMatch}
+          />
         </section>
       ))}
 
       <p className="text-xs leading-relaxed text-slate-500">
-        Row and franchise totals sum only the match columns shown (every distinct{" "}
-        <code className="app-code-inline">byMatch</code> row across the league). Keep{" "}
-        <code className="app-code-inline">seasonTotal</code> in sync with those rows so the Home
-        standings match this table.
+        Cells count toward a franchise only for matches while that player was on the roster
+        (same engine as Home). <code className="app-code-inline">—</code> means no points for
+        that franchise that match. Row totals are the sum of attributed cells only.
       </p>
     </div>
   );

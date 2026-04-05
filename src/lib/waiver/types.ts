@@ -28,16 +28,38 @@ export interface WaiverLogEntry {
   meta?: Record<string, unknown>;
 }
 
+/**
+ * One successful waiver swap. Points count for the winner only from matches **after**
+ * `effectiveAfterColumnId` (see franchiseAttributedScoring).
+ */
+export interface RosterChangeEvent {
+  at: string;
+  roundId: number;
+  /** Order within the same reveal (multiple nominations per round). */
+  orderInRound: number;
+  winner: string;
+  playerOutId: string;
+  playerInId: string;
+  /**
+   * After this match column, the swap applies. `null` = before the first match
+   * (new roster applies from match index 0 onward).
+   */
+  effectiveAfterColumnId: string | null;
+}
+
 export interface WaiverPersistentState {
-  version: 1;
+  version: 2;
   roundId: number;
   phase: WaiverPhase;
   /** Full squad per owner (live roster). */
   rosters: Record<string, string[]>;
   budgets: Record<string, number>;
+  /** @deprecated Retained for migration; not added on new reveals. Attribution uses rosterHistory. */
   pointCarryover: Record<string, number>;
-  /** SeasonTotal snapshot when player last joined a franchise roster (for future refinement). */
+  /** @deprecated Unused; retained for older persisted state. */
   joinSnapshot: Record<string, number>;
+  /** Append-only waiver swaps (single source of truth for roster timelines). */
+  rosterHistory: RosterChangeEvent[];
   nominations: WaiverNomination[];
   bids: WaiverBid[];
   log: WaiverLogEntry[];

@@ -4,8 +4,7 @@ import { OwnerBadge } from "../components/OwnerBadge";
 import { OwnerPointsLineChart } from "../components/OwnerPointsLineChart";
 import { useLeague } from "../context/LeagueContext";
 import { useLeagueStandings } from "../context/WaiverContext";
-import { buildOwnerCumulativeMatchChartData } from "../lib/cumulativeOwnerMatchPoints";
-import { matchColumnsFromPlayers } from "../lib/matchColumns";
+import { buildOwnerCumulativeFromPerMatch } from "../lib/cumulativeOwnerMatchPoints";
 import {
   leaderBestBattingAvg,
   leaderBestBowlingAvg,
@@ -95,30 +94,16 @@ export function Home() {
       .map((r, i) => ({ ...r, rank: i + 1 }));
   }, [leaderboardRows]);
 
-  const allPlayersForMatches = useMemo(() => {
-    if (!bundle) return [];
-    const m = new Map<string, Player>();
-    for (const p of bundle.players) m.set(p.id, p);
-    for (const p of bundle.waiverPool ?? []) {
-      if (!m.has(p.id)) m.set(p.id, p);
-    }
-    return [...m.values()];
-  }, [bundle]);
-
-  const matchCols = useMemo(
-    () => matchColumnsFromPlayers(allPlayersForMatches),
-    [allPlayersForMatches],
-  );
-
   const ownerPointsChart = useMemo(() => {
     if (!summary) return null;
     const order = sortedLeaderboard.map((r) => r.owner);
-    return buildOwnerCumulativeMatchChartData(
-      summary.standings,
-      matchCols,
+    return buildOwnerCumulativeFromPerMatch(
+      summary.perOwnerPerMatch,
+      summary.columns,
       order,
+      summary.standings.map((s) => s.owner),
     );
-  }, [summary, matchCols, sortedLeaderboard]);
+  }, [summary, sortedLeaderboard]);
 
   const statLeaders = useMemo(() => {
     if (!bundle) return null;
@@ -187,7 +172,8 @@ export function Home() {
         <h2 className="font-display mb-2 text-2xl tracking-wide text-white">Leaderboard</h2>
         <p className="mb-3 text-sm text-slate-400">
           Sorted by rank (fantasy points plus prediction bonus: {pred.pointsPerCorrect}{" "}
-          pts per correct when results are set). Squad totals use live waiver rosters.
+          pts per correct when results are set). Fantasy uses match-by-match points only
+          while each player was on that franchise (same as Match Center).
         </p>
         <div className="app-table">
           <table className="w-full min-w-[320px] text-left text-sm">
@@ -282,10 +268,17 @@ export function Home() {
           Points through the season
         </h2>
         <p className="mb-3 text-sm text-slate-400">
-          Cumulative fantasy points from each player&apos;s{" "}
-          <code className="app-code-inline">byMatch</code> scores on current waiver
-          rosters. Prediction bonus is not included.
+          Cumulative points from the same per-match totals as the leaderboard (only
+          matches while each player was on that franchise). Prediction bonus is not
+          included.
         </p>
+        {summary.mode === "legacy" ? (
+          <p className="mb-3 rounded-lg border border-amber-500/30 bg-amber-950/25 px-3 py-2 text-xs text-amber-100/90">
+            Scoring is in legacy mode (waiver history does not replay to the current
+            roster). Reveal a waiver round or reset waiver state so totals match roster
+            timelines.
+          </p>
+        ) : null}
         {ownerPointsChart && ownerPointsChart.data.length > 1 ? (
           <div className="app-card overflow-hidden p-4 sm:p-5">
             <OwnerPointsLineChart

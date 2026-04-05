@@ -25,6 +25,7 @@ import {
 } from "../lib/waiver/engine";
 import { seedWaiverState } from "../lib/waiver/seed";
 import type { WaiverPersistentState } from "../lib/waiver/types";
+import { matchColumnsFromPlayers } from "../lib/matchColumns";
 import { summarizeDisplayFranchises } from "../lib/waiver/summarize";
 import { isPlayerAvailable } from "../lib/waiver/available";
 import {
@@ -63,7 +64,6 @@ type WaiverCtx = {
   state: WaiverPersistentState;
   displayFranchises: Franchise[];
   displaySummary: ReturnType<typeof summarizeDisplayFranchises> | null;
-  playerSeasonTotals: Record<string, number>;
   dispatch: (a: WaiverEngineAction) => string | null;
   availableIds: string[];
   remoteConnected: boolean;
@@ -88,15 +88,28 @@ export function WaiverProvider({ children }: { children: ReactNode }) {
   const skipNextPush = useRef(false);
   const bundleKeyRef = useRef<string>("");
 
-  const playerSeasonTotals = useMemo(() => {
-    const m: Record<string, number> = {};
-    if (!bundle) return m;
-    for (const p of bundle.players) m[p.id] = p.seasonTotal;
-    for (const p of bundle.waiverPool ?? []) {
-      if (m[p.id] === undefined) m[p.id] = p.seasonTotal;
+  const allPlayersForScoring = useMemo(() => {
+    const list: Player[] = [];
+    const seen = new Set<string>();
+    for (const p of bundle.players) {
+      if (!seen.has(p.id)) {
+        seen.add(p.id);
+        list.push(p);
+      }
     }
-    return m;
+    for (const p of bundle.waiverPool ?? []) {
+      if (!seen.has(p.id)) {
+        seen.add(p.id);
+        list.push(p);
+      }
+    }
+    return list;
   }, [bundle]);
+
+  const revealEffectiveAfterColumnId = useMemo(() => {
+    const cols = matchColumnsFromPlayers(allPlayersForScoring);
+    return cols.length > 0 ? cols[cols.length - 1].id : null;
+  }, [allPlayersForScoring]);
 
   useEffect(() => {
     const key = JSON.stringify(bundle.franchises);
@@ -167,6 +180,8 @@ export function WaiverProvider({ children }: { children: ReactNode }) {
       bundle,
       displayFranchises,
       state.pointCarryover,
+      state.rosterHistory,
+      state.rosters,
     );
   }, [bundle, state, displayFranchises]);
 
@@ -196,13 +211,13 @@ export function WaiverProvider({ children }: { children: ReactNode }) {
       if (!bundle || !state) return "Loading…";
       const { state: next, error } = reduceWaiver(state, action, {
         baseFranchises: bundle.franchises,
-        playerSeasonTotals,
+        revealEffectiveAfterColumnId,
       });
       if (error) return error;
       setState(next);
       return null;
     },
-    [bundle, state, playerSeasonTotals],
+    [bundle, state, revealEffectiveAfterColumnId],
   );
 
   const login = useCallback((label: string, password: string) => {
@@ -227,7 +242,6 @@ export function WaiverProvider({ children }: { children: ReactNode }) {
         state,
         displayFranchises,
         displaySummary,
-        playerSeasonTotals,
         dispatch,
         availableIds,
         remoteConnected,
