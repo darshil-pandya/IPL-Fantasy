@@ -57,6 +57,32 @@ export async function callResetWaiverActivity(): Promise<ResetWaiverActivityResu
   return res.data as ResetWaiverActivityResult;
 }
 
+export interface BackfillApril2026Result {
+  ok: boolean;
+  warnings: string[];
+  orderedMatchLabels: string[];
+  deletedCompletedTransfers: number;
+  migrationResult: MigrateResult | null;
+  matchPlayerPointsPatched: { updated: number } | null;
+}
+
+/** Writes April 2026 offline waiver timeline; requires synced `fantasyMatchScores` (≥9 matches). */
+export async function callBackfillApril2026WaiverTimeline(params: {
+  /** Rebuild `owners` / `players` / `ownershipPeriods` / `matchPlayerPoints` from bundle + waiver + scores. */
+  runMigrationAfter?: boolean;
+  patchMatchPlayerPointsAttribution?: boolean;
+  clearCompletedTransfers?: boolean;
+}): Promise<BackfillApril2026Result> {
+  const fn = await callable("adminBackfillApril2026WaiverTimeline");
+  const res = await fn({
+    adminSecret: ADMIN_SCORE_SYNC_SECRET,
+    runMigrationAfter: params.runMigrationAfter === true,
+    patchMatchPlayerPointsAttribution: params.patchMatchPlayerPointsAttribution,
+    clearCompletedTransfers: params.clearCompletedTransfers,
+  });
+  return res.data as BackfillApril2026Result;
+}
+
 // ─── Waiver mutations ───
 
 export async function callWaiverNominate(params: {

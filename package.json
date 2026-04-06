@@ -13,7 +13,8 @@
     "audit-scorecard-names": "npx tsx scripts/auditScorecardNameMapping.ts",
     "merge-scorecard-audit-into-espn-map": "npx tsx scripts/mergeScorecardAuditIntoEspnNameMap.ts",
     "reset:player-fantasy-json": "node scripts/reset-player-fantasy-json.mjs",
-    "firestore:clear-match-scores": "npx firebase-tools@13 firestore:delete iplFantasy/fantasyMatchScores -f --project ipl-fantasy-20260328"
+    "firestore:clear-match-scores": "npx firebase-tools@13 firestore:delete iplFantasy/fantasyMatchScores -f --project ipl-fantasy-20260328",
+    "backfill:dry-run-april2026": "npx tsx scripts/dryRunBackfillApril2026.ts"
   },
   "dependencies": {
     "firebase": "^11.6.0",
