@@ -10,16 +10,22 @@ const navBase: readonly NavItem[] = [
   { to: "/matches", label: "Match Center" },
   { to: "/players", label: "Players" },
   { to: "/waivers", label: "Waivers" },
-  { to: "/auction", label: "Auction" },
   { to: "/predictions", label: "Predictions" },
   { to: "/rules", label: "Rules" },
 ];
 
 function NavItems({ className }: { className?: string }) {
   const { session } = useWaiver();
-  const items = [...navBase];
-  if (session?.role === "admin" && isFirebaseConfigured()) {
-    items.push({ to: "/score-sync", label: "Score sync" });
+  const items: NavItem[] = [];
+  for (const item of navBase) {
+    items.push(item);
+    if (
+      item.to === "/waivers" &&
+      session?.role === "admin" &&
+      isFirebaseConfigured()
+    ) {
+      items.push({ to: "/score-sync", label: "Score sync" });
+    }
   }
   return (
     <nav className={className} aria-label="Main">

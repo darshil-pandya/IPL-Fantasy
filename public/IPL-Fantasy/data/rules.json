@@ -26,7 +26,7 @@
           { "action": "Run scored", "points": "+1 per run" },
           { "action": "Boundary bonus (four)", "points": "+2" },
           { "action": "Six bonus", "points": "+4" },
-          { "action": "25-run bonus", "points": "+4" },
+          { "action": "30-run bonus", "points": "+4" },
           { "action": "Half-century bonus", "points": "+8" },
           { "action": "75-run bonus", "points": "+12" },
           { "action": "Century bonus", "points": "+16" },
@@ -36,7 +36,7 @@
       {
         "heading": "Batting — clarifications",
         "rows": [
-          { "action": "Century stacking", "points": "If a batter scores a century, only the century bonus counts — not the 25-run, half-century, or 75-run bonuses." },
+          { "action": "Century stacking", "points": "If a batter scores a century, only the century bonus counts — not the 30-run, half-century, or 75-run bonuses." },
           { "action": "Overthrow runs", "points": "Runs from an overthrow count for the striker; if the overthrow goes for a boundary, no extra boundary bonus for that boundary." }
         ]
       },

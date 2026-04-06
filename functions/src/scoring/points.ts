@@ -1,4 +1,7 @@
-/** IPL 2026 fantasy — automated subset (see rules.json). Some edge cases may need manual review. */
+/**
+ * IPL 2026 fantasy — automated subset (see rules.json). Some edge cases may need manual review.
+ * Milestone first tier is 30 runs (+4); re-syncing an old match overwrites stored points with current rules.
+ */
 
 export type Role = "BAT" | "BOWL" | "AR" | "WK";
 
@@ -41,12 +44,12 @@ export type ComputedMatchFantasyPoints = Partial<{
   impactOrConcussion: number;
 }>;
 
-/** 25/50/75/100 bonuses; century uses only the +16 tier (rules.json). */
+/** 30/50/75/100 bonuses; century uses only the +16 tier (rules.json). */
 function milestonePoints(runs: number): number {
   if (runs >= 100) return 16;
   if (runs >= 75) return 12;
   if (runs >= 50) return 8;
-  if (runs >= 25) return 4;
+  if (runs >= 30) return 4;
   return 0;
 }
 

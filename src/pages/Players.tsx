@@ -86,7 +86,7 @@ const FANTASY_POINT_COLUMNS: PtCol[] = [
   {
     key: "mil",
     label: "Mil",
-    title: "Milestone bonuses (25/50/75/100), net of stacking rules",
+    title: "Milestone bonuses (30/50/75/100), net of stacking rules",
     get: (p) => fp(p)?.battingMilestones,
   },
   {

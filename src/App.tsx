@@ -4,7 +4,6 @@ import { Layout } from "./components/Layout";
 import { LoadingState } from "./components/LoadingState";
 import { LeagueProvider, useLeague } from "./context/LeagueContext";
 import { WaiverProvider } from "./context/WaiverContext";
-import { Auction } from "./pages/Auction";
 import { Home } from "./pages/Home";
 import { MatchPoints } from "./pages/MatchPoints";
 import { Players } from "./pages/Players";
@@ -54,7 +53,7 @@ function DataRoutes() {
           <Route path="matches" element={<MatchPoints />} />
           <Route path="waivers" element={<Waivers />} />
           <Route path="score-sync" element={<AdminScoreSync />} />
-          <Route path="auction" element={<Auction />} />
+          <Route path="auction" element={<Navigate to="/waivers" replace />} />
           <Route path="predictions" element={<Predictions />} />
           <Route path="rules" element={<Rules />} />
         </Route>

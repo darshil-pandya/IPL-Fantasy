@@ -65,7 +65,7 @@ export interface PlayerSeasonFantasyPoints {
   boundaryFours?: number;
   /** Points from +4 per six */
   boundarySixes?: number;
-  /** Net milestone bonuses (25/50/75/100) after your stacking rules */
+  /** Net milestone bonuses (30/50/75/100) after your stacking rules */
   battingMilestones?: number;
   /** Duck penalties (negative) */
   ducks?: number;
