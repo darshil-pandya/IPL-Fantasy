@@ -25,8 +25,14 @@ export async function subscribeWaiverRemote(
     return onSnapshot(
       d,
       (snap) => {
-        if (!snap.exists()) return;
-        onRemote(snap.data()?.payload);
+        // Always notify caller that a snapshot arrived. This prevents a client
+        // from writing a seeded/local state over an existing remote state
+        // before it has hydrated from Firestore.
+        if (!snap.exists()) {
+          onRemote(null);
+          return;
+        }
+        onRemote(snap.data()?.payload ?? null);
       },
       (err) => onError?.(err),
     );

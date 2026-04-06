@@ -129,6 +129,7 @@ export function WaiverProvider({ children }: { children: ReactNode }) {
   const [remoteConnected, setRemoteConnected] = useState(false);
   const skipNextPush = useRef(false);
   const localPushInFlight = useRef(false);
+  const remoteHydrated = useRef(false);
   const bundleKeyRef = useRef<string>("");
   const budgetRepairDone = useRef(false);
 
@@ -183,6 +184,8 @@ export function WaiverProvider({ children }: { children: ReactNode }) {
     let unsub: (() => void) | undefined;
     void subscribeWaiverRemote(
       (payload) => {
+        // Mark hydration on first snapshot (exists or not).
+        remoteHydrated.current = true;
         if (payload == null) return;
         if (localPushInFlight.current) return;
         try {
@@ -217,6 +220,9 @@ export function WaiverProvider({ children }: { children: ReactNode }) {
     if (!state) return;
     saveState(state);
     if (!isFirebaseWaiverConfigured()) return;
+    // Critical: don't write seeded/local state until we've seen the first snapshot.
+    // Otherwise, a cold start can overwrite an existing Firestore waiverState.
+    if (!remoteHydrated.current) return;
     if (skipNextPush.current) {
       skipNextPush.current = false;
       return;
@@ -238,9 +244,6 @@ export function WaiverProvider({ children }: { children: ReactNode }) {
     void (async () => {
       try {
         const transfers = await loadCompletedTransfers();
-        // #region agent log
-        fetch('http://127.0.0.1:7922/ingest/04695dc6-fb05-45d0-92de-1e0616b262c8',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'ed07ae'},body:JSON.stringify({sessionId:'ed07ae',location:'WaiverContext.tsx:repair',message:'completedTransfers loaded',data:{count:transfers.length,transfers:transfers.map(t=>({id:t.id,roundId:t.roundId,playerInId:t.playerInId,revealedAt:t.revealedAt,wonBy:t.bids.find(b=>b.result==='WON')?.owner,playerOutId:t.bids.find(b=>b.result==='WON')?.playerOutId}))},timestamp:Date.now(),hypothesisId:'H1'})}).catch(()=>{});
-        // #endregion
         if (transfers.length === 0) return;
 
         const spent: Record<string, number> = {};
@@ -252,9 +255,6 @@ export function WaiverProvider({ children }: { children: ReactNode }) {
         }
 
         setState((prev) => {
-          // #region agent log
-          fetch('http://127.0.0.1:7922/ingest/04695dc6-fb05-45d0-92de-1e0616b262c8',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'ed07ae'},body:JSON.stringify({sessionId:'ed07ae',location:'WaiverContext.tsx:setState',message:'existing rosterHistory before repair',data:{count:prev.rosterHistory.length,entries:prev.rosterHistory.map(e=>({winner:e.winner,playerInId:e.playerInId,playerOutId:e.playerOutId,roundId:e.roundId,effectiveAfterColumnId:e.effectiveAfterColumnId}))},timestamp:Date.now(),hypothesisId:'H1'})}).catch(()=>{});
-          // #endregion
           let changed = false;
 
           // --- Budget repair ---
@@ -304,10 +304,6 @@ export function WaiverProvider({ children }: { children: ReactNode }) {
           }
 
           if (missing.length > 0) changed = true;
-
-          // #region agent log
-          fetch('http://127.0.0.1:7922/ingest/04695dc6-fb05-45d0-92de-1e0616b262c8',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'ed07ae'},body:JSON.stringify({sessionId:'ed07ae',location:'WaiverContext.tsx:repairResult',message:'repair result',data:{changed,missingCount:missing.length,missing:missing.map(m=>({winner:m.winner,playerInId:m.playerInId,playerOutId:m.playerOutId,effectiveAfterColumnId:m.effectiveAfterColumnId,roundId:m.roundId})),colsAvailable:cols.map(c=>({id:c.id,date:c.date}))},timestamp:Date.now(),hypothesisId:'H2'})}).catch(()=>{});
-          // #endregion
 
           if (!changed) return prev;
           return {
@@ -370,17 +366,22 @@ export function WaiverProvider({ children }: { children: ReactNode }) {
       });
       if (result.error) return result.error;
       setState(result.state);
-      // Push to Firestore immediately to prevent the subscription from
-      // overwriting with stale data before the debounced push fires.
-      skipNextPush.current = true;
-      localPushInFlight.current = true;
-      void pushWaiverRemote(result.state)
-        .catch((e: Error) => setRemoteError(e.message))
-        .finally(() => { localPushInFlight.current = false; });
-      if (result.completedTransfers?.length) {
-        void writeCompletedTransfers(result.completedTransfers).catch(
-          (e: Error) => setRemoteError(e.message),
-        );
+      if (isFirebaseWaiverConfigured()) {
+        // Avoid writing before initial remote hydration.
+        if (remoteHydrated.current) {
+          // Push to Firestore immediately to prevent the subscription from
+          // overwriting with stale data before the debounced push fires.
+          skipNextPush.current = true;
+          localPushInFlight.current = true;
+          void pushWaiverRemote(result.state)
+            .catch((e: Error) => setRemoteError(e.message))
+            .finally(() => { localPushInFlight.current = false; });
+          if (result.completedTransfers?.length) {
+            void writeCompletedTransfers(result.completedTransfers).catch(
+              (e: Error) => setRemoteError(e.message),
+            );
+          }
+        }
       }
       return null;
     },
