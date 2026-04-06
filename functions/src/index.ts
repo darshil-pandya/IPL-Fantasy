@@ -1,10 +1,9 @@
 import { initializeApp } from "firebase-admin/app";
-import { getFirestore, FieldValue } from "firebase-admin/firestore";
+import { getFirestore } from "firebase-admin/firestore";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { runAdminScoreSync } from "./sync/adminScoreSync.js";
 import {
   runMigration,
-  runResetWaiverActivityToAuctionBaseline,
 } from "./api/migrate.js";
 import {
   handleNominate,
@@ -28,9 +27,7 @@ import {
   type GetOwnerPointsInput,
   type GetOwnerSquadInput,
 } from "./api/owners.js";
-import { buildApril2026WaiverPayload } from "./backfill/backfillWaiverFromMatches.js";
-import { patchMatchPlayerPointsAttribution } from "./backfill/patchMatchPlayerPointsAttribution.js";
-import { deleteCollectionBatched } from "./backfill/deleteCollectionBatched.js";
+// NOTE: intentionally no admin backfill / reset callables in production build.
 
 initializeApp();
 
@@ -107,97 +104,6 @@ export const adminMigrateToCollections = onCall(
     const raw = request.data as Record<string, unknown> | undefined;
     const secret = typeof raw?.adminSecret === "string" ? raw.adminSecret : "";
     return await runMigration(secret, ADMIN_SCORE_SYNC_SECRET);
-  },
-);
-
-export const adminResetWaiverActivity = onCall(
-  HEAVY_CALLABLE_OPTS,
-  async (request) => {
-    const raw = request.data as Record<string, unknown> | undefined;
-    const secret = typeof raw?.adminSecret === "string" ? raw.adminSecret : "";
-    return await runResetWaiverActivityToAuctionBaseline(
-      secret,
-      ADMIN_SCORE_SYNC_SECRET,
-    );
-  },
-);
-
-/**
- * Backfills `iplFantasy/waiverState` from auction `leagueBundle` + chronological
- * `fantasyMatchScores` matches (≥9) using the April 2026 offline timeline in
- * `backfill/april2026Transfers.ts`. Optionally re-runs migration and patches
- * `matchPlayerPoints.matchPlayedAt` for cloud attribution parity.
- */
-export const adminBackfillApril2026WaiverTimeline = onCall(
-  HEAVY_CALLABLE_OPTS,
-  async (request) => {
-    const raw = request.data as Record<string, unknown> | undefined;
-    const secret = typeof raw?.adminSecret === "string" ? raw.adminSecret : "";
-    if (secret !== ADMIN_SCORE_SYNC_SECRET) {
-      throw new HttpsError("permission-denied", "Invalid admin secret.");
-    }
-
-    const patchMpp = raw?.patchMatchPlayerPointsAttribution !== false;
-    const runMigrate = raw?.runMigrationAfter === true;
-    const clearCompletedTransfers = raw?.clearCompletedTransfers !== false;
-
-    const db = getFirestore();
-
-    const bundleSnap = await db.doc("iplFantasy/leagueBundle").get();
-    const bundlePayload = bundleSnap.data()?.payload as
-      | { franchises?: { owner: string; teamName: string; playerIds: string[] }[] }
-      | undefined;
-    if (!bundlePayload?.franchises?.length) {
-      throw new HttpsError(
-        "failed-precondition",
-        "iplFantasy/leagueBundle is missing franchises.",
-      );
-    }
-
-    const scoresSnap = await db.doc("iplFantasy/fantasyMatchScores").get();
-    const matches = (scoresSnap.data()?.matches ?? {}) as Record<
-      string,
-      Record<string, unknown>
-    >;
-
-    const built = buildApril2026WaiverPayload(bundlePayload.franchises, matches);
-    if (!built.ok) {
-      throw new HttpsError("failed-precondition", built.error);
-    }
-
-    let deletedTransfers = 0;
-    if (clearCompletedTransfers) {
-      deletedTransfers = await deleteCollectionBatched(db, "completedTransfers");
-    }
-
-    await db.doc("iplFantasy/waiverState").set({
-      payload: built.payload,
-      updatedAt: FieldValue.serverTimestamp(),
-    });
-
-    let migrationResult: Awaited<ReturnType<typeof runMigration>> | null = null;
-    if (runMigrate) {
-      migrationResult = await runMigration(secret, ADMIN_SCORE_SYNC_SECRET);
-    }
-
-    let matchPlayerPointsPatched: { updated: number } | null = null;
-    if (patchMpp) {
-      matchPlayerPointsPatched = await patchMatchPlayerPointsAttribution(
-        db,
-        built.orderedMatches,
-      );
-    }
-
-    return {
-      ok: true,
-      warnings: built.warnings,
-      orderedMatchLabels: built.orderedMatches.map(
-        (m) => `${m.matchDate.slice(0, 10)} ${m.matchLabel}`,
-      ),
-      deletedCompletedTransfers: deletedTransfers,
-      migrationResult,
-      matchPlayerPointsPatched,
-    };
   },
 );
 

@@ -45,9 +45,7 @@ import {
   callWaiverBid,
   callWaiverSettle,
   callSetWaiverPhase,
-  callMigrateToCollections,
   type SettleResult,
-  type MigrateResult,
 } from "../lib/firebase/waiverApi";
 
 function loadParsedState(): WaiverPersistentState | null {
@@ -108,7 +106,6 @@ type WaiverCtx = {
     setPhase: (
       phase: "idle" | "nomination" | "bidding",
     ) => Promise<{ phase: string; isWaiverWindowOpen: boolean }>;
-    migrate: () => Promise<MigrateResult>;
   };
 };
 
@@ -435,9 +432,6 @@ export function WaiverProvider({ children }: { children: ReactNode }) {
       },
       setPhase: async (phase: "idle" | "nomination" | "bidding") => {
         return callSetWaiverPhase({ targetPhase: phase });
-      },
-      migrate: async () => {
-        return callMigrateToCollections();
       },
     };
   }, [session]);

@@ -92,7 +92,7 @@ function main(): void {
     "\nNext: ensure real Firestore matches sort to the same 1–11 order (dates from ESPN).",
   );
   console.log(
-    "Then call Cloud Function adminBackfillApril2026WaiverTimeline with adminSecret.",
+    "Note: the admin backfill Cloud Function is disabled in this build.",
   );
   console.log(
     "Player byMatch / leagueBundle must include points for those matches (score sync or JSON).",

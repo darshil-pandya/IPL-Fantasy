@@ -5,20 +5,6 @@ import { OwnerPointsLineChart } from "../components/OwnerPointsLineChart";
 import { useLeague } from "../context/LeagueContext";
 import { useLeagueStandings } from "../context/WaiverContext";
 import { buildOwnerCumulativeFromPerMatch } from "../lib/cumulativeOwnerMatchPoints";
-import {
-  leaderBestBattingAvg,
-  leaderBestBowlingAvg,
-  leaderMostCatches,
-  leaderMostFantasyPoints,
-  leaderMostFours,
-  leaderMostSixes,
-  leaderTopRuns,
-  leaderTopWickets,
-  playersForSeasonHighlights,
-  countryLabel,
-  roleLabel,
-  type StatLeader,
-} from "../lib/iplStatLeaders";
 import { PREDICTION_ACTUALS_EVENT } from "../lib/predictionEvents";
 import {
   loadStoredActuals,
@@ -27,6 +13,8 @@ import {
   predictionScore,
 } from "../lib/predictions";
 import type { Player } from "../types";
+import { matchColumnsFromPlayers, pointsInMatch, type MatchColumn } from "../lib/matchColumns";
+import { IplTeamPill } from "../components/IplTeamPill";
 
 function bestFantasyPlayerOnSquad(players: Player[]): Player | null {
   if (players.length === 0) return null;
@@ -47,54 +35,35 @@ function buildPlayerOwnerMap(
   return m;
 }
 
-function HighlightStatCard({
-  title,
-  leader,
+function PerformerCard({
+  player,
+  points,
   ownerName,
+  match,
 }: {
-  title: string;
-  leader: StatLeader;
+  player: Player;
+  points: number;
   ownerName: string;
+  match: MatchColumn;
 }) {
   return (
     <div className="rounded-xl border border-cyan-500/20 bg-slate-900/60 p-4 shadow-md shadow-black/20 ring-1 ring-cyan-500/10">
-      <p className="text-xs font-semibold uppercase tracking-wider text-amber-400/80">{title}</p>
-      {leader ? (
-        <>
-          <p className="mt-2 font-bold text-white">{leader.player.name}</p>
-          <p className="mt-1 text-sm tabular-nums text-cyan-300">
-            {leader.display} pts
-          </p>
-          {leader.secondaryStat ? (
-            <p className="mt-0.5 text-[11px] tabular-nums text-slate-500">
-              {leader.secondaryStat}
-            </p>
-          ) : null}
-          {leader.caption ? (
-            <p className="mt-1 text-[10px] leading-snug text-slate-500">{leader.caption}</p>
-          ) : null}
-          <dl className="mt-3 space-y-1 border-t border-cyan-500/15 pt-3 text-xs">
-            <div className="flex gap-2">
-              <dt className="shrink-0 text-slate-500">Owner</dt>
-              <dd className="font-medium text-slate-200">{ownerName}</dd>
-            </div>
-            <div className="flex gap-2">
-              <dt className="shrink-0 text-slate-500">IPL</dt>
-              <dd className="text-slate-200">{leader.player.iplTeam}</dd>
-            </div>
-            <div className="flex gap-2">
-              <dt className="shrink-0 text-slate-500">Role</dt>
-              <dd className="text-slate-200">{roleLabel(leader.player.role)}</dd>
-            </div>
-            <div className="flex gap-2">
-              <dt className="shrink-0 text-slate-500">Country</dt>
-              <dd className="text-slate-200">{countryLabel(leader.player.nationality)}</dd>
-            </div>
-          </dl>
-        </>
-      ) : (
-        <p className="mt-2 text-sm text-slate-500">No data yet</p>
-      )}
+      <p className="text-xs font-semibold uppercase tracking-wider text-amber-400/80">
+        {match.label}
+      </p>
+      <p className="mt-2 font-bold text-white">{player.name}</p>
+      <div className="mt-1 flex items-center gap-2">
+        <p className="text-sm font-semibold tabular-nums text-cyan-300">
+          {Math.round(points)} pts
+        </p>
+        <IplTeamPill code={player.iplTeam} />
+      </div>
+      <dl className="mt-3 space-y-1 border-t border-cyan-500/15 pt-3 text-xs">
+        <div className="flex gap-2">
+          <dt className="shrink-0 text-slate-500">Owner</dt>
+          <dd className="font-medium text-slate-200">{ownerName}</dd>
+        </div>
+      </dl>
     </div>
   );
 }
@@ -151,28 +120,43 @@ export function Home() {
     return buildPlayerOwnerMap(summary.standings);
   }, [summary]);
 
-  const statLeaders = useMemo(() => {
+  const lastMatchTopPerformers = useMemo(() => {
     if (!bundle) return null;
-    const players = playersForSeasonHighlights(bundle);
-    return {
-      fantasy: leaderMostFantasyPoints(players),
-      runs: leaderTopRuns(players),
-      wickets: leaderTopWickets(players),
-      batAvg: leaderBestBattingAvg(players),
-      bowlAvg: leaderBestBowlingAvg(players),
-      sixes: leaderMostSixes(players),
-      fours: leaderMostFours(players),
-      catches: leaderMostCatches(players),
-    };
+    const all: Player[] = [];
+    const seen = new Set<string>();
+    for (const p of bundle.players) {
+      if (!seen.has(p.id)) {
+        seen.add(p.id);
+        all.push(p);
+      }
+    }
+    for (const p of bundle.waiverPool ?? []) {
+      if (!seen.has(p.id)) {
+        seen.add(p.id);
+        all.push(p);
+      }
+    }
+
+    const cols = matchColumnsFromPlayers(all);
+    const lastCol = cols.length > 0 ? cols[cols.length - 1]! : null;
+    if (!lastCol) return { match: null as MatchColumn | null, top: [] as { player: Player; points: number }[] };
+
+    const rows = all
+      .map((p) => ({ player: p, points: pointsInMatch(p, lastCol.id) }))
+      .filter((r): r is { player: Player; points: number } => typeof r.points === "number" && !Number.isNaN(r.points))
+      .filter((r) => r.points !== 0)
+      .sort((a, b) => b.points - a.points || a.player.name.localeCompare(b.player.name))
+      .slice(0, 6);
+
+    return { match: lastCol, top: rows };
   }, [bundle]);
 
-  if (!bundle || !summary || !statLeaders) return null;
+  if (!bundle || !summary) return null;
 
   const pred = bundle.predictions;
 
-  function ownerForLeader(leader: StatLeader): string {
-    if (!leader) return "—";
-    return playerOwnerMap.get(leader.player.id) ?? "Free agent";
+  function ownerForPlayer(p: Player): string {
+    return playerOwnerMap.get(p.id) ?? "Free agent";
   }
 
   return (
@@ -248,57 +232,30 @@ export function Home() {
       </section>
 
       <section>
-        <h2 className="font-display mb-2 text-2xl tracking-wide text-white">Season highlights</h2>
-        <p className="mb-3 text-sm text-slate-400">
-          Leaders are picked from IPL counting stats in optional{" "}
-          <code className="app-code-inline">seasonStats</code> (full player pool + waiver pool).
-          Points shown use <code className="app-code-inline">seasonFantasyPoints</code> where
-          available, or a rough estimate from stats. Owner is the current fantasy franchise from
-          waiver rosters; players not on a squad show as{" "}
-          <span className="text-slate-300">Free agent</span>.
-        </p>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <HighlightStatCard
-            title="Most fantasy points"
-            leader={statLeaders.fantasy}
-            ownerName={ownerForLeader(statLeaders.fantasy)}
-          />
-          <HighlightStatCard
-            title="Top run scorer"
-            leader={statLeaders.runs}
-            ownerName={ownerForLeader(statLeaders.runs)}
-          />
-          <HighlightStatCard
-            title="Top wicket taker"
-            leader={statLeaders.wickets}
-            ownerName={ownerForLeader(statLeaders.wickets)}
-          />
-          <HighlightStatCard
-            title="Best batting average"
-            leader={statLeaders.batAvg}
-            ownerName={ownerForLeader(statLeaders.batAvg)}
-          />
-          <HighlightStatCard
-            title="Best bowling average"
-            leader={statLeaders.bowlAvg}
-            ownerName={ownerForLeader(statLeaders.bowlAvg)}
-          />
-          <HighlightStatCard
-            title="Most sixes"
-            leader={statLeaders.sixes}
-            ownerName={ownerForLeader(statLeaders.sixes)}
-          />
-          <HighlightStatCard
-            title="Most fours"
-            leader={statLeaders.fours}
-            ownerName={ownerForLeader(statLeaders.fours)}
-          />
-          <HighlightStatCard
-            title="Most catches"
-            leader={statLeaders.catches}
-            ownerName={ownerForLeader(statLeaders.catches)}
-          />
-        </div>
+        <h2 className="font-display mb-2 text-2xl tracking-wide text-white">
+          {lastMatchTopPerformers?.match
+            ? `Top Performs in ${lastMatchTopPerformers.match.label}`
+            : "Top Performs"}
+        </h2>
+        {lastMatchTopPerformers?.match && lastMatchTopPerformers.top.length > 0 ? (
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {lastMatchTopPerformers.top.map((r) => (
+              <PerformerCard
+                key={r.player.id}
+                player={r.player}
+                points={r.points}
+                ownerName={ownerForPlayer(r.player)}
+                match={lastMatchTopPerformers.match!}
+              />
+            ))}
+          </div>
+        ) : (
+          <p className="rounded-xl border border-slate-700/60 bg-slate-900/40 px-4 py-6 text-center text-sm text-slate-500">
+            No match points yet. When player scorecards include{" "}
+            <code className="app-code-inline">byMatch</code> entries, this section will show the
+            top performers from the latest match.
+          </p>
+        )}
       </section>
 
       <section aria-label="Owner fantasy points by match">

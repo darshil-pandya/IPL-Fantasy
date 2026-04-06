@@ -16,11 +16,7 @@ import type { CompletedTransfer, WaiverBid, WaiverNomination, WaiverSession } fr
 import { isFirebaseConfigured } from "../lib/firebase/client";
 import { seedLeagueFromStaticToFirestore } from "../lib/firebase/leagueRemote";
 import { loadCompletedTransfers } from "../lib/firebase/waiverRemote";
-import {
-  callResetWaiverActivity,
-  callBackfillApril2026WaiverTimeline,
-  callMigrateToCollections,
-} from "../lib/firebase/waiverApi";
+import { callMigrateToCollections } from "../lib/firebase/waiverApi";
 import { abbreviateMatchLabel, formatMatchDate } from "../lib/matchLabel";
 import type { MatchColumn } from "../lib/matchColumns";
 import { ownerCardClass, ownerCardMutedClass } from "../lib/ownerTheme";
@@ -347,17 +343,6 @@ function AdminPanel({
     kind: "ok" | "err";
     text: string;
   } | null>(null);
-  const [resetWaiverBusy, setResetWaiverBusy] = useState(false);
-  const [resetWaiverFeedback, setResetWaiverFeedback] = useState<{
-    kind: "ok" | "err";
-    text: string;
-  } | null>(null);
-  const [backfillAprBusy, setBackfillAprBusy] = useState(false);
-  const [backfillAprFeedback, setBackfillAprFeedback] = useState<{
-    kind: "ok" | "err";
-    text: string;
-  } | null>(null);
-  const [backfillRunMigrate, setBackfillRunMigrate] = useState(false);
   const [debugging, setDebugging] = useState(false);
   const [migrateBusy, setMigrateBusy] = useState(false);
   const [migrateFeedback, setMigrateFeedback] = useState<{
@@ -382,62 +367,6 @@ function AdminPanel({
       });
     } finally {
       setPubBusy(false);
-    }
-  }
-
-  async function resetWaiverActivityOnServer() {
-    if (!isFirebaseConfigured()) return;
-    setResetWaiverFeedback(null);
-    setResetWaiverBusy(true);
-    try {
-      const data = await callResetWaiverActivity();
-      setResetWaiverFeedback({
-        kind: "ok",
-        text: `${data.message} Deleted: ${data.deleted.completedTransfers} transfer record(s), ${data.deleted.waiverNominations} nomination(s), ${data.deleted.waiverBids} bid(s), ${data.deleted.ownershipPeriods} ownership period(s).`,
-      });
-    } catch (e) {
-      setResetWaiverFeedback({
-        kind: "err",
-        text: e instanceof Error ? e.message : String(e),
-      });
-    } finally {
-      setResetWaiverBusy(false);
-    }
-  }
-
-  async function runApril2026Backfill() {
-    if (!isFirebaseConfigured()) return;
-    setBackfillAprFeedback(null);
-    setBackfillAprBusy(true);
-    try {
-      const data = await callBackfillApril2026WaiverTimeline({
-        runMigrationAfter: backfillRunMigrate,
-      });
-      const parts = [
-        `Cleared ${data.deletedCompletedTransfers} completed transfer doc(s).`,
-        ...data.warnings,
-      ];
-      if (data.matchPlayerPointsPatched) {
-        parts.push(
-          `Patched ${data.matchPlayerPointsPatched.updated} matchPlayerPoints row(s) for attribution time.`,
-        );
-      }
-      if (data.migrationResult) {
-        parts.push(
-          `Migration: ${data.migrationResult.ownerCount} owners, ${data.migrationResult.periodCount} periods.`,
-        );
-      }
-      setBackfillAprFeedback({
-        kind: "ok",
-        text: `${parts.join(" ")} Match order: ${data.orderedMatchLabels.join(" | ")}`,
-      });
-    } catch (e) {
-      setBackfillAprFeedback({
-        kind: "err",
-        text: e instanceof Error ? e.message : String(e),
-      });
-    } finally {
-      setBackfillAprBusy(false);
     }
   }
 
@@ -612,106 +541,6 @@ function AdminPanel({
             }
           >
             {migrateFeedback.text}
-          </p>
-        )}
-      </div>
-
-      <div className="rounded-xl border border-red-400/40 bg-red-950/20 p-4">
-        <h4 className="text-xs font-bold uppercase tracking-wide text-red-200">
-          Reset waiver season (Firestore)
-        </h4>
-        <p className="mt-2 text-xs leading-relaxed text-amber-900/90">
-          Removes all waiver nominations, bids, completed transfer records, and roster history in{" "}
-          <code className="rounded bg-white/80 px-1 text-[0.65rem] text-slate-900">
-            iplFantasy/waiverState
-          </code>
-          . Sets every team&apos;s waiver budget back to {money(WAIVER_BUDGET_START)} and restores
-          squads from the published{" "}
-          <code className="rounded bg-white/80 px-1 text-[0.65rem] text-slate-900">
-            leagueBundle
-          </code>{" "}
-          (auction rosters). If you use migrated cloud waivers, owners/players/ownership periods are
-          rebuilt the same way. Does not change match points or the league bundle document.
-        </p>
-        <button
-          type="button"
-          disabled={resetWaiverBusy || !isFirebaseConfigured()}
-          onClick={() => {
-            if (
-              !window.confirm(
-                "Reset all waiver activity on Firestore? This cannot be undone.",
-              )
-            ) {
-              return;
-            }
-            void resetWaiverActivityOnServer();
-          }}
-          className="mt-3 rounded-lg border border-red-500/50 bg-red-900/40 px-3 py-2 text-xs font-semibold text-red-100 hover:bg-red-800/50 disabled:cursor-not-allowed disabled:opacity-45"
-        >
-          {resetWaiverBusy ? "Resetting…" : "Reset waivers & budgets (Firestore)"}
-        </button>
-        {resetWaiverFeedback && (
-          <p
-            className={
-              resetWaiverFeedback.kind === "ok"
-                ? "mt-2 text-xs text-emerald-700"
-                : "mt-2 text-xs text-red-600"
-            }
-          >
-            {resetWaiverFeedback.text}
-          </p>
-        )}
-      </div>
-
-      <div className="mt-6 rounded-xl border border-cyan-500/35 bg-slate-900/40 p-4">
-        <h4 className="text-xs font-bold uppercase tracking-wide text-cyan-200">
-          April 2026 offline backfill
-        </h4>
-        <p className="mt-2 text-xs leading-relaxed text-amber-100/90">
-          Applies the hard-coded transfer timeline through 5 Apr to{" "}
-          <code className="rounded bg-white/10 px-1 text-[0.65rem]">waiverState</code>, using
-          match order from{" "}
-          <code className="rounded bg-white/10 px-1 text-[0.65rem]">fantasyMatchScores</code>{" "}
-          (need ≥9 synced matches; 11 recommended). Patches{" "}
-          <code className="rounded bg-white/10 px-1 text-[0.65rem]">matchPlayerPoints</code>{" "}
-          timestamps for cloud scoring. Run{" "}
-          <code className="text-[0.65rem]">npm run backfill:dry-run-april2026</code> locally first.
-        </p>
-        <label className="mt-3 flex cursor-pointer items-center gap-2 text-xs text-amber-100">
-          <input
-            type="checkbox"
-            className="size-4 rounded border-cyan-500/40 bg-slate-950"
-            checked={backfillRunMigrate}
-            onChange={(e) => setBackfillRunMigrate(e.target.checked)}
-          />
-          Also run full migration (owners / players / ownership periods / MPP from bundle)
-        </label>
-        <button
-          type="button"
-          disabled={backfillAprBusy || !isFirebaseConfigured()}
-          onClick={() => {
-            if (
-              !window.confirm(
-                "Run April 2026 waiver backfill on Firestore? Ensure match sync order matches IPL 1–11.",
-              )
-            ) {
-              return;
-            }
-            void runApril2026Backfill();
-          }}
-          className="mt-3 rounded-lg border border-cyan-500/45 bg-cyan-950/50 px-3 py-2 text-xs font-semibold text-cyan-100 hover:bg-cyan-900/50 disabled:cursor-not-allowed disabled:opacity-45"
-        >
-          {backfillAprBusy ? "Running backfill…" : "Run April 2026 backfill"}
-        </button>
-        {backfillAprFeedback && (
-          <p
-            className={
-              backfillAprFeedback.kind === "ok"
-                ? "mt-2 text-xs text-emerald-400"
-                : "mt-2 text-xs text-red-400"
-            }
-          >
-            {backfillAprFeedback.text}
           </p>
         )}
       </div>
