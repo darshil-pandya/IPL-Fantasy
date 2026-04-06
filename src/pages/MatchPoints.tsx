@@ -125,12 +125,14 @@ function FranchiseMatchTable({
   scoringMode,
   perOwnerRounds,
   rostersAtStartOfMatch,
+  formerPlayers,
 }: {
   standing: FranchiseStanding;
   columns: MatchColumn[];
   scoringMode: FranchiseScoringMode;
   perOwnerRounds: number[];
   rostersAtStartOfMatch: Record<string, string[]>[] | null;
+  formerPlayers: { player: Player; attributedPoints: number }[];
 }) {
   const franchiseMatchTotal = useMemo(() => {
     return perOwnerRounds.reduce((a, b) => a + b, 0);
@@ -224,6 +226,26 @@ function FranchiseMatchTable({
             </td>
           </tr>
         </tbody>
+        {formerPlayers.length > 0 && (
+          <tbody className="opacity-50">
+            <tr>
+              <td
+                colSpan={4 + columns.length + 1}
+                className="px-3 pb-1 pt-4 text-[10px] font-semibold uppercase tracking-wide text-slate-500"
+              >
+                Former Players
+              </td>
+            </tr>
+            {formerPlayers.map((f) => (
+              <FormerPlayerRow
+                key={f.player.id}
+                player={f.player}
+                columns={columns}
+                attributedPoints={f.attributedPoints}
+              />
+            ))}
+          </tbody>
+        )}
       </table>
     </div>
   );
@@ -297,6 +319,49 @@ function PlayerRow({
   );
 }
 
+function FormerPlayerRow({
+  player,
+  columns,
+  attributedPoints,
+}: {
+  player: Player;
+  columns: MatchColumn[];
+  attributedPoints: number;
+}) {
+  return (
+    <tr className="app-table-row border-brand-cyan/25">
+      <td className="sticky left-0 z-[1] bg-slate-900 px-3 py-2.5 font-medium text-slate-500 shadow-[2px_0_12px_-2px_rgba(0,0,0,0.5)] md:px-4">
+        {player.name}
+      </td>
+      <td className="px-2 py-2.5">
+        <span className={roleBadgeClass(player.role)}>{player.role}</span>
+      </td>
+      <td className="px-2 py-2.5">
+        <IplTeamPill code={player.iplTeam} />
+      </td>
+      <td className="px-2 py-2.5">
+        <span className={natBadgeClass(player.nationality)}>
+          {player.nationality ?? "—"}
+        </span>
+      </td>
+      {columns.map((c) => {
+        const pts = pointsInMatch(player, c.id);
+        return (
+          <td
+            key={c.id}
+            className="px-2 py-2.5 text-right tabular-nums text-slate-600"
+          >
+            {pts != null ? Math.round(pts) : "—"}
+          </td>
+        );
+      })}
+      <td className="px-3 py-2.5 text-right tabular-nums font-medium text-slate-500">
+        {Math.round(attributedPoints)}
+      </td>
+    </tr>
+  );
+}
+
 export function MatchPoints() {
   const { bundle } = useLeague();
   const displaySummary = useLeagueStandings();
@@ -359,26 +424,56 @@ export function MatchPoints() {
         </p>
       ) : null}
 
-      {filteredStandings.map((s) => (
-        <section key={s.owner} className="space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <h3 className="text-base font-bold text-white">{s.owner}</h3>
-              <OwnerBadge owner={s.owner} />
+      {filteredStandings.map((s) => {
+        const roleCounts: Record<string, number> = {};
+        let ovsCount = 0;
+        for (const p of s.playersResolved) {
+          roleCounts[p.role] = (roleCounts[p.role] ?? 0) + 1;
+          if (p.nationality === "OVS") ovsCount++;
+        }
+        const compositionCards: { label: string; count: number }[] = [
+          { label: "BAT", count: roleCounts["BAT"] ?? 0 },
+          { label: "BOWL", count: roleCounts["BOWL"] ?? 0 },
+          { label: "AR", count: roleCounts["AR"] ?? 0 },
+          { label: "WK", count: roleCounts["WK"] ?? 0 },
+          { label: "OVS", count: ovsCount },
+        ];
+
+        return (
+          <section key={s.owner} className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="text-base font-bold text-white">{s.owner}</h3>
+                <OwnerBadge owner={s.owner} />
+              </div>
+              <span className="rounded-full border border-cyan-500/30 bg-slate-900/80 px-3 py-1 text-xs text-cyan-200">
+                Fantasy total (leaderboard): {Math.round(s.totalPoints)} pts
+              </span>
             </div>
-            <span className="rounded-full border border-cyan-500/30 bg-slate-900/80 px-3 py-1 text-xs text-cyan-200">
-              Fantasy total (leaderboard): {Math.round(s.totalPoints)} pts
-            </span>
-          </div>
-          <FranchiseMatchTable
-            standing={s}
-            columns={columns}
-            scoringMode={scoringMode}
-            perOwnerRounds={displaySummary.perOwnerPerMatch[s.owner] ?? []}
-            rostersAtStartOfMatch={displaySummary.rostersAtStartOfMatch}
-          />
-        </section>
-      ))}
+            <div className="flex flex-wrap gap-2">
+              {compositionCards.map((c) => (
+                <div
+                  key={c.label}
+                  className="flex min-w-[4.5rem] flex-col items-center rounded-lg border border-cyan-500/15 bg-slate-900/60 px-4 py-2"
+                >
+                  <span className="text-lg font-bold tabular-nums text-white">{c.count}</span>
+                  <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                    {c.label}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <FranchiseMatchTable
+              standing={s}
+              columns={columns}
+              scoringMode={scoringMode}
+              perOwnerRounds={displaySummary.perOwnerPerMatch[s.owner] ?? []}
+              rostersAtStartOfMatch={displaySummary.rostersAtStartOfMatch}
+              formerPlayers={displaySummary.formerPlayersPerOwner[s.owner] ?? []}
+            />
+          </section>
+        );
+      })}
 
       <p className="text-xs leading-relaxed text-slate-500">
         Cells count toward a franchise only for matches while that player was on the roster

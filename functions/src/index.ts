@@ -2,7 +2,10 @@ import { initializeApp } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { runAdminScoreSync } from "./sync/adminScoreSync.js";
-import { runMigration } from "./api/migrate.js";
+import {
+  runMigration,
+  runResetWaiverActivityToAuctionBaseline,
+} from "./api/migrate.js";
 import {
   handleNominate,
   handleBid,
@@ -101,6 +104,18 @@ export const adminMigrateToCollections = onCall(
     const raw = request.data as Record<string, unknown> | undefined;
     const secret = typeof raw?.adminSecret === "string" ? raw.adminSecret : "";
     return await runMigration(secret, ADMIN_SCORE_SYNC_SECRET);
+  },
+);
+
+export const adminResetWaiverActivity = onCall(
+  HEAVY_CALLABLE_OPTS,
+  async (request) => {
+    const raw = request.data as Record<string, unknown> | undefined;
+    const secret = typeof raw?.adminSecret === "string" ? raw.adminSecret : "";
+    return await runResetWaiverActivityToAuctionBaseline(
+      secret,
+      ADMIN_SCORE_SYNC_SECRET,
+    );
   },
 );
 

@@ -37,6 +37,26 @@ export async function callMigrateToCollections(): Promise<MigrateResult> {
   return res.data as MigrateResult;
 }
 
+export interface ResetWaiverActivityResult {
+  ok: boolean;
+  message: string;
+  deleted: {
+    completedTransfers: number;
+    waiverNominations: number;
+    waiverBids: number;
+    ownershipPeriods: number;
+  };
+  migratedCollectionsReset: boolean;
+  ownerCount: number;
+  playerDocCount: number;
+}
+
+export async function callResetWaiverActivity(): Promise<ResetWaiverActivityResult> {
+  const fn = await callable("adminResetWaiverActivity");
+  const res = await fn({ adminSecret: ADMIN_SCORE_SYNC_SECRET });
+  return res.data as ResetWaiverActivityResult;
+}
+
 // ─── Waiver mutations ───
 
 export async function callWaiverNominate(params: {
@@ -72,11 +92,14 @@ export interface SettleResult {
 
 export async function callWaiverSettle(params: {
   nominationId: string;
+  /** Match column id (`matchDate` + U+001F + `matchLabel`). Omit to use latest synced match. */
+  effectiveAfterColumnId?: string | null;
 }): Promise<SettleResult> {
   const fn = await callable("waiverSettle");
   const res = await fn({
     adminSecret: ADMIN_SCORE_SYNC_SECRET,
     nominationId: params.nominationId,
+    effectiveAfterColumnId: params.effectiveAfterColumnId ?? undefined,
   });
   return res.data as SettleResult;
 }

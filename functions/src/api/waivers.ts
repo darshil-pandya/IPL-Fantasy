@@ -38,6 +38,30 @@ function assertWaiverOpen(settings: AppSettingsDoc): void {
   }
 }
 
+const FANTASY_MATCH_SCORES_DOC = "iplFantasy/fantasyMatchScores";
+
+/** Build the same column id the web app uses (`matchDate` + unit separator + `matchLabel`). */
+async function resolveDefaultEffectiveAfterColumnId(
+  db: FirebaseFirestore.Firestore,
+): Promise<string | null> {
+  const snap = await db.doc(FANTASY_MATCH_SCORES_DOC).get();
+  if (!snap.exists) return null;
+  const data = snap.data() as {
+    matches?: Record<string, { matchDate?: string; matchLabel?: string }>;
+  };
+  const matches = data?.matches;
+  if (!matches || typeof matches !== "object") return null;
+  const rows = Object.values(matches).filter(
+    (m): m is { matchDate: string; matchLabel: string } =>
+      typeof m?.matchDate === "string" && typeof m?.matchLabel === "string",
+  );
+  if (rows.length === 0) return null;
+  rows.sort((a, b) => a.matchDate.localeCompare(b.matchDate));
+  const last = rows[rows.length - 1]!;
+  const SEP = "\u001f";
+  return `${last.matchDate}${SEP}${last.matchLabel}`;
+}
+
 function assertPhase(settings: AppSettingsDoc, expected: WaiverPhase): void {
   if (settings.waiverPhase !== expected) {
     throw new HttpsError(
@@ -226,6 +250,8 @@ export async function handleBid(data: BidInput): Promise<{ bidId: string }> {
 export interface SettleInput {
   adminSecret: string;
   nominationId: string;
+  /** Same format as client `MatchColumn.id`; defaults to latest match in fantasyMatchScores. */
+  effectiveAfterColumnId?: string | null;
 }
 
 interface SettleResult {
@@ -246,6 +272,10 @@ export async function handleSettle(
 
   const db = getFirestore();
   const { nominationId } = data;
+
+  const explicitEff = data.effectiveAfterColumnId?.trim() || null;
+  const effectiveAfterColumnId =
+    explicitEff || (await resolveDefaultEffectiveAfterColumnId(db));
 
   // Read nomination
   const nomSnap = await db.collection("waiverNominations").doc(nominationId).get();
@@ -419,7 +449,7 @@ export async function handleSettle(
         winner: bid.ownerId,
         playerOutId: dropId ?? "",
         playerInId: nom.nominatedPlayerId,
-        effectiveAfterColumnId: null,
+        effectiveAfterColumnId: effectiveAfterColumnId ?? null,
       };
       batch.set(
         waiverStateRef,

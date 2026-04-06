@@ -16,6 +16,9 @@ import type { CompletedTransfer, WaiverBid, WaiverNomination, WaiverSession } fr
 import { isFirebaseConfigured } from "../lib/firebase/client";
 import { seedLeagueFromStaticToFirestore } from "../lib/firebase/leagueRemote";
 import { loadCompletedTransfers } from "../lib/firebase/waiverRemote";
+import { callResetWaiverActivity } from "../lib/firebase/waiverApi";
+import { abbreviateMatchLabel, formatMatchDate } from "../lib/matchLabel";
+import type { MatchColumn } from "../lib/matchColumns";
 import { ownerCardClass, ownerCardMutedClass } from "../lib/ownerTheme";
 
 function money(n: number): string {
@@ -56,6 +59,9 @@ export function Waivers() {
     availableIds,
     remoteConnected,
     remoteError,
+    matchColumnsForReveal,
+    revealEffectiveColumnIdOverride,
+    setRevealEffectiveColumnIdOverride,
   } = useWaiver();
 
   const [userLabel, setUserLabel] = useState(WAIVER_LOGIN_ROWS[0]!.label);
@@ -233,6 +239,9 @@ export function Waivers() {
           }}
           error={actionErr}
           onExport={exportRosters}
+          matchColumnsForReveal={matchColumnsForReveal}
+          revealEffectiveColumnIdOverride={revealEffectiveColumnIdOverride}
+          setRevealEffectiveColumnIdOverride={setRevealEffectiveColumnIdOverride}
         />
       )}
 
@@ -318,13 +327,24 @@ function AdminPanel({
   dispatch,
   error,
   onExport,
+  matchColumnsForReveal,
+  revealEffectiveColumnIdOverride,
+  setRevealEffectiveColumnIdOverride,
 }: {
   dispatch: (a: WaiverEngineAction) => void;
   error: string | null;
   onExport: () => void;
+  matchColumnsForReveal: MatchColumn[];
+  revealEffectiveColumnIdOverride: string | null;
+  setRevealEffectiveColumnIdOverride: (columnId: string | null) => void;
 }) {
   const [pubBusy, setPubBusy] = useState(false);
   const [pubFeedback, setPubFeedback] = useState<{
+    kind: "ok" | "err";
+    text: string;
+  } | null>(null);
+  const [resetWaiverBusy, setResetWaiverBusy] = useState(false);
+  const [resetWaiverFeedback, setResetWaiverFeedback] = useState<{
     kind: "ok" | "err";
     text: string;
   } | null>(null);
@@ -349,11 +369,54 @@ function AdminPanel({
     }
   }
 
+  async function resetWaiverActivityOnServer() {
+    if (!isFirebaseConfigured()) return;
+    setResetWaiverFeedback(null);
+    setResetWaiverBusy(true);
+    try {
+      const data = await callResetWaiverActivity();
+      setResetWaiverFeedback({
+        kind: "ok",
+        text: `${data.message} Deleted: ${data.deleted.completedTransfers} transfer record(s), ${data.deleted.waiverNominations} nomination(s), ${data.deleted.waiverBids} bid(s), ${data.deleted.ownershipPeriods} ownership period(s).`,
+      });
+    } catch (e) {
+      setResetWaiverFeedback({
+        kind: "err",
+        text: e instanceof Error ? e.message : String(e),
+      });
+    } finally {
+      setResetWaiverBusy(false);
+    }
+  }
+
   return (
     <section className="rounded-2xl border border-amber-200 bg-amber-50/90 p-5 shadow-sm">
       <h3 className="text-sm font-semibold uppercase tracking-wide text-amber-900">
         Commissioner
       </h3>
+      <label className="mt-4 flex max-w-xl flex-col gap-1">
+        <span className="text-xs font-semibold text-amber-900">
+          Transfers from the next reveal take effect after this match
+        </span>
+        <select
+          value={revealEffectiveColumnIdOverride ?? ""}
+          onChange={(e) =>
+            setRevealEffectiveColumnIdOverride(e.target.value || null)
+          }
+          className="rounded-lg border border-amber-300/80 bg-white px-3 py-2 text-sm text-slate-900"
+        >
+          <option value="">Latest match in player data (default)</option>
+          {matchColumnsForReveal.map((c) => (
+            <option key={c.id} value={c.id}>
+              {abbreviateMatchLabel(c.label, c.teams)} · {formatMatchDate(c.date)}
+            </option>
+          ))}
+        </select>
+        <span className="text-[11px] leading-snug text-amber-900/80">
+          Use this when backfilling waivers: pick the match that had already finished before the
+          transfer should count (e.g. after match 7, choose CSK vs PBKS on 3 Apr).
+        </span>
+      </label>
       <div className="mt-4 flex flex-wrap gap-2">
         <button
           type="button"
@@ -417,6 +480,54 @@ function AdminPanel({
           {pubFeedback.text}
         </p>
       )}
+
+      <div className="mt-6 rounded-xl border border-red-400/40 bg-red-950/20 p-4">
+        <h4 className="text-xs font-bold uppercase tracking-wide text-red-200">
+          Reset waiver season (Firestore)
+        </h4>
+        <p className="mt-2 text-xs leading-relaxed text-amber-900/90">
+          Removes all waiver nominations, bids, completed transfer records, and roster history in{" "}
+          <code className="rounded bg-white/80 px-1 text-[0.65rem] text-slate-900">
+            iplFantasy/waiverState
+          </code>
+          . Sets every team&apos;s waiver budget back to {money(WAIVER_BUDGET_START)} and restores
+          squads from the published{" "}
+          <code className="rounded bg-white/80 px-1 text-[0.65rem] text-slate-900">
+            leagueBundle
+          </code>{" "}
+          (auction rosters). If you use migrated cloud waivers, owners/players/ownership periods are
+          rebuilt the same way. Does not change match points or the league bundle document.
+        </p>
+        <button
+          type="button"
+          disabled={resetWaiverBusy || !isFirebaseConfigured()}
+          onClick={() => {
+            if (
+              !window.confirm(
+                "Reset all waiver activity on Firestore? This cannot be undone.",
+              )
+            ) {
+              return;
+            }
+            void resetWaiverActivityOnServer();
+          }}
+          className="mt-3 rounded-lg border border-red-500/50 bg-red-900/40 px-3 py-2 text-xs font-semibold text-red-100 hover:bg-red-800/50 disabled:cursor-not-allowed disabled:opacity-45"
+        >
+          {resetWaiverBusy ? "Resetting…" : "Reset waivers & budgets (Firestore)"}
+        </button>
+        {resetWaiverFeedback && (
+          <p
+            className={
+              resetWaiverFeedback.kind === "ok"
+                ? "mt-2 text-xs text-emerald-700"
+                : "mt-2 text-xs text-red-600"
+            }
+          >
+            {resetWaiverFeedback.text}
+          </p>
+        )}
+      </div>
+
       {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
       <p className="mt-3 text-xs text-slate-500">
         Strict flow: idle → nomination → bidding → reveal → idle. Reveal resolves

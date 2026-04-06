@@ -446,6 +446,7 @@ function resolveRound(
       playerInId: pidIn,
       nominatorOwner: nom.nominatorOwner,
       bids: allBids,
+      effectiveAfterColumnId: ctx.revealEffectiveAfterColumnId,
     });
 
     push(

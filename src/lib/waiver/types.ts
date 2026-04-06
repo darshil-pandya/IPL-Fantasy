@@ -41,8 +41,8 @@ export interface RosterChangeEvent {
   playerOutId: string;
   playerInId: string;
   /**
-   * After this match column, the swap applies. `null` = before the first match
-   * (new roster applies from match index 0 onward).
+   * After this match column, the swap applies. `null`/unknown ids are inferred at
+   * scoring time from `at` and known match columns (see normalizeRosterHistoryForColumns).
    */
   effectiveAfterColumnId: string | null;
 }
@@ -80,6 +80,8 @@ export interface CompletedTransfer {
   playerInId: string;
   nominatorOwner: string;
   bids: CompletedBid[];
+  /** When set, used when reconstructing rosterHistory (same format as RosterChangeEvent). */
+  effectiveAfterColumnId?: string | null;
 }
 
 export type WaiverSession =

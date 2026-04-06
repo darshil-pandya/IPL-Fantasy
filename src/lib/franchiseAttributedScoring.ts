@@ -1,7 +1,12 @@
 import type { Franchise, FranchiseStanding, LeagueBundle, Player } from "../types";
 import { buildStandings, playerMapFromList } from "./buildStandings";
 import type { RosterChangeEvent } from "./waiver/types";
-import { matchColumnsFromPlayers, pointsInMatch, type MatchColumn } from "./matchColumns";
+import {
+  inferEffectiveAfterColumnIdFromRevealTime,
+  matchColumnsFromPlayers,
+  pointsInMatch,
+  type MatchColumn,
+} from "./matchColumns";
 
 export type FranchiseScoringMode = "attributed" | "timestamp" | "legacy";
 
@@ -114,6 +119,22 @@ export function replayRostersAfterAllEvents(
     applySwap(r, e.winner, e.playerOutId, e.playerInId);
   }
   return r;
+}
+
+/** Cloud settles used `effectiveAfterColumnId: null`, which sorted as index -1 and wrongly applied swaps from match 1. */
+export function normalizeRosterHistoryForColumns(
+  events: RosterChangeEvent[],
+  columns: MatchColumn[],
+): RosterChangeEvent[] {
+  if (columns.length === 0) return events;
+  return events.map((e) => {
+    const id = e.effectiveAfterColumnId;
+    if (id && columns.some((c) => c.id === id)) return e;
+    return {
+      ...e,
+      effectiveAfterColumnId: inferEffectiveAfterColumnIdFromRevealTime(e.at, columns),
+    };
+  });
 }
 
 function rostersDeepEqual(
@@ -245,10 +266,18 @@ export function computeFranchiseScoring(
 
   const baseStandings = buildStandings(displayFranchises, players);
 
+  const rosterHistoryNorm =
+    columns.length > 0
+      ? normalizeRosterHistoryForColumns(rosterHistory, columns)
+      : rosterHistory;
+
   let mode: FranchiseScoringMode;
   let perOwnerPerMatch: Record<string, number[]>;
   let rostersAtStartOfMatch: Record<string, string[]>[] | null;
 
+  // #region agent log
+  fetch('http://127.0.0.1:7922/ingest/04695dc6-fb05-45d0-92de-1e0616b262c8',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'ed07ae'},body:JSON.stringify({sessionId:'ed07ae',location:'franchiseAttributedScoring.ts:entry',message:'computeFranchiseScoring entry',data:{ownerCount:owners.length,colCount:columns.length,rosterHistoryCount:rosterHistory.length,hasOwnershipPeriods:!!(ownershipPeriods&&ownershipPeriods.length>0),rosterHistoryEntries:rosterHistory.map(e=>({winner:e.winner,playerInId:e.playerInId,playerOutId:e.playerOutId,effectiveAfterColumnId:e.effectiveAfterColumnId,roundId:e.roundId})),normalizedEffective:rosterHistoryNorm.map(e=>e.effectiveAfterColumnId),columns:columns.map(c=>({id:c.id,date:c.date}))},timestamp:Date.now(),runId:'post-fix',hypothesisId:'H1,H2,H3'})}).catch(()=>{});
+  // #endregion
   // Priority 1: timestamp-based ownership periods (authoritative when available)
   if (ownershipPeriods && ownershipPeriods.length > 0 && columns.length > 0) {
     mode = "timestamp";
@@ -261,18 +290,21 @@ export function computeFranchiseScoring(
     );
   } else {
     // Priority 2/3: column-based or legacy fallback
-    const replayed = replayRostersAfterAllEvents(initial, rosterHistory, columns);
-    const hasHistory = rosterHistory.length > 0;
+    const replayed = replayRostersAfterAllEvents(initial, rosterHistoryNorm, columns);
+    const hasHistory = rosterHistoryNorm.length > 0;
     const replayOk = hasHistory && rostersDeepEqual(replayed, currentRosters, owners);
     const idleNoMoves =
       !hasHistory && rostersDeepEqual(initial, currentRosters, owners);
 
+    // #region agent log
+    fetch('http://127.0.0.1:7922/ingest/04695dc6-fb05-45d0-92de-1e0616b262c8',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'ed07ae'},body:JSON.stringify({sessionId:'ed07ae',location:'franchiseAttributedScoring.ts:modeDecision',message:'scoring mode decision',data:{hasHistory,replayOk,idleNoMoves,replayedSample:Object.fromEntries(owners.map(o=>[o,(replayed[o]??[]).length])),currentSample:Object.fromEntries(owners.map(o=>[o,(currentRosters[o]??[]).length]))},timestamp:Date.now(),hypothesisId:'H3'})}).catch(()=>{});
+    // #endregion
     if (replayOk || idleNoMoves) {
       mode = "attributed";
       const timeline =
         columns.length === 0
           ? []
-          : rostersAtStartOfEachMatch(initial, rosterHistory, columns);
+          : rostersAtStartOfEachMatch(initial, rosterHistoryNorm, columns);
       rostersAtStartOfMatch = timeline.length > 0 ? timeline : null;
       perOwnerPerMatch =
         columns.length === 0
@@ -290,6 +322,9 @@ export function computeFranchiseScoring(
     }
   }
 
+  // #region agent log
+  fetch('http://127.0.0.1:7922/ingest/04695dc6-fb05-45d0-92de-1e0616b262c8',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'ed07ae'},body:JSON.stringify({sessionId:'ed07ae',location:'franchiseAttributedScoring.ts:afterMode',message:'mode resolved + roster timeline',data:{mode,hasRostersAtStart:!!rostersAtStartOfMatch,rostersAtStartSample:rostersAtStartOfMatch?rostersAtStartOfMatch.map((r,i)=>({matchIdx:i,colId:columns[i]?.id,sanket:r['Sanket']?.includes('jaydev-unadkat'),darshil:r['Darshil']?.includes('jaydev-unadkat')})):null},timestamp:Date.now(),hypothesisId:'H3,H4'})}).catch(()=>{});
+  // #endregion
   // Per-player attributed points: only count points while the player was on that owner's roster
   const playerPointsByOwner: Record<string, Record<string, number>> = {};
   if (mode !== "legacy" && columns.length > 0) {
@@ -362,7 +397,7 @@ export function computeFranchiseScoring(
   for (const o of owners) {
     const currentIds = new Set(currentRosters[o] ?? []);
     const droppedIds = new Set<string>();
-    for (const e of rosterHistory) {
+    for (const e of rosterHistoryNorm) {
       if (e.winner === o) droppedIds.add(e.playerOutId);
     }
     const former: { player: Player; attributedPoints: number }[] = [];

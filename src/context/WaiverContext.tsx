@@ -25,7 +25,11 @@ import {
 } from "../lib/waiver/engine";
 import { seedWaiverState } from "../lib/waiver/seed";
 import type { RosterChangeEvent, WaiverPersistentState } from "../lib/waiver/types";
-import { matchColumnsFromPlayers } from "../lib/matchColumns";
+import {
+  inferEffectiveAfterColumnIdFromRevealTime,
+  matchColumnsFromPlayers,
+  type MatchColumn,
+} from "../lib/matchColumns";
 import { summarizeDisplayFranchises } from "../lib/waiver/summarize";
 import { isPlayerAvailable } from "../lib/waiver/available";
 import {
@@ -81,6 +85,11 @@ type WaiverCtx = {
   availableIds: string[];
   remoteConnected: boolean;
   remoteError: string | null;
+  /** Match columns from player JSON (for “effective after match” on reveal / settle). */
+  matchColumnsForReveal: MatchColumn[];
+  /** `null` = use latest match column in data. */
+  revealEffectiveColumnIdOverride: string | null;
+  setRevealEffectiveColumnIdOverride: (columnId: string | null) => void;
   /** Cloud Function backed mutations (server-validated, atomic writes). */
   cloud: {
     nominate: (params: {
@@ -92,7 +101,10 @@ type WaiverCtx = {
       bidAmount: number;
       playerToDropId?: string;
     }) => Promise<{ bidId: string }>;
-    settle: (nominationId: string) => Promise<SettleResult>;
+    settle: (params: {
+      nominationId: string;
+      effectiveAfterColumnId?: string | null;
+    }) => Promise<SettleResult>;
     setPhase: (
       phase: "idle" | "nomination" | "bidding",
     ) => Promise<{ phase: string; isWaiverWindowOpen: boolean }>;
@@ -138,10 +150,25 @@ export function WaiverProvider({ children }: { children: ReactNode }) {
     return list;
   }, [bundle]);
 
+  const matchColumnsForReveal = useMemo(
+    () => matchColumnsFromPlayers(allPlayersForScoring),
+    [allPlayersForScoring],
+  );
+
+  const [revealEffectiveColumnIdOverride, setRevealEffectiveColumnIdOverride] =
+    useState<string | null>(null);
+
   const revealEffectiveAfterColumnId = useMemo(() => {
-    const cols = matchColumnsFromPlayers(allPlayersForScoring);
-    return cols.length > 0 ? cols[cols.length - 1].id : null;
-  }, [allPlayersForScoring]);
+    const cols = matchColumnsForReveal;
+    if (cols.length === 0) return null;
+    if (
+      revealEffectiveColumnIdOverride &&
+      cols.some((c) => c.id === revealEffectiveColumnIdOverride)
+    ) {
+      return revealEffectiveColumnIdOverride;
+    }
+    return cols[cols.length - 1]!.id;
+  }, [matchColumnsForReveal, revealEffectiveColumnIdOverride]);
 
   useEffect(() => {
     const key = JSON.stringify(bundle.franchises);
@@ -211,6 +238,9 @@ export function WaiverProvider({ children }: { children: ReactNode }) {
     void (async () => {
       try {
         const transfers = await loadCompletedTransfers();
+        // #region agent log
+        fetch('http://127.0.0.1:7922/ingest/04695dc6-fb05-45d0-92de-1e0616b262c8',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'ed07ae'},body:JSON.stringify({sessionId:'ed07ae',location:'WaiverContext.tsx:repair',message:'completedTransfers loaded',data:{count:transfers.length,transfers:transfers.map(t=>({id:t.id,roundId:t.roundId,playerInId:t.playerInId,revealedAt:t.revealedAt,wonBy:t.bids.find(b=>b.result==='WON')?.owner,playerOutId:t.bids.find(b=>b.result==='WON')?.playerOutId}))},timestamp:Date.now(),hypothesisId:'H1'})}).catch(()=>{});
+        // #endregion
         if (transfers.length === 0) return;
 
         const spent: Record<string, number> = {};
@@ -222,6 +252,9 @@ export function WaiverProvider({ children }: { children: ReactNode }) {
         }
 
         setState((prev) => {
+          // #region agent log
+          fetch('http://127.0.0.1:7922/ingest/04695dc6-fb05-45d0-92de-1e0616b262c8',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'ed07ae'},body:JSON.stringify({sessionId:'ed07ae',location:'WaiverContext.tsx:setState',message:'existing rosterHistory before repair',data:{count:prev.rosterHistory.length,entries:prev.rosterHistory.map(e=>({winner:e.winner,playerInId:e.playerInId,playerOutId:e.playerOutId,roundId:e.roundId,effectiveAfterColumnId:e.effectiveAfterColumnId}))},timestamp:Date.now(),hypothesisId:'H1'})}).catch(()=>{});
+          // #endregion
           let changed = false;
 
           // --- Budget repair ---
@@ -254,10 +287,9 @@ export function WaiverProvider({ children }: { children: ReactNode }) {
               if (!won) return;
               const key = `${t.playerInId}|${won.owner}|${roundId}`;
               if (existingKeys.has(key)) return;
-              let effCol: string | null = null;
-              for (const c of cols) {
-                if (c.date <= t.revealedAt) effCol = c.id;
-                else break;
+              let effCol: string | null = t.effectiveAfterColumnId ?? null;
+              if (!effCol || !cols.some((c) => c.id === effCol)) {
+                effCol = inferEffectiveAfterColumnIdFromRevealTime(t.revealedAt, cols);
               }
               missing.push({
                 at: t.revealedAt,
@@ -272,6 +304,10 @@ export function WaiverProvider({ children }: { children: ReactNode }) {
           }
 
           if (missing.length > 0) changed = true;
+
+          // #region agent log
+          fetch('http://127.0.0.1:7922/ingest/04695dc6-fb05-45d0-92de-1e0616b262c8',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'ed07ae'},body:JSON.stringify({sessionId:'ed07ae',location:'WaiverContext.tsx:repairResult',message:'repair result',data:{changed,missingCount:missing.length,missing:missing.map(m=>({winner:m.winner,playerInId:m.playerInId,playerOutId:m.playerOutId,effectiveAfterColumnId:m.effectiveAfterColumnId,roundId:m.roundId})),colsAvailable:cols.map(c=>({id:c.id,date:c.date}))},timestamp:Date.now(),hypothesisId:'H2'})}).catch(()=>{});
+          // #endregion
 
           if (!changed) return prev;
           return {
@@ -390,8 +426,11 @@ export function WaiverProvider({ children }: { children: ReactNode }) {
           ...params,
         });
       },
-      settle: async (nominationId: string) => {
-        return callWaiverSettle({ nominationId });
+      settle: async (params: {
+        nominationId: string;
+        effectiveAfterColumnId?: string | null;
+      }) => {
+        return callWaiverSettle(params);
       },
       setPhase: async (phase: "idle" | "nomination" | "bidding") => {
         return callSetWaiverPhase({ targetPhase: phase });
@@ -415,6 +454,9 @@ export function WaiverProvider({ children }: { children: ReactNode }) {
         availableIds,
         remoteConnected,
         remoteError,
+        matchColumnsForReveal,
+        revealEffectiveColumnIdOverride,
+        setRevealEffectiveColumnIdOverride,
         cloud,
       }}
     >
