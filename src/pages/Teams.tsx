@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { IplTeamPill } from "../components/IplTeamPill";
 import { OwnerBadge } from "../components/OwnerBadge";
+import { SquadCompositionCards } from "../components/SquadCompositionCards";
 import { useLeague } from "../context/LeagueContext";
 import { useLeagueStandings } from "../context/WaiverContext";
 import { natBadgeClass, roleBadgeClass } from "../lib/playerBadges";
@@ -92,6 +93,8 @@ export function Teams() {
               Open squad details (match breakdown) →
             </Link>
           </div>
+
+          <SquadCompositionCards players={selected.playersResolved} />
 
           <div className="app-table">
             <table className="w-full min-w-[360px] text-left text-sm">

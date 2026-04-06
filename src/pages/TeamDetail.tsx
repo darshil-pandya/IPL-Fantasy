@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { IplTeamPill } from "../components/IplTeamPill";
 import { OwnerBadge } from "../components/OwnerBadge";
+import { SquadCompositionCards } from "../components/SquadCompositionCards";
 import { useLeagueStandings } from "../context/WaiverContext";
 import { abbreviateMatchLabel, formatMatchDate } from "../lib/matchLabel";
 import { franchiseBySlug, ownerSlug } from "../lib/slug";
@@ -85,6 +86,9 @@ export function TeamDetail() {
           {Math.round(row.totalPoints)}{" "}
           <span className="text-lg font-normal text-slate-500">season pts</span>
         </p>
+        <div className="mt-4">
+          <SquadCompositionCards players={row.playersResolved} />
+        </div>
       </div>
 
       {row.missingPlayerIds.length > 0 && (

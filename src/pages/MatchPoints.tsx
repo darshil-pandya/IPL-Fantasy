@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { IplTeamPill } from "../components/IplTeamPill";
 import { OwnerBadge } from "../components/OwnerBadge";
+import { SquadCompositionCards } from "../components/SquadCompositionCards";
 import { useLeague } from "../context/LeagueContext";
 import { useLeagueStandings } from "../context/WaiverContext";
 import type { FranchiseScoringMode } from "../lib/franchiseAttributedScoring";
@@ -425,20 +426,6 @@ export function MatchPoints() {
       ) : null}
 
       {filteredStandings.map((s) => {
-        const roleCounts: Record<string, number> = {};
-        let ovsCount = 0;
-        for (const p of s.playersResolved) {
-          roleCounts[p.role] = (roleCounts[p.role] ?? 0) + 1;
-          if (p.nationality === "OVS") ovsCount++;
-        }
-        const compositionCards: { label: string; count: number }[] = [
-          { label: "BAT", count: roleCounts["BAT"] ?? 0 },
-          { label: "BOWL", count: roleCounts["BOWL"] ?? 0 },
-          { label: "AR", count: roleCounts["AR"] ?? 0 },
-          { label: "WK", count: roleCounts["WK"] ?? 0 },
-          { label: "OVS", count: ovsCount },
-        ];
-
         return (
           <section key={s.owner} className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -450,19 +437,7 @@ export function MatchPoints() {
                 Fantasy total (leaderboard): {Math.round(s.totalPoints)} pts
               </span>
             </div>
-            <div className="flex flex-wrap gap-2">
-              {compositionCards.map((c) => (
-                <div
-                  key={c.label}
-                  className="flex min-w-[4.5rem] flex-col items-center rounded-lg border border-cyan-500/15 bg-slate-900/60 px-4 py-2"
-                >
-                  <span className="text-lg font-bold tabular-nums text-white">{c.count}</span>
-                  <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                    {c.label}
-                  </span>
-                </div>
-              ))}
-            </div>
+            <SquadCompositionCards players={s.playersResolved} />
             <FranchiseMatchTable
               standing={s}
               columns={columns}
