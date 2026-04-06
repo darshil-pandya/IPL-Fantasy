@@ -5,14 +5,14 @@ import { WAIVER_SESSION_LS_KEY } from "./constants";
 
 /** Display label -> password (honor system; not secret). */
 export const WAIVER_LOGIN_ROWS: { label: string; password: string }[] = [
-  { label: "Admin", password: "admin@3395" },
-  { label: "Bhavya", password: "bhavya@1234" },
-  { label: "Darshil", password: "darshil@1234" },
-  { label: "Hersh", password: "hersh@1234" },
-  { label: "Jash", password: "jash@1234" },
-  { label: "Karan", password: "karan@1234" },
-  { label: "Prajin", password: "prajin@1234" },
-  { label: "Sanket", password: "sanket@1234" },
+  { label: "Admin", password: "admin@1928" },
+  { label: "Bhavya", password: "bhavya@2468" },
+  { label: "Darshil", password: "darshil@033206" },
+  { label: "Hersh", password: "hersh@4812" },
+  { label: "Jash", password: "jash@6969" },
+  { label: "Karan", password: "nisha@1234" },
+  { label: "Prajin", password: "prajin@1357" },
+  { label: "Sanket", password: "sanket@369" },
 ];
 
 export function sessionForLabel(label: string): WaiverSession | null {
