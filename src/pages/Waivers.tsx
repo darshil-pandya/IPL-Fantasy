@@ -19,6 +19,7 @@ import { loadCompletedTransfers } from "../lib/firebase/waiverRemote";
 import {
   callResetWaiverActivity,
   callBackfillApril2026WaiverTimeline,
+  callMigrateToCollections,
 } from "../lib/firebase/waiverApi";
 import { abbreviateMatchLabel, formatMatchDate } from "../lib/matchLabel";
 import type { MatchColumn } from "../lib/matchColumns";
@@ -357,6 +358,11 @@ function AdminPanel({
     text: string;
   } | null>(null);
   const [backfillRunMigrate, setBackfillRunMigrate] = useState(false);
+  const [migrateBusy, setMigrateBusy] = useState(false);
+  const [migrateFeedback, setMigrateFeedback] = useState<{
+    kind: "ok" | "err";
+    text: string;
+  } | null>(null);
 
   async function publishLeagueToFirestore() {
     if (!isFirebaseConfigured()) return;
@@ -431,6 +437,26 @@ function AdminPanel({
       });
     } finally {
       setBackfillAprBusy(false);
+    }
+  }
+
+  async function rebuildCloudFromWaiverState() {
+    if (!isFirebaseConfigured()) return;
+    setMigrateFeedback(null);
+    setMigrateBusy(true);
+    try {
+      const data = await callMigrateToCollections();
+      setMigrateFeedback({
+        kind: "ok",
+        text: `Cloud collections rebuilt from leagueBundle + iplFantasy/waiverState: ${data.playerCount} players, ${data.ownerCount} owners, ${data.periodCount} ownership periods, ${data.matchPointCount} match point rows. ${data.warnings.length ? `Warnings: ${data.warnings.join(" ")}` : ""}`,
+      });
+    } catch (e) {
+      setMigrateFeedback({
+        kind: "err",
+        text: e instanceof Error ? e.message : String(e),
+      });
+    } finally {
+      setMigrateBusy(false);
     }
   }
 
@@ -525,6 +551,56 @@ function AdminPanel({
           {pubFeedback.text}
         </p>
       )}
+
+      <div className="mt-6 rounded-xl border border-sky-600/35 bg-sky-50/90 p-4 ring-1 ring-sky-500/20">
+        <h4 className="text-xs font-bold uppercase tracking-wide text-sky-950">
+          Cloud roster repair (players / owners / ownershipPeriods)
+        </h4>
+        <p className="mt-2 text-xs leading-relaxed text-amber-950/90">
+          Deploying Firebase <strong>Functions or rules does not delete</strong> Firestore data.
+          The <code className="rounded bg-white/90 px-1 text-[0.65rem]">players</code> and{" "}
+          <code className="rounded bg-white/90 px-1 text-[0.65rem]">owners</code> collections are
+          overwritten when you run <strong>migration</strong> (same engine as April backfill with
+          &quot;Also run full migration&quot;). Migration always copies from{" "}
+          <code className="rounded bg-white/90 px-1 text-[0.65rem]">iplFantasy/waiverState</code> +{" "}
+          <code className="rounded bg-white/90 px-1 text-[0.65rem]">leagueBundle</code>. If{" "}
+          <code className="rounded bg-white/90 px-1 text-[0.65rem]">waiverState</code> was reset to
+          auction squads, cloud data will match that (everyone looks unassigned, budgets ₹2,50,000).
+        </p>
+        <p className="mt-2 text-xs font-medium text-sky-950">
+          If <code className="text-[0.65rem]">waiverState.payload</code> in the console still shows
+          correct <code className="text-[0.65rem]">rosterHistory</code> and rosters, run this to fix
+          only the migrated collections:
+        </p>
+        <button
+          type="button"
+          disabled={migrateBusy || !isFirebaseConfigured()}
+          onClick={() => {
+            if (
+              !window.confirm(
+                "Rebuild players, owners, ownershipPeriods, and matchPlayerPoints from leagueBundle + waiverState? This overwrites those collections.",
+              )
+            ) {
+              return;
+            }
+            void rebuildCloudFromWaiverState();
+          }}
+          className="mt-3 rounded-lg border border-sky-600/50 bg-sky-700/90 px-3 py-2 text-xs font-semibold text-white hover:bg-sky-600 disabled:cursor-not-allowed disabled:opacity-45"
+        >
+          {migrateBusy ? "Rebuilding…" : "Rebuild cloud collections from waiver state"}
+        </button>
+        {migrateFeedback && (
+          <p
+            className={
+              migrateFeedback.kind === "ok"
+                ? "mt-2 text-xs text-emerald-800"
+                : "mt-2 text-xs text-red-700"
+            }
+          >
+            {migrateFeedback.text}
+          </p>
+        )}
+      </div>
 
       <div className="mt-6 rounded-xl border border-red-400/40 bg-red-950/20 p-4">
         <h4 className="text-xs font-bold uppercase tracking-wide text-red-200">
