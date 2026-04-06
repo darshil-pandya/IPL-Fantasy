@@ -358,6 +358,7 @@ function AdminPanel({
     text: string;
   } | null>(null);
   const [backfillRunMigrate, setBackfillRunMigrate] = useState(false);
+  const [debugging, setDebugging] = useState(false);
   const [migrateBusy, setMigrateBusy] = useState(false);
   const [migrateFeedback, setMigrateFeedback] = useState<{
     kind: "ok" | "err";
@@ -440,15 +441,17 @@ function AdminPanel({
     }
   }
 
-  async function rebuildCloudFromWaiverState() {
+  async function runCloudRosterRepair() {
     if (!isFirebaseConfigured()) return;
     setMigrateFeedback(null);
     setMigrateBusy(true);
     try {
-      const data = await callMigrateToCollections();
+      const r = await callMigrateToCollections();
+      const warn =
+        r.warnings.length > 0 ? ` Warnings: ${r.warnings.join("; ")}` : "";
       setMigrateFeedback({
         kind: "ok",
-        text: `Cloud collections rebuilt from leagueBundle + iplFantasy/waiverState: ${data.playerCount} players, ${data.ownerCount} owners, ${data.periodCount} ownership periods, ${data.matchPointCount} match point rows. ${data.warnings.length ? `Warnings: ${data.warnings.join(" ")}` : ""}`,
+        text: `Migrated ${r.playerCount} players, ${r.ownerCount} owners, ${r.periodCount} ownership periods, ${r.matchPointCount} match point rows.${warn}`,
       });
     } catch (e) {
       setMigrateFeedback({
@@ -552,25 +555,36 @@ function AdminPanel({
         </p>
       )}
 
-      <div className="mt-6 rounded-xl border border-sky-600/35 bg-sky-50/90 p-4 ring-1 ring-sky-500/20">
-        <h4 className="text-xs font-bold uppercase tracking-wide text-sky-950">
-          Cloud roster repair (players / owners / ownershipPeriods)
-        </h4>
-        <p className="mt-2 text-xs leading-relaxed text-amber-950/90">
-          Deploying Firebase <strong>Functions or rules does not delete</strong> Firestore data.
-          The <code className="rounded bg-white/90 px-1 text-[0.65rem]">players</code> and{" "}
-          <code className="rounded bg-white/90 px-1 text-[0.65rem]">owners</code> collections are
-          overwritten when you run <strong>migration</strong> (same engine as April backfill with
-          &quot;Also run full migration&quot;). Migration always copies from{" "}
-          <code className="rounded bg-white/90 px-1 text-[0.65rem]">iplFantasy/waiverState</code> +{" "}
-          <code className="rounded bg-white/90 px-1 text-[0.65rem]">leagueBundle</code>. If{" "}
-          <code className="rounded bg-white/90 px-1 text-[0.65rem]">waiverState</code> was reset to
-          auction squads, cloud data will match that (everyone looks unassigned, budgets ₹2,50,000).
+      <div className="mt-6 border-t border-amber-300/40 pt-4">
+        <label className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-amber-950">
+          <input
+            type="checkbox"
+            className="size-4 rounded border-amber-600/50 bg-white"
+            checked={debugging}
+            onChange={(e) => setDebugging(e.target.checked)}
+          />
+          Debugging
+        </label>
+        <p className="mt-1 text-[11px] leading-snug text-amber-900/75">
+          When off, cloud roster repair, reset waiver season, and April backfill stay hidden.
         </p>
-        <p className="mt-2 text-xs font-medium text-sky-950">
-          If <code className="text-[0.65rem]">waiverState.payload</code> in the console still shows
-          correct <code className="text-[0.65rem]">rosterHistory</code> and rosters, run this to fix
-          only the migrated collections:
+      </div>
+
+      {debugging ? (
+        <div className="mt-4 space-y-6">
+      <div className="rounded-xl border border-violet-400/40 bg-violet-950/25 p-4">
+        <h4 className="text-xs font-bold uppercase tracking-wide text-violet-200">
+          Cloud roster repair
+        </h4>
+        <p className="mt-2 text-xs leading-relaxed text-amber-900/90">
+          Runs <strong className="font-medium text-amber-950">Migrate to collections</strong>: rebuilds{" "}
+          <code className="rounded bg-white/80 px-1 text-[0.65rem] text-slate-900">owners</code>,{" "}
+          <code className="rounded bg-white/80 px-1 text-[0.65rem] text-slate-900">players</code>,{" "}
+          <code className="rounded bg-white/80 px-1 text-[0.65rem] text-slate-900">ownershipPeriods</code>, and{" "}
+          <code className="rounded bg-white/80 px-1 text-[0.65rem] text-slate-900">matchPlayerPoints</code> from{" "}
+          <code className="rounded bg-white/80 px-1 text-[0.65rem] text-slate-900">leagueBundle</code>,{" "}
+          <code className="rounded bg-white/80 px-1 text-[0.65rem] text-slate-900">waiverState</code>, and{" "}
+          <code className="rounded bg-white/80 px-1 text-[0.65rem] text-slate-900">fantasyMatchScores</code>.
         </p>
         <button
           type="button"
@@ -578,16 +592,16 @@ function AdminPanel({
           onClick={() => {
             if (
               !window.confirm(
-                "Rebuild players, owners, ownershipPeriods, and matchPlayerPoints from leagueBundle + waiverState? This overwrites those collections.",
+                "Run cloud migration / roster repair? This overwrites migrated collections from current bundle + waiver + scores.",
               )
             ) {
               return;
             }
-            void rebuildCloudFromWaiverState();
+            void runCloudRosterRepair();
           }}
-          className="mt-3 rounded-lg border border-sky-600/50 bg-sky-700/90 px-3 py-2 text-xs font-semibold text-white hover:bg-sky-600 disabled:cursor-not-allowed disabled:opacity-45"
+          className="mt-3 rounded-lg border border-violet-500/50 bg-violet-900/40 px-3 py-2 text-xs font-semibold text-violet-100 hover:bg-violet-800/50 disabled:cursor-not-allowed disabled:opacity-45"
         >
-          {migrateBusy ? "Rebuilding…" : "Rebuild cloud collections from waiver state"}
+          {migrateBusy ? "Running…" : "Run cloud roster repair"}
         </button>
         {migrateFeedback && (
           <p
@@ -602,7 +616,7 @@ function AdminPanel({
         )}
       </div>
 
-      <div className="mt-6 rounded-xl border border-red-400/40 bg-red-950/20 p-4">
+      <div className="rounded-xl border border-red-400/40 bg-red-950/20 p-4">
         <h4 className="text-xs font-bold uppercase tracking-wide text-red-200">
           Reset waiver season (Firestore)
         </h4>
@@ -701,6 +715,8 @@ function AdminPanel({
           </p>
         )}
       </div>
+        </div>
+      ) : null}
 
       {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
       <p className="mt-3 text-xs text-slate-500">
