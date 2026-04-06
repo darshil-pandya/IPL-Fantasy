@@ -304,13 +304,6 @@ export function reduceWaiver(
       if (!nom || nom.roundId !== state.roundId) {
         return { state, error: "Invalid nomination." };
       }
-      if (nom.nominatorOwner === action.bidderOwner) {
-        return {
-          state,
-          error:
-            "You already have your opening bid on this nomination; edit it only while the nomination window is open.",
-        };
-      }
       const r = roster(action.bidderOwner);
       if (!r.includes(action.playerOutId)) {
         return { state, error: "Out player must be on your roster." };
@@ -465,14 +458,24 @@ function resolveRound(
 
   for (const nom of state.nominations) {
     const bidsOn = state.bids.filter((b) => b.nominationId === nom.id);
+    const nominatorBid = bidsOn.find((b) => b.bidderOwner === nom.nominatorOwner);
+    const bidsFromOthers = bidsOn.filter((b) => b.bidderOwner !== nom.nominatorOwner);
+    const nominatorCandidate: Candidate = nominatorBid
+      ? {
+          owner: nom.nominatorOwner,
+          playerOutId: nominatorBid.playerOutId,
+          amount: nominatorBid.amount,
+          ts: Date.parse(nominatorBid.updatedAt),
+        }
+      : {
+          owner: nom.nominatorOwner,
+          playerOutId: nom.playerOutId,
+          amount: nom.amount,
+          ts: Date.parse(nom.createdAt),
+        };
     const candidates: Candidate[] = [
-      {
-        owner: nom.nominatorOwner,
-        playerOutId: nom.playerOutId,
-        amount: nom.amount,
-        ts: Date.parse(nom.createdAt),
-      },
-      ...bidsOn.map((b) => ({
+      nominatorCandidate,
+      ...bidsFromOthers.map((b) => ({
         owner: b.bidderOwner,
         playerOutId: b.playerOutId,
         amount: b.amount,
@@ -531,12 +534,12 @@ function resolveRound(
     const allBids: CompletedBid[] = [
       {
         owner: nom.nominatorOwner,
-        amount: nom.amount,
-        playerOutId: nom.playerOutId,
-        placedAt: nom.createdAt,
+        amount: nominatorBid ? nominatorBid.amount : nom.amount,
+        playerOutId: nominatorBid ? nominatorBid.playerOutId : nom.playerOutId,
+        placedAt: nominatorBid ? nominatorBid.updatedAt : nom.createdAt,
         result: winner.owner === nom.nominatorOwner ? "WON" : "LOST",
       },
-      ...bidsOn.map((b): CompletedBid => ({
+      ...bidsFromOthers.map((b): CompletedBid => ({
         owner: b.bidderOwner,
         amount: b.amount,
         playerOutId: b.playerOutId,

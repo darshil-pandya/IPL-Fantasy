@@ -277,9 +277,11 @@ export async function handleBid(data: BidInput): Promise<{ bidId: string }> {
     );
   }
 
-  // Non-nominating owner must specify playerToDropId
+  // Non-nominating owner must specify playerToDropId; nominator may override drop via bid
   const isNominator = ownerName === nom.nominatedByOwnerId;
-  const dropId = isNominator ? nom.playerToDropId : playerToDropId;
+  const dropId = isNominator
+    ? (playerToDropId?.trim() || nom.playerToDropId)
+    : playerToDropId;
 
   if (!isNominator && !playerToDropId) {
     throw new HttpsError(
@@ -397,7 +399,9 @@ export async function handleSettle(
   // Iterate to find first valid winner
   for (const bid of allBids) {
     const isNominator = bid.ownerId === nom.nominatedByOwnerId;
-    const dropId = isNominator ? nom.playerToDropId : bid.playerToDropId;
+    const dropId = isNominator
+      ? bid.playerToDropId ?? nom.playerToDropId
+      : bid.playerToDropId;
 
     // Non-nominator must have a drop player
     if (!isNominator && !dropId) {

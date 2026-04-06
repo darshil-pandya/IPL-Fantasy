@@ -800,17 +800,39 @@ function NominationRow({
     session?.role === "owner" && session.owner === n.nominatorOwner;
   const existing =
     session?.role === "owner"
-      ? bids.find((b) => b.bidderOwner === session.owner)
+      ? bids.find(
+          (b) => b.bidderOwner === session.owner && b.nominationId === n.id,
+        )
       : undefined;
-  const [outId, setOutId] = useState(existing?.playerOutId ?? "");
+  const [outId, setOutId] = useState(
+    existing?.playerOutId ?? (isSelfNomination ? n.playerOutId : ""),
+  );
   const [amt, setAmt] = useState(
-    String(existing?.amount ?? WAIVER_BID_INCREMENT),
+    String(
+      existing?.amount ??
+        (isSelfNomination ? n.amount : WAIVER_BID_INCREMENT),
+    ),
   );
 
   useEffect(() => {
-    setOutId(existing?.playerOutId ?? "");
-    setAmt(String(existing?.amount ?? WAIVER_BID_INCREMENT));
-  }, [existing?.id, existing?.playerOutId, existing?.amount]);
+    setOutId(
+      existing?.playerOutId ?? (isSelfNomination ? n.playerOutId : ""),
+    );
+    setAmt(
+      String(
+        existing?.amount ??
+          (isSelfNomination ? n.amount : WAIVER_BID_INCREMENT),
+      ),
+    );
+  }, [
+    existing?.id,
+    existing?.playerOutId,
+    existing?.amount,
+    isSelfNomination,
+    n.id,
+    n.playerOutId,
+    n.amount,
+  ]);
 
   return (
     <li className="app-panel border-cyan-500/25 p-4">
@@ -879,9 +901,7 @@ function NominationRow({
           ))}
         </ul>
       ) : null}
-      {phase === "active" &&
-        session?.role === "owner" &&
-        session.owner !== n.nominatorOwner && (
+      {phase === "active" && session?.role === "owner" && (
         <form
           className="mt-3 space-y-3 border-t border-cyan-500/20 pt-3"
           onSubmit={(e) => {
@@ -896,7 +916,9 @@ function NominationRow({
           }}
         >
           <p className="text-xs text-slate-500">
-            Your bid · remaining budget {money(budgetRemaining)}
+            {isSelfNomination
+              ? `Your bid (from your nomination) · change amount or player out until reveal · remaining budget ${money(budgetRemaining)}`
+              : `Your bid · remaining budget ${money(budgetRemaining)}`}
           </p>
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
             <div className="min-w-0 flex-1 lg:max-w-md">
@@ -929,13 +951,6 @@ function NominationRow({
           </div>
         </form>
       )}
-      {phase === "active" &&
-        session?.role === "owner" &&
-        session.owner === n.nominatorOwner && (
-          <p className="mt-3 text-xs text-slate-500">
-            Your opening bid is set from your nomination; others can bid on this player now.
-          </p>
-        )}
     </li>
   );
 }
