@@ -1,4 +1,11 @@
-import type { Player, PlayerSeasonFantasyPoints, PlayerSeasonStats } from "../types";
+import type {
+  LeagueBundle,
+  Player,
+  PlayerNationality,
+  PlayerRole,
+  PlayerSeasonFantasyPoints,
+  PlayerSeasonStats,
+} from "../types";
 
 function stats(p: Player): PlayerSeasonStats | undefined {
   return p.seasonStats;
@@ -14,7 +21,28 @@ export type StatLeader = {
   display: string;
   /** Shown under the value when using a rough estimate from counting stats */
   caption?: string;
+  /** IPL counting stat context, e.g. tournament batting/bowling average */
+  secondaryStat?: string;
 } | null;
+
+/** Roster + waiver pool, de-duplicated by `id`, for season highlight leaderboards. */
+export function playersForSeasonHighlights(bundle: LeagueBundle): Player[] {
+  const seen = new Set<string>();
+  const out: Player[] = [];
+  for (const p of bundle.players) {
+    if (!seen.has(p.id)) {
+      seen.add(p.id);
+      out.push(p);
+    }
+  }
+  for (const p of bundle.waiverPool ?? []) {
+    if (!seen.has(p.id)) {
+      seen.add(p.id);
+      out.push(p);
+    }
+  }
+  return out;
+}
 
 function formatRound(n: number): string {
   return String(Math.round(n * 100) / 100);
@@ -147,8 +175,13 @@ export function leaderBestBattingAvg(players: Player[]): StatLeader {
     }
   }
   if (!best) return null;
+  const avg = stats(best)?.battingAvg;
+  const sec =
+    avg != null && !Number.isNaN(avg) ? `Tournament batting avg ${avg.toFixed(2)}` : undefined;
   const fromFp = sumFpKeys(fp(best), BATTING_FANTASY_KEYS);
-  if (fromFp != null) return { player: best, display: formatRound(fromFp) };
+  if (fromFp != null) {
+    return { player: best, display: formatRound(fromFp), secondaryStat: sec };
+  }
   const st = stats(best);
   if (!st) return null;
   let s = 0;
@@ -174,6 +207,7 @@ export function leaderBestBattingAvg(players: Player[]): StatLeader {
     player: best,
     display: `≈${formatRound(s)}`,
     caption: ESTIMATE_CAPTION,
+    secondaryStat: sec,
   };
 }
 
@@ -191,8 +225,15 @@ export function leaderBestBowlingAvg(players: Player[]): StatLeader {
     }
   }
   if (!best) return null;
+  const bAvg = stats(best)?.bowlingAvg;
+  const sec =
+    bAvg != null && !Number.isNaN(bAvg)
+      ? `Tournament bowling avg ${bAvg.toFixed(2)}`
+      : undefined;
   const fromFp = sumFpKeys(fp(best), BOWLING_FANTASY_KEYS);
-  if (fromFp != null) return { player: best, display: formatRound(fromFp) };
+  if (fromFp != null) {
+    return { player: best, display: formatRound(fromFp), secondaryStat: sec };
+  }
   const st = stats(best);
   if (!st) return null;
   let s = 0;
@@ -214,6 +255,7 @@ export function leaderBestBowlingAvg(players: Player[]): StatLeader {
     player: best,
     display: `≈${formatRound(s)}`,
     caption: ESTIMATE_CAPTION,
+    secondaryStat: sec,
   };
 }
 
@@ -263,4 +305,67 @@ export function leaderMostFours(players: Player[]): StatLeader {
     display: `≈${formatRound(f * 2)}`,
     caption: ESTIMATE_CAPTION,
   };
+}
+
+function catchFantasyPoints(p: Player): number | null {
+  const slice = fp(p);
+  if (!slice) return null;
+  let s = 0;
+  let hit = false;
+  const c = slice.catches;
+  const b = slice.threeCatchBonus;
+  if (typeof c === "number" && !Number.isNaN(c)) {
+    s += c;
+    hit = true;
+  }
+  if (typeof b === "number" && !Number.isNaN(b)) {
+    s += b;
+    hit = true;
+  }
+  return hit ? Math.round(s * 100) / 100 : null;
+}
+
+/** Most catches (IPL); shows fantasy points from catch awards (+8/catch, +4 three-catch bonus). */
+export function leaderMostCatches(players: Player[]): StatLeader {
+  let best: Player | null = null;
+  let max = -Infinity;
+  for (const p of players) {
+    const c = stats(p)?.catches;
+    if (c == null || Number.isNaN(c)) continue;
+    if (c > max) {
+      max = c;
+      best = p;
+    }
+  }
+  if (!best) return null;
+  const fromFp = catchFantasyPoints(best);
+  if (fromFp != null) return { player: best, display: formatRound(fromFp) };
+  const catches = stats(best)?.catches;
+  if (catches == null) return null;
+  return {
+    player: best,
+    display: `≈${formatRound(catches * 8)}`,
+    caption: ESTIMATE_CAPTION,
+  };
+}
+
+export function roleLabel(role: PlayerRole): string {
+  switch (role) {
+    case "BAT":
+      return "Batter";
+    case "BOWL":
+      return "Bowler";
+    case "AR":
+      return "All-rounder";
+    case "WK":
+      return "Wicket-keeper";
+    default:
+      return role;
+  }
+}
+
+export function countryLabel(nationality: PlayerNationality | undefined): string {
+  if (nationality === "IND") return "India";
+  if (nationality === "OVS") return "Overseas";
+  return "—";
 }

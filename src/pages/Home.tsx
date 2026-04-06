@@ -8,11 +8,15 @@ import { buildOwnerCumulativeFromPerMatch } from "../lib/cumulativeOwnerMatchPoi
 import {
   leaderBestBattingAvg,
   leaderBestBowlingAvg,
+  leaderMostCatches,
   leaderMostFantasyPoints,
   leaderMostFours,
   leaderMostSixes,
   leaderTopRuns,
   leaderTopWickets,
+  playersForSeasonHighlights,
+  countryLabel,
+  roleLabel,
   type StatLeader,
 } from "../lib/iplStatLeaders";
 import { PREDICTION_ACTUALS_EVENT } from "../lib/predictionEvents";
@@ -31,14 +35,26 @@ function bestFantasyPlayerOnSquad(players: Player[]): Player | null {
   )[0];
 }
 
-function StatCard({
+function buildPlayerOwnerMap(
+  standings: { owner: string; playersResolved: Player[] }[],
+): Map<string, string> {
+  const m = new Map<string, string>();
+  for (const s of standings) {
+    for (const p of s.playersResolved) {
+      m.set(p.id, s.owner);
+    }
+  }
+  return m;
+}
+
+function HighlightStatCard({
   title,
   leader,
-  valueSuffix,
+  ownerName,
 }: {
   title: string;
   leader: StatLeader;
-  valueSuffix?: string;
+  ownerName: string;
 }) {
   return (
     <div className="rounded-xl border border-cyan-500/20 bg-slate-900/60 p-4 shadow-md shadow-black/20 ring-1 ring-cyan-500/10">
@@ -47,12 +63,34 @@ function StatCard({
         <>
           <p className="mt-2 font-bold text-white">{leader.player.name}</p>
           <p className="mt-1 text-sm tabular-nums text-cyan-300">
-            {leader.display}
-            {valueSuffix ? ` ${valueSuffix}` : ""}
+            {leader.display} pts
           </p>
+          {leader.secondaryStat ? (
+            <p className="mt-0.5 text-[11px] tabular-nums text-slate-500">
+              {leader.secondaryStat}
+            </p>
+          ) : null}
           {leader.caption ? (
             <p className="mt-1 text-[10px] leading-snug text-slate-500">{leader.caption}</p>
           ) : null}
+          <dl className="mt-3 space-y-1 border-t border-cyan-500/15 pt-3 text-xs">
+            <div className="flex gap-2">
+              <dt className="shrink-0 text-slate-500">Owner</dt>
+              <dd className="font-medium text-slate-200">{ownerName}</dd>
+            </div>
+            <div className="flex gap-2">
+              <dt className="shrink-0 text-slate-500">IPL</dt>
+              <dd className="text-slate-200">{leader.player.iplTeam}</dd>
+            </div>
+            <div className="flex gap-2">
+              <dt className="shrink-0 text-slate-500">Role</dt>
+              <dd className="text-slate-200">{roleLabel(leader.player.role)}</dd>
+            </div>
+            <div className="flex gap-2">
+              <dt className="shrink-0 text-slate-500">Country</dt>
+              <dd className="text-slate-200">{countryLabel(leader.player.nationality)}</dd>
+            </div>
+          </dl>
         </>
       ) : (
         <p className="mt-2 text-sm text-slate-500">No data yet</p>
@@ -108,9 +146,14 @@ export function Home() {
     );
   }, [summary, sortedLeaderboard]);
 
+  const playerOwnerMap = useMemo(() => {
+    if (!summary) return new Map<string, string>();
+    return buildPlayerOwnerMap(summary.standings);
+  }, [summary]);
+
   const statLeaders = useMemo(() => {
     if (!bundle) return null;
-    const players = bundle.players;
+    const players = playersForSeasonHighlights(bundle);
     return {
       fantasy: leaderMostFantasyPoints(players),
       runs: leaderTopRuns(players),
@@ -119,12 +162,18 @@ export function Home() {
       bowlAvg: leaderBestBowlingAvg(players),
       sixes: leaderMostSixes(players),
       fours: leaderMostFours(players),
+      catches: leaderMostCatches(players),
     };
   }, [bundle]);
 
   if (!bundle || !summary || !statLeaders) return null;
 
   const pred = bundle.predictions;
+
+  function ownerForLeader(leader: StatLeader): string {
+    if (!leader) return "—";
+    return playerOwnerMap.get(leader.player.id) ?? "Free agent";
+  }
 
   return (
     <div className="space-y-8">
@@ -201,48 +250,53 @@ export function Home() {
       <section>
         <h2 className="font-display mb-2 text-2xl tracking-wide text-white">Season highlights</h2>
         <p className="mb-3 text-sm text-slate-400">
-          Each card picks the IPL leader using optional{" "}
-          <code className="app-code-inline">seasonStats</code> (runs, wickets, sixes, etc.), but
-          the number shown is <strong className="text-slate-300">fantasy points</strong> from{" "}
-          <code className="app-code-inline">seasonFantasyPoints</code> for that category (or a
-          rough estimate from counting stats when the breakdown is missing). Total season fantasy
-          still comes from <code className="app-code-inline">seasonTotal</code>.
+          Leaders are picked from IPL counting stats in optional{" "}
+          <code className="app-code-inline">seasonStats</code> (full player pool + waiver pool).
+          Points shown use <code className="app-code-inline">seasonFantasyPoints</code> where
+          available, or a rough estimate from stats. Owner is the current fantasy franchise from
+          waiver rosters; players not on a squad show as{" "}
+          <span className="text-slate-300">Free agent</span>.
         </p>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <StatCard
+          <HighlightStatCard
             title="Most fantasy points"
             leader={statLeaders.fantasy}
-            valueSuffix="pts"
+            ownerName={ownerForLeader(statLeaders.fantasy)}
           />
-          <StatCard
-            title="Top run scorer (pts from runs)"
+          <HighlightStatCard
+            title="Top run scorer"
             leader={statLeaders.runs}
-            valueSuffix="pts"
+            ownerName={ownerForLeader(statLeaders.runs)}
           />
-          <StatCard
-            title="Top wicket taker (pts from wickets)"
+          <HighlightStatCard
+            title="Top wicket taker"
             leader={statLeaders.wickets}
-            valueSuffix="pts"
+            ownerName={ownerForLeader(statLeaders.wickets)}
           />
-          <StatCard
-            title="Best batting average (batting pts)"
+          <HighlightStatCard
+            title="Best batting average"
             leader={statLeaders.batAvg}
-            valueSuffix="pts"
+            ownerName={ownerForLeader(statLeaders.batAvg)}
           />
-          <StatCard
-            title="Best bowling average (bowling pts)"
+          <HighlightStatCard
+            title="Best bowling average"
             leader={statLeaders.bowlAvg}
-            valueSuffix="pts"
+            ownerName={ownerForLeader(statLeaders.bowlAvg)}
           />
-          <StatCard
-            title="Most sixes (pts from sixes)"
+          <HighlightStatCard
+            title="Most sixes"
             leader={statLeaders.sixes}
-            valueSuffix="pts"
+            ownerName={ownerForLeader(statLeaders.sixes)}
           />
-          <StatCard
-            title="Most fours (pts from fours)"
+          <HighlightStatCard
+            title="Most fours"
             leader={statLeaders.fours}
-            valueSuffix="pts"
+            ownerName={ownerForLeader(statLeaders.fours)}
+          />
+          <HighlightStatCard
+            title="Most catches"
+            leader={statLeaders.catches}
+            ownerName={ownerForLeader(statLeaders.catches)}
           />
         </div>
       </section>
