@@ -106,7 +106,7 @@ type WaiverCtx = {
       effectiveAfterColumnId?: string | null;
     }) => Promise<SettleResult>;
     setPhase: (
-      phase: "idle" | "nomination" | "bidding",
+      phase: "idle" | "active",
     ) => Promise<{ phase: string; isWaiverWindowOpen: boolean }>;
   };
 };
@@ -384,7 +384,10 @@ export function WaiverProvider({ children }: { children: ReactNode }) {
         baseFranchises: bundle.franchises,
         revealEffectiveAfterColumnId,
       });
-      if (result.error) return result.error;
+      if (result.error) {
+        if (result.state !== state) setState(result.state);
+        return result.error;
+      }
       setState(result.state);
       if (isFirebaseWaiverConfigured()) {
         // Avoid writing before initial remote hydration.
@@ -453,7 +456,7 @@ export function WaiverProvider({ children }: { children: ReactNode }) {
       }) => {
         return callWaiverSettle(params);
       },
-      setPhase: async (phase: "idle" | "nomination" | "bidding") => {
+      setPhase: async (phase: "idle" | "active") => {
         return callSetWaiverPhase({ targetPhase: phase });
       },
     };

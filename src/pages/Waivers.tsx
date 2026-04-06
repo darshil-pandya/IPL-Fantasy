@@ -14,9 +14,13 @@ import { WAIVER_LOGIN_ROWS } from "../lib/waiver/auth";
 import type { Franchise, LeagueBundle, Player } from "../types";
 import type { CompletedTransfer, WaiverBid, WaiverNomination, WaiverSession } from "../lib/waiver/types";
 import { isFirebaseConfigured } from "../lib/firebase/client";
+import {
+  callAdminDeleteWaiverBid,
+  callAdminDeleteWaiverNomination,
+  callMigrateToCollections,
+} from "../lib/firebase/waiverApi";
 import { seedLeagueFromStaticToFirestore } from "../lib/firebase/leagueRemote";
 import { loadCompletedTransfers } from "../lib/firebase/waiverRemote";
-import { callMigrateToCollections } from "../lib/firebase/waiverApi";
 import { abbreviateMatchLabel, formatMatchDate } from "../lib/matchLabel";
 import type { MatchColumn } from "../lib/matchColumns";
 import { ownerCardClass, ownerCardMutedClass } from "../lib/ownerTheme";
@@ -27,6 +31,14 @@ function money(n: number): string {
     currency: "INR",
     maximumFractionDigits: 0,
   }).format(n);
+}
+
+function formatNominationsCloseIn(deadlineIso: string, nowMs: number): string {
+  const ms = Date.parse(deadlineIso) - nowMs;
+  if (!Number.isFinite(ms) || ms <= 0) return "";
+  const h = Math.floor(ms / 3_600_000);
+  const m = Math.floor((ms % 3_600_000) / 60_000);
+  return `${h} h ${m} m`;
 }
 
 function firebaseUi(connected: boolean, err: string | null): React.ReactNode {
@@ -99,6 +111,32 @@ export function Waivers() {
     const err = dispatch(a);
     if (err) setActionErr(err);
     return err;
+  }
+
+  async function adminDeleteBid(bidId: string) {
+    if (!window.confirm("Are you sure? This cannot be undone.")) return;
+    if (isFirebaseConfigured()) {
+      try {
+        await callAdminDeleteWaiverBid({ bidId });
+        return;
+      } catch {
+        /* fall back to local state */
+      }
+    }
+    runDispatch({ type: "admin_delete_bid", bidId });
+  }
+
+  async function adminDeleteNomination(nominationId: string) {
+    if (!window.confirm("Are you sure? This cannot be undone.")) return;
+    if (isFirebaseConfigured()) {
+      try {
+        await callAdminDeleteWaiverNomination({ nominationId });
+        return;
+      } catch {
+        /* fall back to local state */
+      }
+    }
+    runDispatch({ type: "admin_delete_nomination", nominationId });
   }
 
   function doLogin(e: React.FormEvent) {
@@ -250,6 +288,7 @@ export function Waivers() {
           sessionOwner={session.owner}
           franchise={ownerFranchise}
           phase={state.phase}
+          nominationDeadline={state.waiverRound?.nominationDeadline}
           myNominations={myNominations}
           nominatedInIds={nominatedInIds}
           availableIds={availableIds}
@@ -288,6 +327,8 @@ export function Waivers() {
                     : 0
                 }
                 tryDispatch={runDispatch}
+                onAdminDeleteBid={adminDeleteBid}
+                onAdminDeleteNomination={adminDeleteNomination}
               />
             ))}
           </ul>
@@ -426,14 +467,7 @@ function AdminPanel({
           onClick={() => dispatch({ type: "admin_start_nomination" })}
           className="app-btn-primary"
         >
-          Start nomination phase
-        </button>
-        <button
-          type="button"
-          onClick={() => dispatch({ type: "admin_start_bidding" })}
-          className="app-btn-primary"
-        >
-          Start bidding phase
+          Start nominations
         </button>
         <button
           type="button"
@@ -549,8 +583,8 @@ function AdminPanel({
 
       {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
       <p className="mt-3 text-xs text-slate-500">
-        Strict flow: idle → nomination → bidding → reveal → idle. Reveal resolves
-        every nomination at once; winning bids deduct budget and update rosters.
+        Flow: idle → active (nominations + bidding) → reveal → idle. Reveal resolves every
+        nomination at once; winning bids deduct budget and update rosters.
       </p>
     </section>
   );
@@ -560,6 +594,7 @@ function OwnerWaiverPanel({
   sessionOwner,
   franchise,
   phase,
+  nominationDeadline,
   myNominations,
   nominatedInIds,
   availableIds,
@@ -571,6 +606,7 @@ function OwnerWaiverPanel({
   sessionOwner: string;
   franchise: Franchise;
   phase: string;
+  nominationDeadline?: string;
   myNominations: WaiverNomination[];
   nominatedInIds: Set<string>;
   availableIds: string[];
@@ -583,8 +619,26 @@ function OwnerWaiverPanel({
   const [nomOut, setNomOut] = useState("");
   const [nomAmt, setNomAmt] = useState(String(WAIVER_BID_INCREMENT));
   const [editId, setEditId] = useState<string | null>(null);
+  const [tick, setTick] = useState(() => Date.now());
+
+  const nominationWindowOpen =
+    phase === "active" &&
+    (!nominationDeadline || Date.now() < Date.parse(nominationDeadline));
+
+  useEffect(() => {
+    if (phase !== "active" || !nominationDeadline) return;
+    const id = window.setInterval(() => setTick(Date.now()), 30_000);
+    return () => window.clearInterval(id);
+  }, [phase, nominationDeadline]);
 
   const availOptions = availableIds.filter((id) => !nominatedInIds.has(id));
+
+  const countdownLabel =
+    phase === "active" &&
+    nominationDeadline &&
+    tick < Date.parse(nominationDeadline)
+      ? formatNominationsCloseIn(nominationDeadline, tick)
+      : "";
 
   return (
     <section className="app-card p-5">
@@ -596,7 +650,12 @@ function OwnerWaiverPanel({
           <span className="tabular-nums font-medium text-amber-400">{money(budgetRemaining)}</span>
         </span>
       </div>
-      {phase === "nomination" && (
+      {countdownLabel ? (
+        <p className="mt-2 text-sm font-medium text-cyan-400">
+          Nominations close in {countdownLabel}
+        </p>
+      ) : null}
+      {nominationWindowOpen && (
         <form
           className="mt-4 grid gap-4 sm:grid-cols-2"
           onSubmit={(e) => {
@@ -666,7 +725,7 @@ function OwnerWaiverPanel({
           </div>
         </form>
       )}
-      {myNominations.length > 0 && phase === "nomination" && (
+      {myNominations.length > 0 && nominationWindowOpen && (
         <ul className="mt-4 space-y-2 text-sm">
           {myNominations.map((n) => (
             <li
@@ -722,6 +781,8 @@ function NominationRow({
   myRosterIds,
   budgetRemaining,
   tryDispatch,
+  onAdminDeleteBid,
+  onAdminDeleteNomination,
 }: {
   n: WaiverNomination;
   pmap: Map<string, Player>;
@@ -731,6 +792,8 @@ function NominationRow({
   myRosterIds: string[];
   budgetRemaining: number;
   tryDispatch: (a: WaiverEngineAction) => string | null;
+  onAdminDeleteBid?: (bidId: string) => void | Promise<void>;
+  onAdminDeleteNomination?: (nominationId: string) => void | Promise<void>;
 }) {
   const pIn = pmap.get(n.playerInId);
   const isSelfNomination =
@@ -752,7 +815,7 @@ function NominationRow({
   return (
     <li className="app-panel border-cyan-500/25 p-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
+        <div className="min-w-0 flex-1">
           <p className="font-semibold text-white">{pIn?.name ?? n.playerInId}</p>
           <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
             {pIn && <IplTeamPill code={pIn.iplTeam} />}
@@ -781,8 +844,42 @@ function NominationRow({
             </p>
           )}
         </div>
+        {session?.role === "admin" &&
+        phase === "active" &&
+        onAdminDeleteNomination ? (
+          <button
+            type="button"
+            className="shrink-0 text-sm font-medium text-red-400 hover:text-red-300"
+            onClick={() => void onAdminDeleteNomination(n.id)}
+          >
+            Delete nomination
+          </button>
+        ) : null}
       </div>
-      {phase === "bidding" &&
+      {session?.role === "admin" && phase === "active" && bids.length > 0 ? (
+        <ul className="mt-2 space-y-1 rounded-lg border border-amber-500/20 bg-amber-950/20 p-2 text-xs text-slate-400">
+          {bids.map((b) => (
+            <li
+              key={b.id}
+              className="flex flex-wrap items-center justify-between gap-2"
+            >
+              <span>
+                <OwnerBadge owner={b.bidderOwner} /> · {money(b.amount)}
+              </span>
+              {onAdminDeleteBid ? (
+                <button
+                  type="button"
+                  className="text-sm font-medium text-red-400 hover:text-red-300"
+                  onClick={() => void onAdminDeleteBid(b.id)}
+                >
+                  Delete bid
+                </button>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {phase === "active" &&
         session?.role === "owner" &&
         session.owner !== n.nominatorOwner && (
         <form
@@ -832,11 +929,11 @@ function NominationRow({
           </div>
         </form>
       )}
-      {phase === "bidding" &&
+      {phase === "active" &&
         session?.role === "owner" &&
         session.owner === n.nominatorOwner && (
           <p className="mt-3 text-xs text-slate-500">
-            Your opening bid is locked from nomination phase; others are bidding now.
+            Your opening bid is set from your nomination; others can bid on this player now.
           </p>
         )}
     </li>

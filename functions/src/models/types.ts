@@ -1,6 +1,6 @@
 export type PlayerRole = "BAT" | "BOWL" | "AR" | "WK";
 export type PlayerNationality = "IND" | "OVS";
-export type WaiverPhase = "idle" | "nomination" | "bidding";
+export type WaiverPhase = "idle" | "active";
 export type NominationStatus = "OPEN" | "CLOSED" | "CANCELLED";
 
 /** Firestore: players/{id} */

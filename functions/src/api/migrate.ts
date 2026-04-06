@@ -265,9 +265,11 @@ export async function runMigration(adminSecret: string, expectedSecret: string):
 
   // ── 6. Build appSettings ──
   const phase = waiverData?.phase;
+  const openRound =
+    phase === "active" || phase === "nomination" || phase === "bidding";
   const appSettings: AppSettingsDoc = {
-    isWaiverWindowOpen: phase === "nomination" || phase === "bidding",
-    waiverPhase: (phase === "nomination" || phase === "bidding") ? phase : "idle",
+    isWaiverWindowOpen: openRound,
+    waiverPhase: openRound ? "active" : "idle",
   };
 
   // ── 7. Write to Firestore in batches (max 500 ops per batch) ──

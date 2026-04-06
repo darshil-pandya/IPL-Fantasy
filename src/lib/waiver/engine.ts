@@ -7,7 +7,11 @@ import type {
   WaiverPersistentState,
   WaiverPhase,
 } from "./types";
-import { WAIVER_BID_INCREMENT, WAIVER_BUDGET_START } from "./constants";
+import {
+  WAIVER_BID_INCREMENT,
+  WAIVER_BUDGET_START,
+  WAIVER_NOMINATION_WINDOW_MS,
+} from "./constants";
 import { isPlayerAvailable } from "./available";
 
 function nowIso(): string {
@@ -69,7 +73,6 @@ type Ctx = {
 
 export type WaiverEngineAction =
   | { type: "admin_start_nomination" }
-  | { type: "admin_start_bidding" }
   | {
       type: "admin_reveal";
     }
@@ -88,7 +91,9 @@ export type WaiverEngineAction =
       nominationId: string;
       playerOutId: string;
       amount: number;
-    };
+    }
+  | { type: "admin_delete_bid"; bidId: string }
+  | { type: "admin_delete_nomination"; nominationId: string };
 
 export type WaiverReduceResult = {
   state: WaiverPersistentState;
@@ -115,40 +120,36 @@ export function reduceWaiver(
       if (state.phase !== "idle") {
         return { state, error: "Start nomination only from idle (reveal the prior round first)." };
       }
+      const startedAt = nowIso();
+      const nominationDeadline = new Date(
+        Date.parse(startedAt) + WAIVER_NOMINATION_WINDOW_MS,
+      ).toISOString();
       const next: WaiverPersistentState = {
         ...state,
         roundId: state.roundId + 1,
-        phase: "nomination",
+        phase: "active",
         nominations: [],
         bids: [],
+        waiverRound: { startedAt, nominationDeadline },
+        nominationWindowClosedLoggedForRoundId: undefined,
       };
       return {
         state: pushLog(
           next,
-          logEntry("phase", `Nomination phase started (round ${next.roundId}).`),
+          logEntry("phase", `Active waiver round started (round ${next.roundId}).`),
         ),
       };
     }
 
-    case "admin_start_bidding": {
-      if (state.phase !== "nomination") {
-        return { state, error: "Start bidding only during nomination phase." };
-      }
-      const next = { ...state, phase: "bidding" as WaiverPhase };
-      return {
-        state: pushLog(next, logEntry("phase", "Bidding phase started.")),
-      };
-    }
-
     case "admin_reveal": {
-      if (state.phase !== "bidding") {
-        return { state, error: "Reveal only after bidding phase." };
+      if (state.phase !== "active") {
+        return { state, error: "Reveal only during an active waiver round." };
       }
       return resolveRound(state, ctx);
     }
 
     case "nomination_delete": {
-      if (state.phase !== "nomination") {
+      if (state.phase !== "active") {
         return { state, error: "Nominations are locked." };
       }
       const nom = state.nominations.find((n) => n.id === action.nominationId);
@@ -170,8 +171,39 @@ export function reduceWaiver(
     }
 
     case "nomination_upsert": {
-      if (state.phase !== "nomination") {
+      if (state.phase !== "active") {
         return { state, error: "Nomination window is closed." };
+      }
+      const deadlineIso = state.waiverRound?.nominationDeadline;
+      if (
+        deadlineIso &&
+        Date.now() >= Date.parse(deadlineIso)
+      ) {
+        const NOM_CLOSED =
+          "Nomination window has closed. Bidding is still open until reveal.";
+        if (state.nominationWindowClosedLoggedForRoundId !== state.roundId) {
+          const at = nowIso();
+          const withLog: WaiverPersistentState = {
+            ...state,
+            nominationWindowClosedLoggedForRoundId: state.roundId,
+            log: [
+              ...state.log,
+              {
+                at,
+                kind: "NOMINATION_WINDOW_CLOSED",
+                message: "Nomination window closed for this round.",
+                meta: {
+                  event_type: "NOMINATION_WINDOW_CLOSED",
+                  timestamp: at,
+                  round_id: String(state.roundId),
+                  nominations_submitted: state.nominations.length,
+                },
+              },
+            ].slice(-500),
+          };
+          return { state: withLog, error: NOM_CLOSED };
+        }
+        return { state, error: NOM_CLOSED };
       }
       const e = ensureOwner(action.owner);
       if (e) return { state, error: e };
@@ -257,7 +289,7 @@ export function reduceWaiver(
     }
 
     case "bid_upsert": {
-      if (state.phase !== "bidding") {
+      if (state.phase !== "active") {
         return { state, error: "Bidding is not open." };
       }
       const e = ensureOwner(action.bidderOwner);
@@ -276,7 +308,7 @@ export function reduceWaiver(
         return {
           state,
           error:
-            "You already have your opening bid on this nomination; edit it only during the nomination phase.",
+            "You already have your opening bid on this nomination; edit it only while the nomination window is open.",
         };
       }
       const r = roster(action.bidderOwner);
@@ -329,6 +361,79 @@ export function reduceWaiver(
           }),
         ),
       };
+    }
+
+    case "admin_delete_bid": {
+      if (state.phase !== "active") {
+        return { state, error: "Bids can only be deleted during an active waiver round." };
+      }
+      const bid = state.bids.find((b) => b.id === action.bidId);
+      if (!bid) {
+        return { state, error: "Bid not found." };
+      }
+      const at = nowIso();
+      const next: WaiverPersistentState = {
+        ...state,
+        bids: state.bids.filter((b) => b.id !== action.bidId),
+        log: [
+          ...state.log,
+          {
+            at,
+            kind: "ADMIN_DELETE_BID",
+            message: `Admin deleted bid ${action.bidId}.`,
+            meta: {
+              event_type: "ADMIN_DELETE_BID",
+              performed_by: "admin",
+              timestamp: at,
+              nomination_id: bid.nominationId,
+              bid_id: action.bidId,
+              deleted_bid_owner_id: bid.bidderOwner,
+              deleted_bid_amount: bid.amount,
+            },
+          },
+        ].slice(-500),
+      };
+      return { state: next };
+    }
+
+    case "admin_delete_nomination": {
+      if (state.phase !== "active") {
+        return {
+          state,
+          error: "Nominations can only be deleted during an active waiver round.",
+        };
+      }
+      const nom = state.nominations.find((n) => n.id === action.nominationId);
+      if (!nom) {
+        return { state, error: "Nomination not found." };
+      }
+      const cascadedBidIds = state.bids
+        .filter((b) => b.nominationId === action.nominationId)
+        .map((b) => b.id);
+      const at = nowIso();
+      const next: WaiverPersistentState = {
+        ...state,
+        nominations: state.nominations.filter((n) => n.id !== action.nominationId),
+        bids: state.bids.filter((b) => b.nominationId !== action.nominationId),
+        log: [
+          ...state.log,
+          {
+            at,
+            kind: "ADMIN_DELETE_NOMINATION",
+            message: `Admin cancelled nomination ${action.nominationId}.`,
+            meta: {
+              event_type: "ADMIN_DELETE_NOMINATION",
+              performed_by: "admin",
+              timestamp: at,
+              nomination_id: action.nominationId,
+              nominated_player_id: nom.playerInId,
+              nominating_owner_id: nom.nominatorOwner,
+              cascaded_bid_ids: cascadedBidIds,
+            },
+          },
+        ].slice(-500),
+      };
+      return { state: next };
     }
 
     default:
@@ -474,6 +579,8 @@ function resolveRound(
     nominations: [],
     bids: [],
     log,
+    waiverRound: undefined,
+    nominationWindowClosedLoggedForRoundId: undefined,
   };
 
   return {
@@ -507,8 +614,19 @@ export function alignStateWithFranchises(
     if (budgets[f.owner] == null) budgets[f.owner] = WAIVER_BUDGET_START;
     if (pointCarryover[f.owner] == null) pointCarryover[f.owner] = 0;
   }
+  const rawPhase = migrated.phase as unknown;
+  const phase: WaiverPhase =
+    rawPhase === "idle"
+      ? "idle"
+      : rawPhase === "active" ||
+          rawPhase === "nomination" ||
+          rawPhase === "bidding"
+        ? "active"
+        : "idle";
+
   return {
     ...migrated,
+    phase,
     rosters,
     budgets,
     pointCarryover,

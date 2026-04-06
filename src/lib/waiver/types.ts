@@ -1,4 +1,10 @@
-export type WaiverPhase = "idle" | "nomination" | "bidding";
+export type WaiverPhase = "idle" | "active";
+
+/** Per waiver round: nomination window ends at `nominationDeadline`. */
+export type WaiverRoundMeta = {
+  startedAt: string;
+  nominationDeadline: string;
+};
 
 export interface WaiverNomination {
   id: string;
@@ -51,6 +57,10 @@ export interface WaiverPersistentState {
   version: 2;
   roundId: number;
   phase: WaiverPhase;
+  /** Set when entering `active` from `idle`; omitted for legacy payloads. */
+  waiverRound?: WaiverRoundMeta;
+  /** Prevents duplicate `NOMINATION_WINDOW_CLOSED` log per `roundId`. */
+  nominationWindowClosedLoggedForRoundId?: number;
   /** Full squad per owner (live roster). */
   rosters: Record<string, string[]>;
   budgets: Record<string, number>;

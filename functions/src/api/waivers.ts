@@ -11,6 +11,11 @@ import type {
 } from "../models/types.js";
 import { validateSquadComposition } from "../validation/squadComposition.js";
 
+const WAIVER_STATE_DOC = "iplFantasy/waiverState";
+const NOMINATION_WINDOW_MS = Math.round(4.5 * 60 * 60 * 1000);
+const NOMINATION_CLOSED_MSG =
+  "Nomination window has closed. Bidding is still open until reveal.";
+
 // ─── helpers ───
 
 function nowIso(): string {
@@ -62,13 +67,78 @@ async function resolveDefaultEffectiveAfterColumnId(
   return `${last.matchDate}${SEP}${last.matchLabel}`;
 }
 
+/** Maps legacy persisted phases to the current state machine. */
+function normalizedWaiverPhase(settings: AppSettingsDoc): WaiverPhase {
+  const p = settings.waiverPhase as string;
+  if (p === "idle") return "idle";
+  if (p === "active" || p === "nomination" || p === "bidding") return "active";
+  return "idle";
+}
+
 function assertPhase(settings: AppSettingsDoc, expected: WaiverPhase): void {
-  if (settings.waiverPhase !== expected) {
+  const current = normalizedWaiverPhase(settings);
+  if (current !== expected) {
     throw new HttpsError(
       "failed-precondition",
-      `Expected waiver phase "${expected}", currently "${settings.waiverPhase}".`,
+      `Expected waiver phase "${expected}", currently "${current}".`,
     );
   }
+}
+
+type WaiverPayloadLoose = Record<string, unknown>;
+
+function parseWaiverPayload(data: FirebaseFirestore.DocumentData | undefined): WaiverPayloadLoose {
+  const p = data?.payload;
+  if (p && typeof p === "object" && !Array.isArray(p)) {
+    return { ...(p as Record<string, unknown>) };
+  }
+  return {};
+}
+
+async function tryLogNominationWindowClosed(
+  db: FirebaseFirestore.Firestore,
+  roundId: number,
+  nominationsSubmitted: number,
+): Promise<void> {
+  const ref = db.doc(WAIVER_STATE_DOC);
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const payload = parseWaiverPayload(snap.data());
+    const rid =
+      typeof payload.roundId === "number" && Number.isFinite(payload.roundId)
+        ? payload.roundId
+        : 0;
+    if (rid !== roundId) return;
+    if (payload.nominationWindowClosedLoggedForRoundId === roundId) return;
+    const at = nowIso();
+    const prevLog = Array.isArray(payload.log) ? payload.log : [];
+    const log = [
+      ...prevLog,
+      {
+        at,
+        kind: "NOMINATION_WINDOW_CLOSED",
+        message: "Nomination window closed for this round.",
+        meta: {
+          event_type: "NOMINATION_WINDOW_CLOSED",
+          timestamp: at,
+          round_id: String(roundId),
+          nominations_submitted: nominationsSubmitted,
+        },
+      },
+    ].slice(-500);
+    tx.set(
+      ref,
+      {
+        payload: {
+          ...payload,
+          log,
+          nominationWindowClosedLoggedForRoundId: roundId,
+        },
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+  });
 }
 
 // ─── NOMINATE ───
@@ -85,7 +155,20 @@ export async function handleNominate(data: NominateInput): Promise<{ nominationI
 
   const settings = await readSettings(db);
   assertWaiverOpen(settings);
-  assertPhase(settings, "nomination");
+  assertPhase(settings, "active");
+
+  const waiverSnap = await db.doc(WAIVER_STATE_DOC).get();
+  const wp = parseWaiverPayload(waiverSnap.data());
+  const roundId =
+    typeof wp.roundId === "number" && Number.isFinite(wp.roundId) ? wp.roundId : 0;
+  const wr = wp.waiverRound as { nominationDeadline?: string } | undefined;
+  const deadlineIso =
+    wr && typeof wr.nominationDeadline === "string" ? wr.nominationDeadline : null;
+  if (deadlineIso && Date.now() >= Date.parse(deadlineIso)) {
+    const noms = Array.isArray(wp.nominations) ? wp.nominations : [];
+    await tryLogNominationWindowClosed(db, roundId, noms.length);
+    throw new HttpsError("failed-precondition", NOMINATION_CLOSED_MSG);
+  }
 
   const { ownerName, nominatedPlayerId, playerToDropId } = data;
 
@@ -161,7 +244,7 @@ export async function handleBid(data: BidInput): Promise<{ bidId: string }> {
 
   const settings = await readSettings(db);
   assertWaiverOpen(settings);
-  assertPhase(settings, "bidding");
+  assertPhase(settings, "active");
 
   const { ownerName, nominationId, bidAmount, playerToDropId } = data;
 
@@ -437,7 +520,7 @@ export async function handleSettle(
     });
 
     // 6. Legacy backward-compat: append to waiverState.rosterHistory
-    const waiverStateRef = db.doc("iplFantasy/waiverState");
+    const waiverStateRef = db.doc(WAIVER_STATE_DOC);
     const wsSnap = await waiverStateRef.get();
     if (wsSnap.exists) {
       const payload = wsSnap.data()?.payload as Record<string, unknown> | undefined;
@@ -496,29 +579,229 @@ export async function handleSetWaiverPhase(
   const db = getFirestore();
   const settings = await readSettings(db);
   const { targetPhase } = data;
+  const fromPhase = normalizedWaiverPhase(settings);
 
-  // Validate state machine transitions
   const validTransitions: Record<WaiverPhase, WaiverPhase[]> = {
-    idle: ["nomination"],
-    nomination: ["bidding"],
-    bidding: ["idle"],
+    idle: ["active"],
+    active: ["idle"],
   };
 
-  const allowed = validTransitions[settings.waiverPhase];
+  const allowed = validTransitions[fromPhase];
   if (!allowed || !allowed.includes(targetPhase)) {
     throw new HttpsError(
       "failed-precondition",
-      `Cannot transition from "${settings.waiverPhase}" to "${targetPhase}". ` +
+      `Cannot transition from "${fromPhase}" to "${targetPhase}". ` +
         `Allowed: ${(allowed ?? []).join(", ") || "none"}.`,
     );
   }
 
   const isWaiverWindowOpen = targetPhase !== "idle";
+  const waiverRef = db.doc(WAIVER_STATE_DOC);
+  const wsSnap = await waiverRef.get();
+  const fullPayload = parseWaiverPayload(wsSnap.data());
 
-  await db.doc("appSettings/league").update({
+  if (targetPhase === "active" && fromPhase === "idle") {
+    const startedAt = nowIso();
+    const nominationDeadline = new Date(
+      Date.parse(startedAt) + NOMINATION_WINDOW_MS,
+    ).toISOString();
+    const rd =
+      typeof fullPayload.roundId === "number" && Number.isFinite(fullPayload.roundId)
+        ? fullPayload.roundId
+        : 0;
+    fullPayload.phase = "active";
+    fullPayload.roundId = rd + 1;
+    fullPayload.nominations = [];
+    fullPayload.bids = [];
+    fullPayload.waiverRound = { startedAt, nominationDeadline };
+    delete fullPayload.nominationWindowClosedLoggedForRoundId;
+  } else if (targetPhase === "idle" && fromPhase === "active") {
+    fullPayload.phase = "idle";
+    delete fullPayload.waiverRound;
+    delete fullPayload.nominationWindowClosedLoggedForRoundId;
+  }
+
+  const batch = db.batch();
+  batch.update(db.doc("appSettings/league"), {
     waiverPhase: targetPhase,
     isWaiverWindowOpen,
   });
+  batch.set(
+    waiverRef,
+    {
+      payload: fullPayload,
+      updatedAt: FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  );
+  await batch.commit();
 
   return { phase: targetPhase, isWaiverWindowOpen };
+}
+
+// ─── ADMIN DELETE (callable) ───
+
+export interface AdminDeleteBidInput {
+  adminSecret: string;
+  bidId: string;
+}
+
+export interface AdminDeleteNominationInput {
+  adminSecret: string;
+  nominationId: string;
+}
+
+function appendWaiverLog(
+  payload: WaiverPayloadLoose,
+  entry: Record<string, unknown>,
+): unknown[] {
+  const prevLog = Array.isArray(payload.log) ? payload.log : [];
+  return [...prevLog, entry].slice(-500);
+}
+
+export async function handleAdminDeleteWaiverBid(
+  data: AdminDeleteBidInput,
+  expectedSecret: string,
+): Promise<{ ok: true }> {
+  if (data.adminSecret !== expectedSecret) {
+    throw new HttpsError("permission-denied", "Invalid admin secret.");
+  }
+  const bidId = typeof data.bidId === "string" ? data.bidId.trim() : "";
+  if (!bidId) {
+    throw new HttpsError("invalid-argument", "bidId is required.");
+  }
+
+  const db = getFirestore();
+  const settings = await readSettings(db);
+  assertPhase(settings, "active");
+
+  const bidRef = db.collection("waiverBids").doc(bidId);
+  const bidSnap = await bidRef.get();
+  if (!bidSnap.exists) {
+    throw new HttpsError("not-found", `Bid "${bidId}" not found.`);
+  }
+  const bid = bidSnap.data() as WaiverBidDoc;
+
+  await bidRef.delete();
+
+  const waiverRef = db.doc(WAIVER_STATE_DOC);
+  const wsSnap = await waiverRef.get();
+  const payload = parseWaiverPayload(wsSnap.data());
+  const bidsRaw = Array.isArray(payload.bids) ? payload.bids : [];
+  const bids = bidsRaw.filter((b) => {
+    const id =
+      b && typeof b === "object" && "id" in b && typeof (b as { id: unknown }).id === "string"
+        ? (b as { id: string }).id
+        : "";
+    return id !== bidId;
+  });
+  const at = nowIso();
+  payload.bids = bids;
+  payload.log = appendWaiverLog(payload, {
+    at,
+    kind: "ADMIN_DELETE_BID",
+    message: `Admin deleted bid ${bidId}.`,
+    meta: {
+      event_type: "ADMIN_DELETE_BID",
+      performed_by: "admin",
+      timestamp: at,
+      nomination_id: bid.nominationId,
+      bid_id: bidId,
+      deleted_bid_owner_id: bid.ownerId,
+      deleted_bid_amount: bid.bidAmount,
+    },
+  });
+
+  await waiverRef.set(
+    { payload, updatedAt: FieldValue.serverTimestamp() },
+    { merge: true },
+  );
+
+  return { ok: true };
+}
+
+export async function handleAdminDeleteWaiverNomination(
+  data: AdminDeleteNominationInput,
+  expectedSecret: string,
+): Promise<{ ok: true }> {
+  if (data.adminSecret !== expectedSecret) {
+    throw new HttpsError("permission-denied", "Invalid admin secret.");
+  }
+  const nominationId =
+    typeof data.nominationId === "string" ? data.nominationId.trim() : "";
+  if (!nominationId) {
+    throw new HttpsError("invalid-argument", "nominationId is required.");
+  }
+
+  const db = getFirestore();
+  const settings = await readSettings(db);
+  assertPhase(settings, "active");
+
+  const nomRef = db.collection("waiverNominations").doc(nominationId);
+  const nomSnap = await nomRef.get();
+  if (!nomSnap.exists) {
+    throw new HttpsError("not-found", `Nomination "${nominationId}" not found.`);
+  }
+  const nom = nomSnap.data() as WaiverNominationDoc;
+  if (nom.status !== "OPEN") {
+    throw new HttpsError("failed-precondition", "Nomination is not open.");
+  }
+
+  const bidsSnap = await db
+    .collection("waiverBids")
+    .where("nominationId", "==", nominationId)
+    .get();
+
+  const cascadedBidIds: string[] = [];
+  const batch = db.batch();
+  for (const d of bidsSnap.docs) {
+    cascadedBidIds.push(d.id);
+    batch.delete(d.ref);
+  }
+  batch.update(nomRef, { status: "CANCELLED", closedAt: nowIso() });
+
+  const waiverRef = db.doc(WAIVER_STATE_DOC);
+  const wsSnap = await waiverRef.get();
+  const payload = parseWaiverPayload(wsSnap.data());
+  const bidsRaw = Array.isArray(payload.bids) ? payload.bids : [];
+  const nomsRaw = Array.isArray(payload.nominations) ? payload.nominations : [];
+  payload.bids = bidsRaw.filter((b) => {
+    const nid =
+      b && typeof b === "object" && "nominationId" in b
+        ? String((b as { nominationId?: string }).nominationId ?? "")
+        : "";
+    return nid !== nominationId;
+  });
+  payload.nominations = nomsRaw.filter((n) => {
+    const id =
+      n && typeof n === "object" && "id" in n && typeof (n as { id: unknown }).id === "string"
+        ? (n as { id: string }).id
+        : "";
+    return id !== nominationId;
+  });
+  const at = nowIso();
+  payload.log = appendWaiverLog(payload, {
+    at,
+    kind: "ADMIN_DELETE_NOMINATION",
+    message: `Admin cancelled nomination ${nominationId}.`,
+    meta: {
+      event_type: "ADMIN_DELETE_NOMINATION",
+      performed_by: "admin",
+      timestamp: at,
+      nomination_id: nominationId,
+      nominated_player_id: nom.nominatedPlayerId,
+      nominating_owner_id: nom.nominatedByOwnerId,
+      cascaded_bid_ids: cascadedBidIds,
+    },
+  });
+
+  batch.set(
+    waiverRef,
+    { payload, updatedAt: FieldValue.serverTimestamp() },
+    { merge: true },
+  );
+
+  await batch.commit();
+
+  return { ok: true };
 }

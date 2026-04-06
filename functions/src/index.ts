@@ -10,10 +10,14 @@ import {
   handleBid,
   handleSettle,
   handleSetWaiverPhase,
+  handleAdminDeleteWaiverBid,
+  handleAdminDeleteWaiverNomination,
   type NominateInput,
   type BidInput,
   type SettleInput,
   type SetPhaseInput,
+  type AdminDeleteBidInput,
+  type AdminDeleteNominationInput,
 } from "./api/waivers.js";
 import {
   handleGetPlayers,
@@ -140,6 +144,22 @@ export const adminSetWaiverPhase = onCall(
   async (request) => {
     const data = request.data as SetPhaseInput;
     return await handleSetWaiverPhase(data, ADMIN_SCORE_SYNC_SECRET);
+  },
+);
+
+export const adminDeleteWaiverBid = onCall(
+  CALLABLE_OPTS,
+  async (request) => {
+    const data = request.data as AdminDeleteBidInput;
+    return await handleAdminDeleteWaiverBid(data, ADMIN_SCORE_SYNC_SECRET);
+  },
+);
+
+export const adminDeleteWaiverNomination = onCall(
+  CALLABLE_OPTS,
+  async (request) => {
+    const data = request.data as AdminDeleteNominationInput;
+    return await handleAdminDeleteWaiverNomination(data, ADMIN_SCORE_SYNC_SECRET);
   },
 );
 

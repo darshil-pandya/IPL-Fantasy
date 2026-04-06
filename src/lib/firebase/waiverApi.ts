@@ -85,7 +85,7 @@ export async function callWaiverSettle(params: {
 }
 
 export async function callSetWaiverPhase(params: {
-  targetPhase: "idle" | "nomination" | "bidding";
+  targetPhase: "idle" | "active";
 }): Promise<{ phase: string; isWaiverWindowOpen: boolean }> {
   const fn = await callable("adminSetWaiverPhase");
   const res = await fn({
@@ -93,6 +93,28 @@ export async function callSetWaiverPhase(params: {
     targetPhase: params.targetPhase,
   });
   return res.data as { phase: string; isWaiverWindowOpen: boolean };
+}
+
+export async function callAdminDeleteWaiverBid(params: {
+  bidId: string;
+}): Promise<{ ok: true }> {
+  const fn = await callable("adminDeleteWaiverBid");
+  const res = await fn({
+    adminSecret: ADMIN_SCORE_SYNC_SECRET,
+    bidId: params.bidId,
+  });
+  return res.data as { ok: true };
+}
+
+export async function callAdminDeleteWaiverNomination(params: {
+  nominationId: string;
+}): Promise<{ ok: true }> {
+  const fn = await callable("adminDeleteWaiverNomination");
+  const res = await fn({
+    adminSecret: ADMIN_SCORE_SYNC_SECRET,
+    nominationId: params.nominationId,
+  });
+  return res.data as { ok: true };
 }
 
 // ─── Read endpoints ───
