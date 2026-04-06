@@ -1,4 +1,6 @@
-# Deploy Firestore security rules from GitHub (no local machine required).
+# Deploy Cloud Functions only from GitHub (no local machine required).
+# Firestore rules are not deployed by this workflow; deploy them separately if needed
+# (e.g. `firebase deploy --only firestore:rules` locally or another workflow).
 # Secrets: FIREBASE_SERVICE_ACCOUNT_JSON, VITE_FIREBASE_PROJECT_ID (same as Pages build).
 name: Deploy Firebase backend
 
@@ -55,8 +57,8 @@ jobs:
 
       # --force: remove Cloud Functions that exist in GCP but not in this repo (e.g. renamed
       # functions). Required in non-interactive CI; otherwise deploy aborts.
-      - name: Deploy Firestore rules and Cloud Functions
-        run: firebase deploy --only firestore:rules,functions --project "$PROJECT_ID" --non-interactive --force
+      - name: Deploy Cloud Functions only
+        run: firebase deploy --only functions --project "$PROJECT_ID" --non-interactive --force
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/gcp-sa.json
           GOOGLE_CLOUD_PROJECT: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
