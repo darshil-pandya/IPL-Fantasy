@@ -38,6 +38,8 @@ import {
   subscribeWaiverRemote,
   writeCompletedTransfers,
   loadCompletedTransfers,
+  loadOwnerRemainingBudgets,
+  lookupOwnerRemainingBudget,
 } from "../lib/firebase/waiverRemote";
 import { WAIVER_BUDGET_START } from "../lib/waiver/constants";
 import {
@@ -240,8 +242,10 @@ export function WaiverProvider({ children }: { children: ReactNode }) {
 
     void (async () => {
       try {
-        const transfers = await loadCompletedTransfers();
-        if (transfers.length === 0) return;
+        const [transfers, cloudBudgets] = await Promise.all([
+          loadCompletedTransfers(),
+          loadOwnerRemainingBudgets(),
+        ]);
 
         const spent: Record<string, number> = {};
         for (const t of transfers) {
@@ -251,18 +255,37 @@ export function WaiverProvider({ children }: { children: ReactNode }) {
           }
         }
 
+        const franchiseOwners = bundle.franchises.map((f) => f.owner);
+        const hasAnyOwnerDoc = Object.keys(cloudBudgets).length > 0;
+
         setState((prev) => {
           let changed = false;
 
           // --- Budget repair ---
+          // Cloud Functions update owners/{id}.remainingBudget but not completedTransfers.
+          // Inferring budget from transfers alone can overwrite correct values (e.g. 90k → 240k).
           const corrected = { ...prev.budgets };
-          for (const [owner, amountSpent] of Object.entries(spent)) {
+          for (const owner of franchiseOwners) {
+            const fromCloud = lookupOwnerRemainingBudget(cloudBudgets, owner);
+            if (hasAnyOwnerDoc && typeof fromCloud === "number") {
+              if (corrected[owner] !== fromCloud) {
+                corrected[owner] = fromCloud;
+                changed = true;
+              }
+              continue;
+            }
+            const amountSpent = spent[owner] ?? 0;
             const expected = WAIVER_BUDGET_START - amountSpent;
-            if (corrected[owner] !== expected) {
-              corrected[owner] = expected;
+            const prevB = corrected[owner] ?? WAIVER_BUDGET_START;
+            // Never raise remaining budget from incomplete transfer docs vs current state.
+            const next = Math.min(expected, prevB);
+            if (corrected[owner] !== next) {
+              corrected[owner] = next;
               changed = true;
             }
           }
+
+          if (transfers.length === 0 && !hasAnyOwnerDoc) return prev;
 
           // --- RosterHistory repair ---
           const existingKeys = new Set(
@@ -315,7 +338,7 @@ export function WaiverProvider({ children }: { children: ReactNode }) {
         // Non-critical — repairs will run on next load
       }
     })();
-  }, [remoteConnected, allPlayersForScoring]);
+  }, [remoteConnected, allPlayersForScoring, bundle]);
 
   const displayFranchises = useMemo(() => {
     if (!bundle || !state) return [];

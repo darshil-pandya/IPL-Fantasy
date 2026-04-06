@@ -71,6 +71,54 @@ export async function pushWaiverRemote(payload: unknown): Promise<void> {
 import type { CompletedTransfer } from "../waiver/types";
 
 const TRANSFERS_COLLECTION = "completedTransfers";
+const OWNERS_COLLECTION = "owners";
+
+/**
+ * Cloud waiver settles update `owners/{ownerId}.remainingBudget` but do not write
+ * `completedTransfers`. Reading budgets here avoids the client “repair” overwriting
+ * waiverState with 250k − (sum of incomplete transfer docs).
+ */
+export async function loadOwnerRemainingBudgets(): Promise<
+  Record<string, number>
+> {
+  if (!isFirebaseConfigured()) return {};
+  try {
+    const { getFirestore, collection, getDocs } = await import("firebase/firestore");
+    const app = await getFirebaseApp();
+    const db = getFirestore(app);
+    const snap = await getDocs(collection(db, OWNERS_COLLECTION));
+    const out: Record<string, number> = {};
+    for (const d of snap.docs) {
+      const data = d.data() as { owner?: string; remainingBudget?: unknown };
+      const owner =
+        typeof data.owner === "string" && data.owner.length > 0 ? data.owner : d.id;
+      const rb = data.remainingBudget;
+      const n = typeof rb === "number" ? rb : Number(rb);
+      if (Number.isFinite(n)) {
+        out[owner] = n;
+        // Doc id may differ from `owner` field casing; allow lookup either way.
+        if (d.id !== owner) out[d.id] = n;
+      }
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+/** Match franchise owner name to `owners` map (exact id, field, or case-insensitive). */
+export function lookupOwnerRemainingBudget(
+  cloud: Record<string, number>,
+  franchiseOwner: string,
+): number | undefined {
+  if (typeof cloud[franchiseOwner] === "number" && Number.isFinite(cloud[franchiseOwner]))
+    return cloud[franchiseOwner];
+  const lower = franchiseOwner.toLowerCase();
+  for (const [k, v] of Object.entries(cloud)) {
+    if (k.toLowerCase() === lower && typeof v === "number" && Number.isFinite(v)) return v;
+  }
+  return undefined;
+}
 
 export async function writeCompletedTransfers(
   transfers: CompletedTransfer[],
