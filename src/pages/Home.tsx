@@ -50,6 +50,9 @@ function StatCard({
             {leader.display}
             {valueSuffix ? ` ${valueSuffix}` : ""}
           </p>
+          {leader.caption ? (
+            <p className="mt-1 text-[10px] leading-snug text-slate-500">{leader.caption}</p>
+          ) : null}
         </>
       ) : (
         <p className="mt-2 text-sm text-slate-500">No data yet</p>
@@ -198,10 +201,12 @@ export function Home() {
       <section>
         <h2 className="font-display mb-2 text-2xl tracking-wide text-white">Season highlights</h2>
         <p className="mb-3 text-sm text-slate-400">
-          IPL counting stats come from optional{" "}
-          <code className="app-code-inline">seasonStats</code> on each player in{" "}
-          <code className="app-code-inline">players.json</code>. Fantasy points use{" "}
-          <code className="app-code-inline">seasonTotal</code>.
+          Each card picks the IPL leader using optional{" "}
+          <code className="app-code-inline">seasonStats</code> (runs, wickets, sixes, etc.), but
+          the number shown is <strong className="text-slate-300">fantasy points</strong> from{" "}
+          <code className="app-code-inline">seasonFantasyPoints</code> for that category (or a
+          rough estimate from counting stats when the breakdown is missing). Total season fantasy
+          still comes from <code className="app-code-inline">seasonTotal</code>.
         </p>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <StatCard
@@ -209,24 +214,36 @@ export function Home() {
             leader={statLeaders.fantasy}
             valueSuffix="pts"
           />
-          <StatCard title="Top run scorer" leader={statLeaders.runs} valueSuffix="runs" />
           <StatCard
-            title="Top wicket taker"
+            title="Top run scorer (pts from runs)"
+            leader={statLeaders.runs}
+            valueSuffix="pts"
+          />
+          <StatCard
+            title="Top wicket taker (pts from wickets)"
             leader={statLeaders.wickets}
-            valueSuffix="wickets"
+            valueSuffix="pts"
           />
           <StatCard
-            title="Best batting average"
+            title="Best batting average (batting pts)"
             leader={statLeaders.batAvg}
-            valueSuffix="avg"
+            valueSuffix="pts"
           />
           <StatCard
-            title="Best bowling average"
+            title="Best bowling average (bowling pts)"
             leader={statLeaders.bowlAvg}
-            valueSuffix="avg"
+            valueSuffix="pts"
           />
-          <StatCard title="Most sixes" leader={statLeaders.sixes} valueSuffix="6s" />
-          <StatCard title="Most fours" leader={statLeaders.fours} valueSuffix="4s" />
+          <StatCard
+            title="Most sixes (pts from sixes)"
+            leader={statLeaders.sixes}
+            valueSuffix="pts"
+          />
+          <StatCard
+            title="Most fours (pts from fours)"
+            leader={statLeaders.fours}
+            valueSuffix="pts"
+          />
         </div>
       </section>
 
