@@ -149,24 +149,10 @@ export function reduceWaiver(
     }
 
     case "nomination_delete": {
-      if (state.phase !== "active") {
-        return { state, error: "Nominations are locked." };
-      }
-      const nom = state.nominations.find((n) => n.id === action.nominationId);
-      if (!nom || nom.nominatorOwner !== action.owner) {
-        return { state, error: "Nomination not found." };
-      }
-      const next = {
-        ...state,
-        nominations: state.nominations.filter((n) => n.id !== action.nominationId),
-      };
       return {
-        state: pushLog(
-          next,
-          logEntry("nomination", `Nomination withdrawn for ${nom.playerInId}.`, {
-            owner: action.owner,
-          }),
-        ),
+        state,
+        error:
+          "Nominations cannot be removed after they are submitted. The commissioner can cancel one if needed.",
       };
     }
 
@@ -232,6 +218,13 @@ export function reduceWaiver(
         const existing = state.nominations.find((n) => n.id === action.nominationId);
         if (!existing || existing.nominatorOwner !== action.owner) {
           return { state, error: "Cannot edit this nomination." };
+        }
+        if (action.playerInId !== existing.playerInId) {
+          return {
+            state,
+            error:
+              "The nominated player cannot be changed after submit. You can change your player out or bid amount.",
+          };
         }
       }
       if (nominatedIns.has(action.playerInId)) {

@@ -32,6 +32,8 @@ type WaiverPlayerPickerProps = {
   playerIds: string[];
   pmap: Map<string, Player>;
   placeholder?: string;
+  /** When true, search and list are disabled (value still shown if set). */
+  disabled?: boolean;
 };
 
 function normalizeSearch(s: string): string {
@@ -45,6 +47,7 @@ export function WaiverPlayerPicker({
   playerIds,
   pmap,
   placeholder = "Type to search, then pick a player…",
+  disabled = false,
 }: WaiverPlayerPickerProps) {
   const [open, setOpen] = useState(false);
   const [filterQuery, setFilterQuery] = useState("");
@@ -70,14 +73,18 @@ export function WaiverPlayerPicker({
   }, [sortedIds, filterQuery, pmap]);
 
   useEffect(() => {
+    if (disabled) setOpen(false);
+  }, [disabled]);
+
+  useEffect(() => {
     function onDoc(e: MouseEvent) {
       if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
     }
-    if (open) {
+    if (open && !disabled) {
       document.addEventListener("mousedown", onDoc);
       return () => document.removeEventListener("mousedown", onDoc);
     }
-  }, [open]);
+  }, [open, disabled]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -98,9 +105,12 @@ export function WaiverPlayerPicker({
         <div
           className={[
             "flex min-h-[2.75rem] w-full items-stretch overflow-hidden rounded-xl border border-cyan-500/25 bg-slate-950/80 shadow-inner transition-[box-shadow,border-color]",
-            open
+            disabled ? "cursor-not-allowed opacity-60" : "",
+            !disabled && open
               ? "border-amber-400/50 ring-2 ring-amber-400/25"
-              : "hover:border-cyan-400/40",
+              : !disabled
+                ? "hover:border-cyan-400/40"
+                : "",
           ].join(" ")}
         >
           <input
@@ -110,28 +120,34 @@ export function WaiverPlayerPicker({
             enterKeyHint="search"
             autoComplete="off"
             spellCheck={false}
+            disabled={disabled}
             value={filterQuery}
             onChange={(e) => {
+              if (disabled) return;
               setFilterQuery(e.target.value);
               setOpen(true);
             }}
-            onFocus={() => setOpen(true)}
+            onFocus={() => {
+              if (!disabled) setOpen(true);
+            }}
             placeholder={placeholder}
             aria-label={`${label} — type to filter by name`}
             aria-expanded={open}
             aria-controls={listId}
-            className="min-w-0 flex-1 border-0 bg-transparent px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-500"
+            className="min-w-0 flex-1 border-0 bg-transparent px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-500 disabled:cursor-not-allowed"
           />
           <button
             type="button"
             tabIndex={-1}
+            disabled={disabled}
             aria-label={open ? "Close list" : "Open full list"}
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => {
+              if (disabled) return;
               setOpen((o) => !o);
               if (!open) inputRef.current?.focus();
             }}
-            className="shrink-0 border-l border-cyan-500/25 bg-slate-900/80 px-2.5 text-slate-400 transition-colors hover:bg-cyan-500/10 hover:text-white"
+            className="shrink-0 border-l border-cyan-500/25 bg-slate-900/80 px-2.5 text-slate-400 transition-colors hover:bg-cyan-500/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
           >
             {open ? "▴" : "▾"}
           </button>
@@ -144,7 +160,7 @@ export function WaiverPlayerPicker({
             <PlayerRowInner p={selected} />
           </div>
         )}
-        {open && (
+        {open && !disabled && (
           <ul
             id={listId}
             className="absolute left-0 right-0 z-30 mt-1 max-h-72 overflow-y-auto rounded-xl border border-cyan-500/30 bg-slate-950 py-1 shadow-xl shadow-black/50 ring-1 ring-cyan-500/20"

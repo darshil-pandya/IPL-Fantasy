@@ -677,14 +677,22 @@ function OwnerWaiverPanel({
             }
           }}
         >
-          <WaiverPlayerPicker
-            label="Nominee (available)"
-            value={nomIn}
-            onChange={setNomIn}
-            playerIds={availOptions}
-            pmap={pmap}
-            placeholder="Type player name, then pick from the list…"
-          />
+          <div className="flex flex-col gap-1">
+            <WaiverPlayerPicker
+              label="Nominee (available)"
+              value={nomIn}
+              onChange={setNomIn}
+              playerIds={availOptions}
+              pmap={pmap}
+              placeholder="Type player name, then pick from the list…"
+              disabled={!!editId}
+            />
+            {editId ? (
+              <p className="text-[11px] text-slate-500">
+                Nominee is fixed after submit; you can change player out or bid amount only.
+              </p>
+            ) : null}
+          </div>
           <WaiverPlayerPicker
             label="Your player out"
             value={nomOut}
@@ -736,33 +744,18 @@ function OwnerWaiverPanel({
                 {pmap.get(n.playerInId)?.name} in ·{" "}
                 {pmap.get(n.playerOutId)?.name} out · {money(n.amount)}
               </span>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  className="text-sm font-medium text-cyan-400 hover:text-white"
-                  onClick={() => {
-                    setEditId(n.id);
-                    setNomIn(n.playerInId);
-                    setNomOut(n.playerOutId);
-                    setNomAmt(String(n.amount));
-                  }}
-                >
-                  Edit
-                </button>
-                <button
-                  type="button"
-                  className="text-sm font-medium text-red-400 hover:text-red-300"
-                  onClick={() =>
-                    tryDispatch({
-                      type: "nomination_delete",
-                      owner: sessionOwner,
-                      nominationId: n.id,
-                    })
-                  }
-                >
-                  Remove
-                </button>
-              </div>
+              <button
+                type="button"
+                className="text-sm font-medium text-cyan-400 hover:text-white"
+                onClick={() => {
+                  setEditId(n.id);
+                  setNomIn(n.playerInId);
+                  setNomOut(n.playerOutId);
+                  setNomAmt(String(n.amount));
+                }}
+              >
+                Edit
+              </button>
             </li>
           ))}
         </ul>
