@@ -21,6 +21,7 @@ import {
   alignStateWithFranchises,
   franchisesFromRosters,
   reduceWaiver,
+  type BidUpsertAction,
   type WaiverEngineAction,
 } from "../lib/waiver/engine";
 import { seedWaiverState } from "../lib/waiver/seed";
@@ -73,6 +74,10 @@ function initWaiverState(bundle: LeagueBundle): WaiverPersistentState {
   );
 }
 
+export type SubmitBidResult =
+  | { ok: true; wasUpdate: boolean }
+  | { ok: false; error: string };
+
 type WaiverCtx = {
   session: WaiverSession | null;
   login: (label: string, password: string) => string | null;
@@ -82,6 +87,11 @@ type WaiverCtx = {
   displaySummary: ReturnType<typeof summarizeDisplayFranchises> | null;
   /** @deprecated Use cloud methods below for server-validated mutations. */
   dispatch: (a: WaiverEngineAction) => string | null;
+  /**
+   * Apply a bid and wait for Firestore `setDoc` when Firebase is configured
+   * (avoids optimistic-only state if the write fails).
+   */
+  submitBidUpsert: (action: BidUpsertAction) => Promise<SubmitBidResult>;
   availableIds: string[];
   remoteConnected: boolean;
   remoteError: string | null;
@@ -398,7 +408,9 @@ export function WaiverProvider({ children }: { children: ReactNode }) {
           localPushInFlight.current = true;
           void pushWaiverRemote(result.state)
             .catch((e: Error) => setRemoteError(e.message))
-            .finally(() => { localPushInFlight.current = false; });
+            .finally(() => {
+              localPushInFlight.current = false;
+            });
           if (result.completedTransfers?.length) {
             void writeCompletedTransfers(result.completedTransfers).catch(
               (e: Error) => setRemoteError(e.message),
@@ -407,6 +419,57 @@ export function WaiverProvider({ children }: { children: ReactNode }) {
         }
       }
       return null;
+    },
+    [bundle, state, revealEffectiveAfterColumnId],
+  );
+
+  const submitBidUpsert = useCallback(
+    async (action: BidUpsertAction): Promise<SubmitBidResult> => {
+      if (!bundle) return { ok: false, error: "Loading…" };
+      const wasUpdate = state.bids.some(
+        (b) =>
+          b.nominationId === action.nominationId &&
+          b.bidderOwner === action.bidderOwner,
+      );
+      const result = reduceWaiver(state, action, {
+        baseFranchises: bundle.franchises,
+        revealEffectiveAfterColumnId,
+      });
+      if (result.error) {
+        if (result.state !== state) setState(result.state);
+        return { ok: false, error: result.error };
+      }
+      const nextState = result.state;
+
+      if (isFirebaseWaiverConfigured()) {
+        if (!remoteHydrated.current) {
+          return {
+            ok: false,
+            error:
+              "Still connecting to Firestore. Please try again in a moment.",
+          };
+        }
+        skipNextPush.current = true;
+        localPushInFlight.current = true;
+        try {
+          await pushWaiverRemote(nextState);
+          if (result.completedTransfers?.length) {
+            await writeCompletedTransfers(result.completedTransfers);
+          }
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          setRemoteError(msg);
+          return {
+            ok: false,
+            error: "Bid Submission Failed. Please try your bid again.",
+          };
+        } finally {
+          localPushInFlight.current = false;
+        }
+      }
+
+      setState(nextState);
+      return { ok: true, wasUpdate };
     },
     [bundle, state, revealEffectiveAfterColumnId],
   );
@@ -472,6 +535,7 @@ export function WaiverProvider({ children }: { children: ReactNode }) {
         displayFranchises,
         displaySummary,
         dispatch,
+        submitBidUpsert,
         availableIds,
         remoteConnected,
         remoteError,

@@ -95,6 +95,8 @@ export type WaiverEngineAction =
   | { type: "admin_delete_bid"; bidId: string }
   | { type: "admin_delete_nomination"; nominationId: string };
 
+export type BidUpsertAction = Extract<WaiverEngineAction, { type: "bid_upsert" }>;
+
 export type WaiverReduceResult = {
   state: WaiverPersistentState;
   error?: string;

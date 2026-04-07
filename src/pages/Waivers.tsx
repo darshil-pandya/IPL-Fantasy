@@ -1,11 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { IplTeamPill } from "../components/IplTeamPill";
 import { OwnerBadge } from "../components/OwnerBadge";
 import { WaiverBidField } from "../components/WaiverBidField";
 import { WaiverPlayerPicker } from "../components/WaiverPlayerPicker";
 import { useLeague } from "../context/LeagueContext";
-import { useWaiver } from "../context/WaiverContext";
-import type { WaiverEngineAction } from "../lib/waiver/engine";
+import {
+  useWaiver,
+  type SubmitBidResult,
+} from "../context/WaiverContext";
+import type { BidUpsertAction, WaiverEngineAction } from "../lib/waiver/engine";
 import {
   WAIVER_BID_INCREMENT,
   WAIVER_BUDGET_START,
@@ -31,6 +34,42 @@ function money(n: number): string {
     currency: "INR",
     maximumFractionDigits: 0,
   }).format(n);
+}
+
+function formatDate(iso: string): string {
+  try {
+    return new Date(iso).toLocaleString("en-IN", {
+      day: "numeric",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return iso;
+  }
+}
+
+function BidToast({
+  toast,
+}: {
+  toast: { variant: "success" | "error"; message: string } | null;
+}) {
+  if (!toast) return null;
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className={[
+        "fixed left-1/2 z-[100] max-w-[min(100vw-2rem,28rem)] -translate-x-1/2 rounded-xl border px-4 py-3 text-center text-sm shadow-lg",
+        "bottom-[max(1rem,env(safe-area-inset-bottom))]",
+        toast.variant === "success"
+          ? "border-emerald-500/40 bg-emerald-950/95 text-emerald-100"
+          : "border-red-500/40 bg-red-950/95 text-red-100",
+      ].join(" ")}
+    >
+      {toast.message}
+    </div>
+  );
 }
 
 function formatNominationsCloseIn(deadlineIso: string, nowMs: number): string {
@@ -67,6 +106,7 @@ export function Waivers() {
     logout,
     state,
     dispatch,
+    submitBidUpsert,
     displayFranchises,
     availableIds,
     remoteConnected,
@@ -80,6 +120,41 @@ export function Waivers() {
   const [password, setPassword] = useState("");
   const [loginErr, setLoginErr] = useState<string | null>(null);
   const [actionErr, setActionErr] = useState<string | null>(null);
+  const [bidToast, setBidToast] = useState<{
+    variant: "success" | "error";
+    message: string;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!bidToast) return;
+    const t = window.setTimeout(() => setBidToast(null), 3000);
+    const dismiss = () => setBidToast(null);
+    document.addEventListener("pointerdown", dismiss, true);
+    document.addEventListener("keydown", dismiss, true);
+    return () => {
+      window.clearTimeout(t);
+      document.removeEventListener("pointerdown", dismiss, true);
+      document.removeEventListener("keydown", dismiss, true);
+    };
+  }, [bidToast]);
+
+  const submitBidWithToast = useCallback(
+    async (action: BidUpsertAction): Promise<SubmitBidResult> => {
+      const r = await submitBidUpsert(action);
+      if (r.ok) {
+        setBidToast({
+          variant: "success",
+          message: r.wasUpdate
+            ? "Bid updated successfully."
+            : "Bid placed successfully.",
+        });
+      } else {
+        setBidToast({ variant: "error", message: r.error });
+      }
+      return r;
+    },
+    [submitBidUpsert],
+  );
 
   const pmap = useMemo(() => {
     const m = new Map<string, Player>();
@@ -326,7 +401,7 @@ export function Waivers() {
                     ? (state.budgets[session.owner] ?? 0)
                     : 0
                 }
-                tryDispatch={runDispatch}
+                submitBid={submitBidWithToast}
                 onAdminDeleteBid={adminDeleteBid}
                 onAdminDeleteNomination={adminDeleteNomination}
               />
@@ -360,6 +435,7 @@ export function Waivers() {
         </p>
         <AuctionHistorySnippet bundle={bundle} pmap={pmap} />
       </section>
+      <BidToast toast={bidToast} />
     </div>
   );
 }
@@ -773,7 +849,7 @@ function NominationRow({
   session,
   myRosterIds,
   budgetRemaining,
-  tryDispatch,
+  submitBid,
   onAdminDeleteBid,
   onAdminDeleteNomination,
 }: {
@@ -784,7 +860,7 @@ function NominationRow({
   session: WaiverSession | null;
   myRosterIds: string[];
   budgetRemaining: number;
-  tryDispatch: (a: WaiverEngineAction) => string | null;
+  submitBid: (action: BidUpsertAction) => Promise<SubmitBidResult>;
   onAdminDeleteBid?: (bidId: string) => void | Promise<void>;
   onAdminDeleteNomination?: (nominationId: string) => void | Promise<void>;
 }) {
@@ -826,6 +902,8 @@ function NominationRow({
     n.playerOutId,
     n.amount,
   ]);
+
+  const [bidSubmitting, setBidSubmitting] = useState(false);
 
   return (
     <li className="app-panel border-cyan-500/25 p-4">
@@ -901,13 +979,15 @@ function NominationRow({
           className="mt-3 space-y-3 border-t border-cyan-500/20 pt-3"
           onSubmit={(e) => {
             e.preventDefault();
-            tryDispatch({
+            if (bidSubmitting) return;
+            setBidSubmitting(true);
+            void submitBid({
               type: "bid_upsert",
               bidderOwner: session.owner,
               nominationId: n.id,
               playerOutId: outId,
               amount: Number(amt),
-            });
+            }).finally(() => setBidSubmitting(false));
           }}
         >
           <p className="text-xs text-slate-500">
@@ -937,30 +1017,40 @@ function NominationRow({
             <div className="flex items-end">
               <button
                 type="submit"
-                disabled={!outId}
+                disabled={!outId || bidSubmitting}
                 className="app-btn-primary py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {existing ? "Update bid" : "Place bid"}
+                {bidSubmitting
+                  ? "Submitting…"
+                  : existing
+                    ? "Update bid"
+                    : "Place bid"}
               </button>
             </div>
           </div>
         </form>
       )}
+      {phase === "active" && session?.role === "owner" && existing ? (
+        <div className="mt-3 rounded-lg border border-cyan-500/20 bg-slate-900/50 px-3 py-2.5 text-xs text-slate-300">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+            Your active bid
+          </p>
+          <p className="mt-1 leading-relaxed">
+            <span className="text-slate-400">Player out:</span>{" "}
+            {pmap.get(existing.playerOutId)?.name ?? existing.playerOutId}
+            <span className="mx-2 text-slate-600">·</span>
+            <span className="text-slate-400">Amount:</span>{" "}
+            <span className="tabular-nums font-medium text-amber-400">
+              {money(existing.amount)}
+            </span>
+            <span className="mx-2 text-slate-600">·</span>
+            <span className="text-slate-400">Updated:</span>{" "}
+            {formatDate(existing.updatedAt)}
+          </p>
+        </div>
+      ) : null}
     </li>
   );
-}
-
-function formatDate(iso: string): string {
-  try {
-    return new Date(iso).toLocaleString("en-IN", {
-      day: "numeric",
-      month: "short",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  } catch {
-    return iso;
-  }
 }
 
 function SuccessfulTransfers({ pmap }: { pmap: Map<string, Player> }) {
