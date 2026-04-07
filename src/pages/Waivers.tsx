@@ -846,16 +846,13 @@ function NominationRow({
                 {pIn.role}{pIn.nationality ? ` · ${pIn.nationality}` : ""}
               </span>
             )}
-            <span>
-              Nominated by <OwnerBadge owner={n.nominatorOwner} />
-              {isSelfNomination && (
-                <>
-                  {" "}in exchange of{" "}
-                  {pmap.get(n.playerOutId)?.name ?? n.playerOutId}. Bid Amount:{" "}
-                  {money(n.amount)}
-                </>
-              )}
-            </span>
+            {isSelfNomination && (
+              <span>
+                In exchange of{" "}
+                {pmap.get(n.playerOutId)?.name ?? n.playerOutId}. Bid Amount:{" "}
+                {money(n.amount)}
+              </span>
+            )}
           </p>
           {n.createdAt && (
             <p className="mt-0.5 text-[10px] text-slate-600">
@@ -879,14 +876,18 @@ function NominationRow({
         ) : null}
       </div>
       {session?.role === "admin" && phase === "active" && bids.length > 0 ? (
-        <ul className="mt-2 space-y-1 rounded-lg border border-amber-500/20 bg-amber-950/20 p-2 text-xs text-slate-400">
+        <div className="mt-2 rounded-lg border border-amber-500/20 bg-amber-950/20 p-2 text-xs text-slate-400">
+          <p className="mb-2 text-[10px] uppercase tracking-wide text-slate-500">
+            Bids placed (amounts hidden until reveal)
+          </p>
+          <ul className="space-y-1">
           {bids.map((b) => (
             <li
               key={b.id}
               className="flex flex-wrap items-center justify-between gap-2"
             >
               <span>
-                <OwnerBadge owner={b.bidderOwner} /> · {money(b.amount)}
+                <OwnerBadge owner={b.bidderOwner} />
               </span>
               {onAdminDeleteBid ? (
                 <button
@@ -899,7 +900,8 @@ function NominationRow({
               ) : null}
             </li>
           ))}
-        </ul>
+          </ul>
+        </div>
       ) : null}
       {phase === "active" && session?.role === "owner" && (
         <form
