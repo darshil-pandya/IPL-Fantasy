@@ -10,17 +10,33 @@ const COL = "ownershipPeriods";
 
 export type OwnershipPeriodsUnsub = () => void;
 
+/** Firestore may return ISO strings or `Timestamp` objects depending on how the doc was written. */
+function firestoreTimeToIso(v: unknown): string {
+  if (typeof v === "string" && v.length > 0) return v;
+  if (
+    v &&
+    typeof v === "object" &&
+    "toDate" in v &&
+    typeof (v as { toDate?: () => Date }).toDate === "function"
+  ) {
+    try {
+      return (v as { toDate: () => Date }).toDate().toISOString();
+    } catch {
+      return "";
+    }
+  }
+  return "";
+}
+
 function mapDoc(data: Record<string, unknown>): ClientOwnershipPeriod | null {
   const playerId = typeof data.playerId === "string" ? data.playerId : "";
   const ownerId = typeof data.ownerId === "string" ? data.ownerId : "";
-  const acquiredAt = typeof data.acquiredAt === "string" ? data.acquiredAt : "";
-  const releasedAt = data.releasedAt;
+  const acquiredAt = firestoreTimeToIso(data.acquiredAt);
+  const releasedRaw = data.releasedAt;
   const rel =
-    releasedAt === null || releasedAt === undefined
+    releasedRaw === null || releasedRaw === undefined
       ? null
-      : typeof releasedAt === "string"
-        ? releasedAt
-        : null;
+      : firestoreTimeToIso(releasedRaw) || null;
   if (!playerId || !ownerId || !acquiredAt) return null;
   return { playerId, ownerId, acquiredAt, releasedAt: rel };
 }

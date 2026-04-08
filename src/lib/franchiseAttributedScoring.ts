@@ -27,6 +27,30 @@ export type FranchiseScoringSummary = {
   rostersAtStartOfMatch: Record<string, string[]>[] | null;
 };
 
+/**
+ * Match columns use `YYYY-MM-DD`; ownership periods use full ISO from Firestore.
+ * Lexicographic `acquiredAt <= matchDate` breaks when the period starts on the match
+ * calendar day (e.g. `2026-04-08T15:00:00.000Z` <= `2026-04-08` is false in JS).
+ */
+function calendarDay(isoOrYmd: string): string {
+  if (!isoOrYmd) return "";
+  return isoOrYmd.length >= 10 ? isoOrYmd.slice(0, 10) : isoOrYmd;
+}
+
+/** Period overlaps the match's calendar day (inclusive of same-day acquire/release vs match). */
+function periodActiveOnMatchDay(
+  period: ClientOwnershipPeriod,
+  matchDayYmd: string,
+): boolean {
+  const acq = calendarDay(period.acquiredAt);
+  const md = calendarDay(matchDayYmd);
+  if (!acq || !md) return false;
+  if (acq > md) return false;
+  if (period.releasedAt == null) return true;
+  const rel = calendarDay(period.releasedAt);
+  return md <= rel;
+}
+
 function playersForAttribution(bundle: LeagueBundle): Player[] {
   const seen = new Set<string>();
   const out: Player[] = [];
@@ -213,10 +237,9 @@ function rostersAtStartOfEachMatchFromPeriods(
     for (const o of owners) sets[o] = new Set();
     for (const period of ownershipPeriods) {
       if (!owners.includes(period.ownerId)) continue;
-      const inRange =
-        period.acquiredAt <= col.date &&
-        (period.releasedAt === null || col.date < period.releasedAt);
-      if (inRange) sets[period.ownerId]!.add(period.playerId);
+      if (periodActiveOnMatchDay(period, col.date)) {
+        sets[period.ownerId]!.add(period.playerId);
+      }
     }
     out.push(
       Object.fromEntries(owners.map((o) => [o, [...sets[o]!]])),
@@ -244,10 +267,7 @@ function perOwnerPerMatchTimestamp(
 
     for (const period of ownershipPeriods) {
       if (!owners.includes(period.ownerId)) continue;
-      const inRange =
-        period.acquiredAt <= matchDate &&
-        (period.releasedAt === null || matchDate < period.releasedAt);
-      if (!inRange) continue;
+      if (!periodActiveOnMatchDay(period, matchDate)) continue;
 
       const p = pmap.get(period.playerId);
       if (!p) continue;
@@ -367,10 +387,7 @@ export function computeFranchiseScoring(
         const col = columns[j];
         for (const period of ownershipPeriods) {
           if (!owners.includes(period.ownerId)) continue;
-          const inRange =
-            period.acquiredAt <= col.date &&
-            (period.releasedAt === null || col.date < period.releasedAt);
-          if (!inRange) continue;
+          if (!periodActiveOnMatchDay(period, col.date)) continue;
           const p = pmap.get(period.playerId);
           if (!p) continue;
           const v = pointsInMatch(p, col.id);
