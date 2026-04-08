@@ -1,5 +1,8 @@
 import type { Franchise, LeagueBundle } from "../../types";
-import { computeFranchiseScoring } from "../franchiseAttributedScoring";
+import {
+  computeFranchiseScoring,
+  type ClientOwnershipPeriod,
+} from "../franchiseAttributedScoring";
 import type { RosterChangeEvent } from "./types";
 
 /** Roster ids may reference players.json and/or waiver-pool-only rows after waivers. */
@@ -8,6 +11,8 @@ export function summarizeDisplayFranchises(
   displayFranchises: Franchise[],
   rosterHistory: RosterChangeEvent[],
   currentRosters: Record<string, string[]>,
+  /** When set and non-empty (e.g. from Firestore), scoring uses timestamp attribution. */
+  ownershipPeriods?: ClientOwnershipPeriod[],
 ) {
   return computeFranchiseScoring(
     bundle,
@@ -15,5 +20,6 @@ export function summarizeDisplayFranchises(
     displayFranchises,
     currentRosters,
     rosterHistory,
+    ownershipPeriods,
   );
 }

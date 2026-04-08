@@ -33,6 +33,7 @@ import {
 } from "../lib/matchColumns";
 import { summarizeDisplayFranchises } from "../lib/waiver/summarize";
 import { isPlayerAvailable } from "../lib/waiver/available";
+import type { ClientOwnershipPeriod } from "../lib/franchiseAttributedScoring";
 import {
   isFirebaseWaiverConfigured,
   pushWaiverRemote,
@@ -42,6 +43,7 @@ import {
   loadOwnerRemainingBudgets,
   lookupOwnerRemainingBudget,
 } from "../lib/firebase/waiverRemote";
+import { subscribeOwnershipPeriods } from "../lib/firebase/ownershipPeriodsRemote";
 import { WAIVER_BUDGET_START } from "../lib/waiver/constants";
 import {
   callWaiverNominate,
@@ -144,6 +146,9 @@ export function WaiverProvider({ children }: { children: ReactNode }) {
   );
   const [remoteError, setRemoteError] = useState<string | null>(null);
   const [remoteConnected, setRemoteConnected] = useState(false);
+  const [ownershipPeriods, setOwnershipPeriods] = useState<ClientOwnershipPeriod[]>(
+    [],
+  );
   const skipNextPush = useRef(false);
   const localPushInFlight = useRef(false);
   const remoteHydrated = useRef(false);
@@ -232,6 +237,29 @@ export function WaiverProvider({ children }: { children: ReactNode }) {
       unsub?.();
     };
   }, [bundle]);
+
+  useEffect(() => {
+    let cancelled = false;
+    let unsub: (() => void) | undefined;
+    void subscribeOwnershipPeriods(
+      (periods) => {
+        if (!cancelled) setOwnershipPeriods(periods);
+      },
+      () => {
+        /* non-fatal; scoring falls back to roster replay / current */
+      },
+    ).then((u) => {
+      if (cancelled) {
+        u?.();
+        return;
+      }
+      unsub = u ?? undefined;
+    });
+    return () => {
+      cancelled = true;
+      unsub?.();
+    };
+  }, []);
 
   useEffect(() => {
     if (!state) return;
@@ -371,8 +399,9 @@ export function WaiverProvider({ children }: { children: ReactNode }) {
       displayFranchises,
       state.rosterHistory,
       state.rosters,
+      ownershipPeriods.length > 0 ? ownershipPeriods : undefined,
     );
-  }, [bundle, state, displayFranchises]);
+  }, [bundle, state, displayFranchises, ownershipPeriods]);
 
   const availableIds = useMemo(() => {
     if (!bundle || !state) return [];
