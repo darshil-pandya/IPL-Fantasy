@@ -205,6 +205,7 @@ export async function runMigration(adminSecret: string, expectedSecret: string):
         ownerId: f.owner,
         acquiredAt: SEASON_START,
         releasedAt: null,
+        effectiveAfterColumnId: null,
       };
       periods.push(doc);
       activePeriods.set(periodKey(f.owner, pid), doc);
@@ -242,6 +243,7 @@ export async function runMigration(adminSecret: string, expectedSecret: string):
       ownerId: ev.winner,
       acquiredAt: swapTime,
       releasedAt: null,
+      effectiveAfterColumnId: ev.effectiveAfterColumnId ?? null,
     };
     periods.push(inDoc);
     activePeriods.set(periodKey(ev.winner, ev.playerInId), inDoc);
@@ -474,6 +476,7 @@ export async function runResetWaiverActivityToAuctionBaseline(
         ownerId: f.owner,
         acquiredAt: SEASON_START,
         releasedAt: null,
+        effectiveAfterColumnId: null,
       });
     }
   }

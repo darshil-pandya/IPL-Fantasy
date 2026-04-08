@@ -11,7 +11,7 @@ export function summarizeDisplayFranchises(
   displayFranchises: Franchise[],
   rosterHistory: RosterChangeEvent[],
   currentRosters: Record<string, string[]>,
-  /** When set and non-empty (e.g. from Firestore), scoring uses timestamp attribution. */
+  /** When set and non-empty (e.g. from Firestore), scoring may use period sequence if roster replay mismatches. */
   ownershipPeriods?: ClientOwnershipPeriod[],
 ) {
   return computeFranchiseScoring(

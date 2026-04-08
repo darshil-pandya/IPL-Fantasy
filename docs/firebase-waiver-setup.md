@@ -136,7 +136,7 @@ The GitHub Actions service account needs permission to deploy Cloud Functions. S
 | `iplFantasy` | `fantasyMatchScores` | `matches` (map: `matchKey` → `{ matchKey, matchLabel, matchDate, status?, playerPoints }`) — read in the app; written by the `adminSyncMatchScores` callable (Admin SDK) |
 | `matchPlayerPoints` | *(doc per row)* | Per-player match breakdowns; rebuilt by **Migrate to collections** |
 | `completedTransfers`, `waiverNominations`, `waiverBids` | *(docs)* | Waiver history; cleared by full reset-to-auction |
-| `players`, `owners`, `ownershipPeriods` | *(docs)* | Optional migrated mirror for server waivers / scoring |
+| `players`, `owners`, `ownershipPeriods` | *(docs)* | Migrated mirror for server waivers; periods use **`effectiveAfterColumnId`** (match column id) for sequence-based points, not calendar overlap |
 | `appSettings` | `league` | `isWaiverWindowOpen`, `waiverPhase` when using migrated path |
 
 ## 8. Troubleshooting

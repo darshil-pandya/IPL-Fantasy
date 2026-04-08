@@ -1,5 +1,5 @@
 /**
- * Live Firestore ownership periods for timestamp-based fantasy scoring.
+ * Live Firestore ownership periods for sequence-based scoring (`effectiveAfterColumnId`).
  * Populated by migration / waiver settles; must align with `owners` squads.
  */
 
@@ -38,12 +38,23 @@ function mapDoc(data: Record<string, unknown>): ClientOwnershipPeriod | null {
       ? null
       : firestoreTimeToIso(releasedRaw) || null;
   if (!playerId || !ownerId || !acquiredAt) return null;
-  return { playerId, ownerId, acquiredAt, releasedAt: rel };
+  const eff = data.effectiveAfterColumnId;
+  const effectiveAfterColumnId =
+    typeof eff === "string" || eff === null ? eff : undefined;
+  return {
+    playerId,
+    ownerId,
+    acquiredAt,
+    releasedAt: rel,
+    ...(effectiveAfterColumnId !== undefined
+      ? { effectiveAfterColumnId }
+      : {}),
+  };
 }
 
 /**
- * Subscribe to all ownership period docs. Scoring uses these when non-empty
- * (authoritative vs waiver `rosterHistory` replay).
+ * Subscribe to all ownership period docs. Scoring prefers `rosterHistory` replay when
+ * consistent; otherwise uses `effectiveAfterColumnId` (sequence) or legacy calendar overlap.
  */
 export async function subscribeOwnershipPeriods(
   onData: (periods: ClientOwnershipPeriod[]) => void,

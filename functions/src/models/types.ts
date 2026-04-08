@@ -38,6 +38,11 @@ export interface OwnershipPeriodDoc {
   ownerId: string;
   acquiredAt: string;
   releasedAt: string | null;
+  /**
+   * For waiver acquisitions: same match-column id as `RosterChangeEvent.effectiveAfterColumnId`
+   * (player counts from the next match after this column). Omitted/null for auction baseline.
+   */
+  effectiveAfterColumnId?: string | null;
 }
 
 /** Firestore: matchPlayerPoints/{recordId} */

@@ -4,7 +4,7 @@
  * Data source:
  * - iplFantasy/leagueBundle → player names, roles, IPL teams
  * - iplFantasy/fantasyMatchScores → per-match playerPoints + playerBreakdown (fantasy categories)
- * - ownershipPeriods → franchise owner at match time (timestamp window)
+ * - ownershipPeriods → franchise owner per match (sequence: `effectiveAfterColumnId`; no calendar overlap)
  *
  * Raw IPL counting stats (runs, balls faced, overs bowled, etc.) are NOT stored in Firestore
  * after score sync; those columns are left blank. Fantasy category points are split into
@@ -98,11 +98,16 @@ interface MatchEntry {
   playerBreakdown: Record<string, PlayerSeasonFantasySlice>;
 }
 
+interface MatchColumnRef {
+  id: string;
+}
+
 interface OwnershipPeriod {
   playerId: string;
   ownerId: string;
   acquiredAt: string;
   releasedAt: string | null;
+  effectiveAfterColumnId?: string | null;
 }
 
 function parseArgs(): { projectId: string; outDir: string } {
@@ -122,16 +127,82 @@ function parseArgs(): { projectId: string; outDir: string } {
   return { projectId, outDir: resolve(outDir) };
 }
 
-function ownerAtMatch(
+function matchColumnId(matchDate: string, matchLabel: string): string {
+  return `${matchDate}\u001f${matchLabel}`;
+}
+
+function columnIndex(columns: MatchColumnRef[], columnId: string | null | undefined): number {
+  if (columnId == null || columnId === "") return -1;
+  const i = columns.findIndex((c) => c.id === columnId);
+  return i >= 0 ? i : -1;
+}
+
+function sortPeriodSegments(segs: OwnershipPeriod[]): OwnershipPeriod[] {
+  return [...segs].sort((a, b) => {
+    const c = a.acquiredAt.localeCompare(b.acquiredAt);
+    if (c !== 0) return c;
+    return `${a.ownerId}|${a.playerId}`.localeCompare(`${b.ownerId}|${b.playerId}`);
+  });
+}
+
+function periodsSupportSequence(
+  periods: OwnershipPeriod[],
+  columns: MatchColumnRef[],
+): boolean {
+  if (periods.length === 0 || columns.length === 0) return false;
+  const byPlayer = new Map<string, OwnershipPeriod[]>();
+  for (const p of periods) {
+    const list = byPlayer.get(p.playerId) ?? [];
+    list.push(p);
+    byPlayer.set(p.playerId, list);
+  }
+  for (const [, segs] of byPlayer) {
+    const sorted = sortPeriodSegments(segs);
+    for (let i = 0; i < sorted.length; i++) {
+      const eff = sorted[i]!.effectiveAfterColumnId;
+      const hasEff = eff != null && eff !== "";
+      if (i === 0) {
+        if (hasEff && columnIndex(columns, eff) < 0) return false;
+        continue;
+      }
+      if (!hasEff || columnIndex(columns, eff) < 0) return false;
+    }
+  }
+  return true;
+}
+
+function segmentMatchBounds(
+  columns: MatchColumnRef[],
+  seg: OwnershipPeriod,
+  next: OwnershipPeriod | undefined,
+): { startJ: number; endJ: number } {
+  const eff = seg.effectiveAfterColumnId;
+  const k = eff == null || eff === "" ? -1 : columnIndex(columns, eff);
+  const startJ = k + 1;
+  let endJ = columns.length;
+  if (next) {
+    const ne = next.effectiveAfterColumnId;
+    const nk = ne == null || ne === "" ? -1 : columnIndex(columns, ne);
+    endJ = nk + 1;
+  }
+  return { startJ, endJ };
+}
+
+/** Same semantics as web app `period_sequence` scoring. */
+function ownerAtMatchSequence(
   periods: OwnershipPeriod[],
   playerId: string,
-  matchDate: string,
+  matchIndex: number,
+  columns: MatchColumnRef[],
 ): string | null {
-  for (const p of periods) {
-    if (p.playerId !== playerId) continue;
-    const startOk = p.acquiredAt <= matchDate;
-    const endOk = p.releasedAt === null || matchDate < p.releasedAt;
-    if (startOk && endOk) return p.ownerId;
+  const segs = periods.filter((p) => p.playerId === playerId);
+  if (segs.length === 0) return null;
+  const sorted = sortPeriodSegments(segs);
+  for (let i = 0; i < sorted.length; i++) {
+    const seg = sorted[i]!;
+    const next = sorted[i + 1];
+    const { startJ, endJ } = segmentMatchBounds(columns, seg, next);
+    if (matchIndex >= startJ && matchIndex < endJ) return seg.ownerId;
   }
   return null;
 }
@@ -341,18 +412,34 @@ async function main(): Promise<void> {
     ) {
       releasedAt = (x.releasedAt as { toDate: () => Date }).toDate().toISOString();
     }
+    const effRaw = x.effectiveAfterColumnId;
+    const effectiveAfterColumnId =
+      typeof effRaw === "string" || effRaw === null ? effRaw : undefined;
     return {
       playerId: String(x.playerId ?? ""),
       ownerId: String(x.ownerId ?? ""),
       acquiredAt,
       releasedAt,
+      ...(effectiveAfterColumnId !== undefined
+        ? { effectiveAfterColumnId }
+        : {}),
     };
   });
 
   const usePeriods = periods.length > 0;
+  const columns: MatchColumnRef[] = entries.map((e) => ({
+    id: matchColumnId(e.matchDate, e.matchLabel),
+  }));
+  const periodsSequenceOk =
+    usePeriods && columns.length > 0 && periodsSupportSequence(periods, columns);
+
   if (!usePeriods) {
     console.warn(
       "[exportFirestoreMatchSheets] No ownershipPeriods found — Franchise column uses auction opening rosters only (waivers not reflected).",
+    );
+  } else if (!periodsSequenceOk) {
+    console.warn(
+      "[exportFirestoreMatchSheets] ownershipPeriods missing valid effectiveAfterColumnId on waiver segments — Franchise column uses auction opening rosters only. Re-run migrate or deploy current waiver code.",
     );
   }
 
@@ -361,6 +448,7 @@ async function main(): Promise<void> {
   const combinedLines: string[] = [HEADER.map(csvCell).join(",")];
 
   for (let i = 0; i < entries.length; i++) {
+    const matchIndex = i;
     const e = entries[i]!;
     const matchId = `M${String(i + 1).padStart(2, "0")}`;
     const fixture = e.matchLabel;
@@ -379,8 +467,8 @@ async function main(): Promise<void> {
     for (const pid of sortedIds) {
       const meta = pmap.get(pid);
       let franchise = "-";
-      if (usePeriods) {
-        const o = ownerAtMatch(periods, pid, e.matchDate);
+      if (usePeriods && periodsSequenceOk) {
+        const o = ownerAtMatchSequence(periods, pid, matchIndex, columns);
         if (o) franchise = o;
         else {
           const a = auctionOwnerForPlayer(franchises, pid);

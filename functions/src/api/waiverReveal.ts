@@ -135,6 +135,7 @@ export async function handleWaiverCommitReveal(
         playerOutId: win.playerOutId,
         bidAmount: win.amount,
         timestampsAt: t.revealedAt,
+        effectiveAfterColumnId: t.effectiveAfterColumnId ?? null,
       });
     }
   } catch (e) {

@@ -473,6 +473,7 @@ export async function handleSettle(
       playerOutId: dropId,
       bidAmount: bid.bidAmount,
       timestampsAt: now,
+      effectiveAfterColumnId: effectiveAfterColumnId ?? null,
     });
 
     const waiverStateRef = db.doc(WAIVER_STATE_DOC);

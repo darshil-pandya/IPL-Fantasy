@@ -24,6 +24,8 @@ export async function applyWaiverPlayerSwap(
     bidAmount: number;
     /** Use the same ISO time as the waiver reveal record (ownership periods / log consistency). */
     timestampsAt?: string;
+    /** Match-column id: new period earns points starting the match after this column (see client scoring). */
+    effectiveAfterColumnId?: string | null;
   },
 ): Promise<{ now: string; simulatedSquadIds: string[]; newRemainingBudget: number }> {
   const { winnerId, playerInId, bidAmount } = params;
@@ -96,6 +98,7 @@ export async function applyWaiverPlayerSwap(
     ownerId: winnerId,
     acquiredAt: now,
     releasedAt: null,
+    effectiveAfterColumnId: params.effectiveAfterColumnId ?? null,
   };
   batch.set(db.collection("ownershipPeriods").doc(periodId), newPeriod);
 
