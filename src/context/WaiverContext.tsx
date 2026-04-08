@@ -272,23 +272,25 @@ export function WaiverProvider({ children }: { children: ReactNode }) {
           let changed = false;
 
           // --- Budget repair ---
-          // Cloud Functions update owners/{id}.remainingBudget but not completedTransfers.
-          // Inferring budget from transfers alone can overwrite correct values (e.g. 90k → 240k).
+          // Three sources can disagree:
+          // - Client `admin_reveal` updates waiverState.budgets + completedTransfers but not owners.
+          // - Cloud `handleSettle` updates owners.remainingBudget but not completedTransfers.
+          // Take the lowest remaining (most spending applied) so we never show inflated budgets.
           const corrected = { ...prev.budgets };
           for (const owner of franchiseOwners) {
-            const fromCloud = lookupOwnerRemainingBudget(cloudBudgets, owner);
-            if (hasAnyOwnerDoc && typeof fromCloud === "number") {
-              if (corrected[owner] !== fromCloud) {
-                corrected[owner] = fromCloud;
-                changed = true;
-              }
-              continue;
-            }
-            const amountSpent = spent[owner] ?? 0;
-            const expected = WAIVER_BUDGET_START - amountSpent;
             const prevB = corrected[owner] ?? WAIVER_BUDGET_START;
-            // Never raise remaining budget from incomplete transfer docs vs current state.
-            const next = Math.min(expected, prevB);
+            const fromCloud = lookupOwnerRemainingBudget(cloudBudgets, owner);
+            const amountSpent = spent[owner] ?? 0;
+            const fromTransfers = WAIVER_BUDGET_START - amountSpent;
+            const candidates = [prevB, fromTransfers];
+            if (
+              hasAnyOwnerDoc &&
+              typeof fromCloud === "number" &&
+              Number.isFinite(fromCloud)
+            ) {
+              candidates.push(fromCloud);
+            }
+            const next = Math.min(...candidates);
             if (corrected[owner] !== next) {
               corrected[owner] = next;
               changed = true;
