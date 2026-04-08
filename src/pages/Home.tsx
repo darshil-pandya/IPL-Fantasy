@@ -267,13 +267,6 @@ export function Home() {
           matches while each player was on that franchise). Prediction bonus is not
           included.
         </p>
-        {summary.mode === "legacy" ? (
-          <p className="mb-3 rounded-lg border border-amber-500/30 bg-amber-950/25 px-3 py-2 text-xs text-amber-100/90">
-            Scoring is in legacy mode (waiver history does not replay to the current
-            roster). Reveal a waiver round or reset waiver state so totals match roster
-            timelines.
-          </p>
-        ) : null}
         {ownerPointsChart && ownerPointsChart.data.length > 1 ? (
           <div className="app-card overflow-hidden p-4 sm:p-5">
             <OwnerPointsLineChart

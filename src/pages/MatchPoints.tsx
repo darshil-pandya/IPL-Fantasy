@@ -269,7 +269,7 @@ function PlayerRow({
     let t = 0;
     columns.forEach((c, j) => {
       const onRoster =
-        scoringMode === "legacy" ||
+        scoringMode === "current" ||
         (rostersAtStartOfMatch != null &&
           (rostersAtStartOfMatch[j]?.[owner]?.includes(player.id) ?? false));
       if (!onRoster) return;
@@ -297,7 +297,7 @@ function PlayerRow({
       </td>
       {columns.map((c, j) => {
         const onRoster =
-          scoringMode === "legacy" ||
+          scoringMode === "current" ||
           (rostersAtStartOfMatch != null &&
             (rostersAtStartOfMatch[j]?.[owner]?.includes(player.id) ?? false));
         const pts = pointsInMatch(player, c.id);
@@ -416,14 +416,6 @@ export function MatchPoints() {
         perOwnerPerMatch={displaySummary.perOwnerPerMatch}
         standings={standings}
       />
-
-      {scoringMode === "legacy" ? (
-        <p className="rounded-lg border border-amber-500/30 bg-amber-950/25 px-3 py-2 text-sm text-amber-100/90">
-          Legacy scoring: waiver history does not replay to current rosters, so totals may use
-          older carryover rules. After the next successful waiver reveal, attributed scoring
-          should apply.
-        </p>
-      ) : null}
 
       {filteredStandings.map((s) => {
         return (

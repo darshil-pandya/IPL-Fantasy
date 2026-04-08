@@ -6,7 +6,6 @@ import type { RosterChangeEvent } from "./types";
 export function summarizeDisplayFranchises(
   bundle: LeagueBundle,
   displayFranchises: Franchise[],
-  pointCarryover: Record<string, number>,
   rosterHistory: RosterChangeEvent[],
   currentRosters: Record<string, string[]>,
 ) {
@@ -16,6 +15,5 @@ export function summarizeDisplayFranchises(
     displayFranchises,
     currentRosters,
     rosterHistory,
-    pointCarryover,
   );
 }

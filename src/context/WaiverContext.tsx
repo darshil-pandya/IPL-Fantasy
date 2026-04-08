@@ -369,7 +369,6 @@ export function WaiverProvider({ children }: { children: ReactNode }) {
     return summarizeDisplayFranchises(
       bundle,
       displayFranchises,
-      state.pointCarryover,
       state.rosterHistory,
       state.rosters,
     );
