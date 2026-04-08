@@ -6,10 +6,10 @@ import type {
   PlayerDoc,
   WaiverNominationDoc,
   WaiverBidDoc,
-  OwnershipPeriodDoc,
   WaiverPhase,
 } from "../models/types.js";
 import { validateSquadComposition } from "../validation/squadComposition.js";
+import { applyWaiverPlayerSwap } from "../waiver/applyWaiverSwap.js";
 
 const WAIVER_STATE_DOC = "iplFantasy/waiverState";
 const NOMINATION_WINDOW_MS = Math.round(4.5 * 60 * 60 * 1000);
@@ -465,82 +465,98 @@ export async function handleSettle(
       continue;
     }
 
-    // ── This bid wins. Execute atomically. ──
+    // ── This bid wins: apply roster/budget to canonical collections, then metadata. ──
     const now = nowIso();
-    const batch = db.batch();
+    await applyWaiverPlayerSwap(db, {
+      winnerId: bid.ownerId,
+      playerInId: nom.nominatedPlayerId,
+      playerOutId: dropId,
+      bidAmount: bid.bidAmount,
+      timestampsAt: now,
+    });
 
-    // 1. Mark winning bid
+    const waiverStateRef = db.doc(WAIVER_STATE_DOC);
+    const wsSnap = await waiverStateRef.get();
+    const payload = wsSnap.exists
+      ? parseWaiverPayload(wsSnap.data())
+      : ({} as Record<string, unknown>);
+    const roundId =
+      typeof payload.roundId === "number" && Number.isFinite(payload.roundId)
+        ? payload.roundId
+        : 0;
+    const existingHistory = (payload.rosterHistory as unknown[]) ?? [];
+    const orderInRound = existingHistory.filter((e) => {
+      if (e == null || typeof e !== "object") return false;
+      return (e as { roundId?: unknown }).roundId === roundId;
+    }).length;
+    const rosterEvent = {
+      at: now,
+      roundId,
+      orderInRound,
+      winner: bid.ownerId,
+      playerOutId: dropId ?? "",
+      playerInId: nom.nominatedPlayerId,
+      effectiveAfterColumnId: effectiveAfterColumnId ?? null,
+    };
+
+    const ownerAfterSnap = await db.collection("owners").doc(bid.ownerId).get();
+    const ownerAfter = ownerAfterSnap.data() as OwnerDoc | undefined;
+    const prevBudgets =
+      payload.budgets && typeof payload.budgets === "object" && !Array.isArray(payload.budgets)
+        ? { ...(payload.budgets as Record<string, number>) }
+        : ({} as Record<string, number>);
+    if (ownerAfter && typeof ownerAfter.remainingBudget === "number") {
+      prevBudgets[bid.ownerId] = ownerAfter.remainingBudget;
+    }
+
+    const dropForBid = (b: WaiverBidDoc): string => {
+      const isNom = b.ownerId === nom.nominatedByOwnerId;
+      if (isNom) return (b.playerToDropId ?? nom.playerToDropId) ?? "";
+      return b.playerToDropId ?? "";
+    };
+    const nomBids = allBids.filter((b) => b.ownerId === nom.nominatedByOwnerId);
+    const otherBids = allBids
+      .filter((b) => b.ownerId !== nom.nominatedByOwnerId)
+      .sort((a, b) => a.bidPlacedAt.localeCompare(b.bidPlacedAt));
+    const orderedBids = [...nomBids, ...otherBids];
+    const completedTransferDoc = {
+      id: nominationId,
+      roundId,
+      revealedAt: now,
+      playerInId: nom.nominatedPlayerId,
+      nominatorOwner: nom.nominatedByOwnerId,
+      bids: orderedBids.map((b) => ({
+        owner: b.ownerId,
+        amount: b.bidAmount,
+        playerOutId: dropForBid(b),
+        placedAt: b.bidPlacedAt,
+        result: (b.ownerId === bid.ownerId ? "WON" : "LOST") as "WON" | "LOST",
+      })),
+      effectiveAfterColumnId: effectiveAfterColumnId ?? null,
+    };
+
+    const batch = db.batch();
     batch.update(db.collection("waiverBids").doc(bid.bidId), {
       isWinningBid: true,
     });
-
-    // 2. Deduct budget
-    batch.update(db.collection("owners").doc(bid.ownerId), {
-      remainingBudget: owner.remainingBudget - bid.bidAmount,
-      squad: simulatedSquadIds,
-    });
-
-    // 3. Drop the out-player: close active ownership period
-    if (dropId) {
-      const activePeriodSnap = await db
-        .collection("ownershipPeriods")
-        .where("playerId", "==", dropId)
-        .where("ownerId", "==", bid.ownerId)
-        .where("releasedAt", "==", null)
-        .limit(1)
-        .get();
-      if (!activePeriodSnap.empty) {
-        batch.update(activePeriodSnap.docs[0].ref, { releasedAt: now });
-      }
-
-      // Update dropped player doc
-      batch.update(db.collection("players").doc(dropId), {
-        isOwned: false,
-        currentOwnerId: null,
-      });
-    }
-
-    // 4. Acquire nominated player: new ownership period
-    const periodId = newId("period");
-    const newPeriod: OwnershipPeriodDoc = {
-      periodId,
-      playerId: nom.nominatedPlayerId,
-      ownerId: bid.ownerId,
-      acquiredAt: now,
-      releasedAt: null,
-    };
-    batch.set(db.collection("ownershipPeriods").doc(periodId), newPeriod);
-
-    // Update acquired player doc
-    batch.update(db.collection("players").doc(nom.nominatedPlayerId), {
-      isOwned: true,
-      currentOwnerId: bid.ownerId,
-    });
-
-    // 5. Close nomination
     batch.update(db.collection("waiverNominations").doc(nominationId), {
       status: "CLOSED",
       closedAt: now,
     });
-
-    // 6. Legacy backward-compat: append to waiverState.rosterHistory
-    const waiverStateRef = db.doc(WAIVER_STATE_DOC);
-    const wsSnap = await waiverStateRef.get();
+    batch.set(
+      db.collection("completedTransfers").doc(nominationId),
+      completedTransferDoc,
+    );
     if (wsSnap.exists) {
-      const payload = wsSnap.data()?.payload as Record<string, unknown> | undefined;
-      const existingHistory = (payload?.rosterHistory as unknown[]) ?? [];
-      const rosterEvent = {
-        at: now,
-        roundId: 0,
-        orderInRound: 0,
-        winner: bid.ownerId,
-        playerOutId: dropId ?? "",
-        playerInId: nom.nominatedPlayerId,
-        effectiveAfterColumnId: effectiveAfterColumnId ?? null,
-      };
       batch.set(
         waiverStateRef,
-        { payload: { rosterHistory: [...existingHistory, rosterEvent] } },
+        {
+          payload: {
+            rosterHistory: [...existingHistory, rosterEvent],
+            budgets: prevBudgets,
+          },
+          updatedAt: FieldValue.serverTimestamp(),
+        },
         { merge: true },
       );
     }

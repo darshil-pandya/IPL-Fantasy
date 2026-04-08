@@ -114,6 +114,7 @@ export function Waivers() {
     matchColumnsForReveal,
     revealEffectiveColumnIdOverride,
     setRevealEffectiveColumnIdOverride,
+    cloud,
   } = useWaiver();
 
   const [userLabel, setUserLabel] = useState(WAIVER_LOGIN_ROWS[0]!.label);
@@ -186,6 +187,24 @@ export function Waivers() {
     const err = dispatch(a);
     if (err) setActionErr(err);
     return err;
+  }
+
+  async function tryRevealRound() {
+    setActionErr(null);
+    if (isFirebaseConfigured()) {
+      try {
+        await cloud.commitReveal();
+      } catch (e: unknown) {
+        const msg =
+          e && typeof e === "object" && "message" in e
+            ? String((e as { message: unknown }).message)
+            : String(e);
+        setActionErr(msg || "Reveal failed.");
+      }
+      return;
+    }
+    const err = dispatch({ type: "admin_reveal" });
+    if (err) setActionErr(err);
   }
 
   async function adminDeleteBid(bidId: string) {
@@ -355,6 +374,7 @@ export function Waivers() {
           matchColumnsForReveal={matchColumnsForReveal}
           revealEffectiveColumnIdOverride={revealEffectiveColumnIdOverride}
           setRevealEffectiveColumnIdOverride={setRevealEffectiveColumnIdOverride}
+          onRevealRound={tryRevealRound}
         />
       )}
 
@@ -426,7 +446,10 @@ export function Waivers() {
         </section>
       )}
 
-      <SuccessfulTransfers pmap={pmap} />
+      <SuccessfulTransfers
+        pmap={pmap}
+        refreshDep={state.rosterHistory.length}
+      />
 
       <section className="app-card p-4">
         <h3 className="text-sm font-semibold text-white">Original auction</h3>
@@ -447,6 +470,7 @@ function AdminPanel({
   matchColumnsForReveal,
   revealEffectiveColumnIdOverride,
   setRevealEffectiveColumnIdOverride,
+  onRevealRound,
 }: {
   dispatch: (a: WaiverEngineAction) => void;
   error: string | null;
@@ -454,8 +478,10 @@ function AdminPanel({
   matchColumnsForReveal: MatchColumn[];
   revealEffectiveColumnIdOverride: string | null;
   setRevealEffectiveColumnIdOverride: (columnId: string | null) => void;
+  onRevealRound: () => Promise<void>;
 }) {
   const [pubBusy, setPubBusy] = useState(false);
+  const [revealBusy, setRevealBusy] = useState(false);
   const [pubFeedback, setPubFeedback] = useState<{
     kind: "ok" | "err";
     text: string;
@@ -547,10 +573,24 @@ function AdminPanel({
         </button>
         <button
           type="button"
-          onClick={() => dispatch({ type: "admin_reveal" })}
-          className="rounded-xl bg-gradient-to-r from-cyan-600 to-sky-600 px-4 py-2 text-sm font-bold uppercase tracking-wide text-white shadow-lg shadow-cyan-500/20 hover:from-cyan-500 hover:to-sky-500"
+          disabled={revealBusy}
+          onClick={() => {
+            void (async () => {
+              setRevealBusy(true);
+              try {
+                await onRevealRound();
+              } finally {
+                setRevealBusy(false);
+              }
+            })();
+          }}
+          className="rounded-xl bg-gradient-to-r from-cyan-600 to-sky-600 px-4 py-2 text-sm font-bold uppercase tracking-wide text-white shadow-lg shadow-cyan-500/20 hover:from-cyan-500 hover:to-sky-500 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          Reveal results
+          {revealBusy
+            ? "Revealing…"
+            : isFirebaseConfigured()
+              ? "Reveal results (server)"
+              : "Reveal results"}
         </button>
         <button type="button" onClick={onExport} className="app-btn-secondary">
           Export rosters JSON
@@ -659,8 +699,13 @@ function AdminPanel({
 
       {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
       <p className="mt-3 text-xs text-slate-500">
-        Flow: idle → active (nominations + bidding) → reveal → idle. Reveal resolves every
-        nomination at once; winning bids deduct budget and update rosters.
+        Flow: idle → active (nominations + bidding) → reveal → idle. With Firestore enabled,
+        reveal runs on the server so{" "}
+        <code className="rounded bg-white/80 px-1 text-[0.65rem] text-slate-800">owners</code>,{" "}
+        <code className="rounded bg-white/80 px-1 text-[0.65rem] text-slate-800">
+          completedTransfers
+        </code>
+        , and waiver state stay aligned. Without Firebase, reveal stays local-only.
       </p>
     </section>
   );
@@ -1053,13 +1098,21 @@ function NominationRow({
   );
 }
 
-function SuccessfulTransfers({ pmap }: { pmap: Map<string, Player> }) {
+function SuccessfulTransfers({
+  pmap,
+  refreshDep,
+}: {
+  pmap: Map<string, Player>;
+  /** Bumps when a reveal adds roster history so the list refetches from Firestore. */
+  refreshDep: number;
+}) {
   const [transfers, setTransfers] = useState<CompletedTransfer[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
+    setLoading(true);
     loadCompletedTransfers()
       .then((data) => {
         if (!cancelled) setTransfers(data);
@@ -1068,8 +1121,10 @@ function SuccessfulTransfers({ pmap }: { pmap: Map<string, Player> }) {
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
-    return () => { cancelled = true; };
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [refreshDep]);
 
   if (loading) {
     return (

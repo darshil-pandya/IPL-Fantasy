@@ -20,6 +20,10 @@ import {
   type AdminDeleteNominationInput,
 } from "./api/waivers.js";
 import {
+  handleWaiverCommitReveal,
+  type WaiverCommitRevealInput,
+} from "./api/waiverReveal.js";
+import {
   handleGetPlayers,
   handleGetPlayerHistory,
   type GetPlayerHistoryInput,
@@ -136,6 +140,14 @@ export const waiverSettle = onCall(
   async (request) => {
     const data = request.data as SettleInput;
     return await handleSettle(data, ADMIN_SCORE_SYNC_SECRET);
+  },
+);
+
+export const waiverCommitReveal = onCall(
+  HEAVY_CALLABLE_OPTS,
+  async (request) => {
+    const data = request.data as WaiverCommitRevealInput;
+    return await handleWaiverCommitReveal(data, ADMIN_SCORE_SYNC_SECRET);
   },
 );
 

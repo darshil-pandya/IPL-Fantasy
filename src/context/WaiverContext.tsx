@@ -47,8 +47,10 @@ import {
   callWaiverNominate,
   callWaiverBid,
   callWaiverSettle,
+  callWaiverCommitReveal,
   callSetWaiverPhase,
   type SettleResult,
+  type WaiverCommitRevealResult,
 } from "../lib/firebase/waiverApi";
 
 function loadParsedState(): WaiverPersistentState | null {
@@ -100,6 +102,8 @@ type WaiverCtx = {
   /** `null` = use latest match column in data. */
   revealEffectiveColumnIdOverride: string | null;
   setRevealEffectiveColumnIdOverride: (columnId: string | null) => void;
+  /** Resolved match column id for reveal/settle (override or latest in data). */
+  revealEffectiveAfterColumnId: string | null;
   /** Cloud Function backed mutations (server-validated, atomic writes). */
   cloud: {
     nominate: (params: {
@@ -118,6 +122,10 @@ type WaiverCtx = {
     setPhase: (
       phase: "idle" | "active",
     ) => Promise<{ phase: string; isWaiverWindowOpen: boolean }>;
+    /** When Firebase is configured, prefer this over local `admin_reveal` for consistency. */
+    commitReveal: (params?: {
+      effectiveAfterColumnId?: string | null;
+    }) => Promise<WaiverCommitRevealResult>;
   };
 };
 
@@ -272,10 +280,9 @@ export function WaiverProvider({ children }: { children: ReactNode }) {
           let changed = false;
 
           // --- Budget repair ---
-          // Three sources can disagree:
-          // - Client `admin_reveal` updates waiverState.budgets + completedTransfers but not owners.
-          // - Cloud `handleSettle` updates owners.remainingBudget but not completedTransfers.
-          // Take the lowest remaining (most spending applied) so we never show inflated budgets.
+          // Three sources can disagree (legacy / partial failures). Prefer the lowest remaining
+          // (most spending applied). `waiverCommitReveal` and `handleSettle` now keep owners,
+          // completedTransfers, and waiverState aligned when using Firebase.
           const corrected = { ...prev.budgets };
           for (const owner of franchiseOwners) {
             const prevB = corrected[owner] ?? WAIVER_BUDGET_START;
@@ -524,8 +531,14 @@ export function WaiverProvider({ children }: { children: ReactNode }) {
       setPhase: async (phase: "idle" | "active") => {
         return callSetWaiverPhase({ targetPhase: phase });
       },
+      commitReveal: async (params?: { effectiveAfterColumnId?: string | null }) => {
+        return callWaiverCommitReveal({
+          effectiveAfterColumnId:
+            params?.effectiveAfterColumnId ?? revealEffectiveAfterColumnId,
+        });
+      },
     };
-  }, [session]);
+  }, [session, revealEffectiveAfterColumnId]);
 
   return (
     <WaiverContext.Provider
@@ -544,6 +557,7 @@ export function WaiverProvider({ children }: { children: ReactNode }) {
         matchColumnsForReveal,
         revealEffectiveColumnIdOverride,
         setRevealEffectiveColumnIdOverride,
+        revealEffectiveAfterColumnId,
         cloud,
       }}
     >

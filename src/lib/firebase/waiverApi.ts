@@ -84,6 +84,24 @@ export async function callWaiverSettle(params: {
   return res.data as SettleResult;
 }
 
+export interface WaiverCommitRevealResult {
+  ok: true;
+  transfersApplied: number;
+  nominationsResolved: number;
+}
+
+/** Server-authoritative reveal: updates owners, players, completedTransfers, waiverState, app settings. */
+export async function callWaiverCommitReveal(params: {
+  effectiveAfterColumnId?: string | null;
+}): Promise<WaiverCommitRevealResult> {
+  const fn = await callable("waiverCommitReveal");
+  const res = await fn({
+    adminSecret: ADMIN_SCORE_SYNC_SECRET,
+    effectiveAfterColumnId: params.effectiveAfterColumnId ?? undefined,
+  });
+  return res.data as WaiverCommitRevealResult;
+}
+
 export async function callSetWaiverPhase(params: {
   targetPhase: "idle" | "active";
 }): Promise<{ phase: string; isWaiverWindowOpen: boolean }> {
