@@ -1157,6 +1157,7 @@ function SuccessfulTransfers({
         {transfers.map((t) => {
           const pIn = pmap.get(t.playerInId);
           const winBid = t.bids.find((b) => b.result === "WON");
+          const headerOwner = winBid?.owner ?? t.nominatorOwner;
           const isExpanded = expandedId === t.id;
           return (
             <li key={t.id} className="app-panel border-cyan-500/25 overflow-hidden">
@@ -1165,7 +1166,14 @@ function SuccessfulTransfers({
                   <span className="text-xs text-slate-500">
                     {formatDate(t.revealedAt)}
                   </span>
-                  <OwnerBadge owner={t.nominatorOwner} />
+                  <div className="flex min-w-0 flex-col gap-0.5">
+                    <OwnerBadge owner={headerOwner} />
+                    {winBid && t.nominatorOwner !== winBid.owner ? (
+                      <span className="text-[10px] leading-tight text-slate-500">
+                        Nominated by {t.nominatorOwner}
+                      </span>
+                    ) : null}
+                  </div>
                   <span className="font-semibold text-white">
                     {pIn?.name ?? t.playerInId}
                   </span>
