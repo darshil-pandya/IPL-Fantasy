@@ -4,6 +4,7 @@ import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { runAdminScoreSync } from "./sync/adminScoreSync.js";
 import {
   runMigration,
+  runResetLeagueAndScoringToAuctionBaseline,
 } from "./api/migrate.js";
 import {
   handleNominate,
@@ -35,8 +36,6 @@ import {
   type GetOwnerPointsInput,
   type GetOwnerSquadInput,
 } from "./api/owners.js";
-// NOTE: intentionally no admin backfill / reset callables in production build.
-
 initializeApp();
 
 /** Must match web app `ADMIN_SCORE_SYNC_SECRET` in `adminScoreSyncCall.ts`. */
@@ -112,6 +111,19 @@ export const adminMigrateToCollections = onCall(
     const raw = request.data as Record<string, unknown> | undefined;
     const secret = typeof raw?.adminSecret === "string" ? raw.adminSecret : "";
     return await runMigration(secret, ADMIN_SCORE_SYNC_SECRET);
+  },
+);
+
+/** Clears scoring + waiver activity; restores auction squads (same admin secret as migrate). */
+export const adminResetLeagueToAuctionBaseline = onCall(
+  HEAVY_CALLABLE_OPTS,
+  async (request) => {
+    const raw = request.data as Record<string, unknown> | undefined;
+    const secret = typeof raw?.adminSecret === "string" ? raw.adminSecret : "";
+    return await runResetLeagueAndScoringToAuctionBaseline(
+      secret,
+      ADMIN_SCORE_SYNC_SECRET,
+    );
   },
 );
 

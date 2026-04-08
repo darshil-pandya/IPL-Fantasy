@@ -317,6 +317,22 @@ export async function runMigration(adminSecret: string, expectedSecret: string):
 
 const RESET_BATCH = 490;
 
+/** Zero per-match rows and season totals on bundle players (Firestore + client scoring). */
+function stripFantasyStatsFromLeaguePayload<
+  T extends { players?: LegacyPlayer[]; waiverPool?: LegacyPlayer[] },
+>(payload: T): T {
+  const strip = (p: LegacyPlayer): LegacyPlayer => ({
+    ...p,
+    byMatch: [],
+    seasonTotal: 0,
+  });
+  return {
+    ...payload,
+    players: (payload.players ?? []).map(strip),
+    waiverPool: (payload.waiverPool ?? []).map(strip),
+  };
+}
+
 async function deleteCollectionDocuments(
   db: FirebaseFirestore.Firestore,
   collectionId: string,
@@ -352,7 +368,8 @@ async function writeBatchedOps(
 /**
  * Clears waiver activity and resets waiver budgets to the season start (₹2,50,000).
  * Rosters revert to auction squads from `iplFantasy/leagueBundle` (same as post-migration baseline).
- * Does not delete `leagueBundle`, `fantasyMatchScores`, or `matchPlayerPoints`.
+ * Does not delete `leagueBundle`, `fantasyMatchScores`, or `matchPlayerPoints`. For a full scoring +
+ * waiver wipe plus stripped bundle stats, use {@link runResetLeagueAndScoringToAuctionBaseline}.
  */
 export async function runResetWaiverActivityToAuctionBaseline(
   adminSecret: string,
@@ -538,5 +555,68 @@ export async function runResetWaiverActivityToAuctionBaseline(
     migratedCollectionsReset,
     ownerCount: ownerDocs.length,
     playerDocCount: playerDocs.length,
+  };
+}
+
+/**
+ * Strips fantasy stats from `leagueBundle`, clears `fantasyMatchScores` and `matchPlayerPoints`,
+ * then runs {@link runResetWaiverActivityToAuctionBaseline} so rosters and waiver state match
+ * auction squads only.
+ */
+export async function runResetLeagueAndScoringToAuctionBaseline(
+  adminSecret: string,
+  expectedSecret: string,
+): Promise<{
+  ok: boolean;
+  leagueBundleFantasyStripped: boolean;
+  matchPlayerPointsDeleted: number;
+  fantasyMatchScoresCleared: boolean;
+  waiverReset: Awaited<ReturnType<typeof runResetWaiverActivityToAuctionBaseline>>;
+}> {
+  if (adminSecret !== expectedSecret) {
+    throw new HttpsError("permission-denied", "Invalid admin secret.");
+  }
+
+  const db = getFirestore();
+  const bundleRef = db.doc("iplFantasy/leagueBundle");
+  const bundleSnap = await bundleRef.get();
+  const rawPayload = bundleSnap.data()?.payload as
+    | {
+        players?: LegacyPlayer[];
+        waiverPool?: LegacyPlayer[];
+        franchises?: LegacyFranchise[];
+      }
+    | undefined;
+
+  if (!rawPayload?.franchises || !rawPayload?.players) {
+    throw new HttpsError(
+      "failed-precondition",
+      "iplFantasy/leagueBundle is missing franchises or players.",
+    );
+  }
+
+  const strippedPayload = stripFantasyStatsFromLeaguePayload(rawPayload);
+  await bundleRef.set(
+    {
+      payload: strippedPayload,
+      updatedAt: FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  );
+
+  await db.doc("iplFantasy/fantasyMatchScores").set({ matches: {} });
+  const matchPlayerPointsDeleted = await deleteCollectionDocuments(db, "matchPlayerPoints");
+
+  const waiverReset = await runResetWaiverActivityToAuctionBaseline(
+    adminSecret,
+    expectedSecret,
+  );
+
+  return {
+    ok: true,
+    leagueBundleFantasyStripped: true,
+    matchPlayerPointsDeleted,
+    fantasyMatchScoresCleared: true,
+    waiverReset,
   };
 }

@@ -37,6 +37,32 @@ export async function callMigrateToCollections(): Promise<MigrateResult> {
   return res.data as MigrateResult;
 }
 
+export interface ResetLeagueToAuctionBaselineResult {
+  ok: boolean;
+  leagueBundleFantasyStripped: boolean;
+  matchPlayerPointsDeleted: number;
+  fantasyMatchScoresCleared: boolean;
+  waiverReset: {
+    ok: boolean;
+    message: string;
+    deleted: {
+      completedTransfers: number;
+      waiverNominations: number;
+      waiverBids: number;
+      ownershipPeriods: number;
+    };
+    migratedCollectionsReset: boolean;
+    ownerCount: number;
+    playerDocCount: number;
+  };
+}
+
+export async function callResetLeagueToAuctionBaseline(): Promise<ResetLeagueToAuctionBaselineResult> {
+  const fn = await callable("adminResetLeagueToAuctionBaseline");
+  const res = await fn({ adminSecret: ADMIN_SCORE_SYNC_SECRET });
+  return res.data as ResetLeagueToAuctionBaselineResult;
+}
+
 // ─── Waiver mutations ───
 
 export async function callWaiverNominate(params: {

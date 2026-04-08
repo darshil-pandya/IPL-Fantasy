@@ -52,7 +52,7 @@ If you rename the repository, update **both** `vite.config.ts` (`REPO` and `base
 
 ## Firebase (optional — league + waivers in Firestore)
 
-With `VITE_FIREBASE_*` set at build time, the app loads the **league bundle** from Firestore (`iplFantasy/leagueBundle`) and subscribes for live updates; **waiver state** syncs the same way (`iplFantasy/waiverState`). Static JSON in `public/.../data/` remains in git for editing and as a fallback or seed—commissioners use **Waivers → Publish league to Firestore** after deploy. Setup: **[docs/firebase-waiver-setup.md](docs/firebase-waiver-setup.md)**. GitHub Pages: add **Actions secrets** `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, and `VITE_FIREBASE_PROJECT_ID`. Local dev uses `.env.local`.
+With `VITE_FIREBASE_*` set at build time, the app loads the **league bundle** from Firestore (`iplFantasy/leagueBundle`) and subscribes for live updates; **waiver state** syncs the same way (`iplFantasy/waiverState`). Static JSON in `public/.../data/` remains in git for editing and as a bootstrap input—commissioners use **Waivers → Publish league to Firestore** after deploy. **GitHub Actions** defaults to `VITE_LEAGUE_SOURCE=firestore` so production does not silently fall back to static JSON while waivers use Firestore (override with repository variable `VITE_LEAGUE_SOURCE` if needed). Setup: **[docs/firebase-waiver-setup.md](docs/firebase-waiver-setup.md)**. GitHub Pages: add **Actions secrets** `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, and `VITE_FIREBASE_PROJECT_ID`. Local dev uses `.env.local`.
 
 ## Updating league data
 

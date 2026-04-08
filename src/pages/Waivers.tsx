@@ -16,11 +16,12 @@ import {
 import { WAIVER_LOGIN_ROWS } from "../lib/waiver/auth";
 import type { Franchise, LeagueBundle, Player } from "../types";
 import type { CompletedTransfer, WaiverBid, WaiverNomination, WaiverSession } from "../lib/waiver/types";
-import { isFirebaseConfigured } from "../lib/firebase/client";
+import { isFirebaseConfigured, leagueDataSourceMode } from "../lib/firebase/client";
 import {
   callAdminDeleteWaiverBid,
   callAdminDeleteWaiverNomination,
   callMigrateToCollections,
+  callResetLeagueToAuctionBaseline,
 } from "../lib/firebase/waiverApi";
 import { seedLeagueFromStaticToFirestore } from "../lib/firebase/leagueRemote";
 import { loadCompletedTransfers } from "../lib/firebase/waiverRemote";
@@ -480,6 +481,7 @@ function AdminPanel({
   setRevealEffectiveColumnIdOverride: (columnId: string | null) => void;
   onRevealRound: () => Promise<void>;
 }) {
+  const { leagueBundleOrigin, leagueFirestoreIsCanonical, leagueNotice } = useLeague();
   const [pubBusy, setPubBusy] = useState(false);
   const [revealBusy, setRevealBusy] = useState(false);
   const [pubFeedback, setPubFeedback] = useState<{
@@ -489,6 +491,11 @@ function AdminPanel({
   const [debugging, setDebugging] = useState(false);
   const [migrateBusy, setMigrateBusy] = useState(false);
   const [migrateFeedback, setMigrateFeedback] = useState<{
+    kind: "ok" | "err";
+    text: string;
+  } | null>(null);
+  const [fullResetBusy, setFullResetBusy] = useState(false);
+  const [fullResetFeedback, setFullResetFeedback] = useState<{
     kind: "ok" | "err";
     text: string;
   } | null>(null);
@@ -532,6 +539,28 @@ function AdminPanel({
       });
     } finally {
       setMigrateBusy(false);
+    }
+  }
+
+  async function runFullResetToAuction() {
+    if (!isFirebaseConfigured()) return;
+    setFullResetFeedback(null);
+    setFullResetBusy(true);
+    try {
+      const r = await callResetLeagueToAuctionBaseline();
+      const w = r.waiverReset;
+      const del = w.deleted;
+      setFullResetFeedback({
+        kind: "ok",
+        text: `Scoring cleared (bundle stats stripped, fantasyMatchScores cleared, ${r.matchPlayerPointsDeleted} matchPlayerPoints rows removed). Waiver: ${del.completedTransfers} transfers, ${del.waiverNominations} noms, ${del.waiverBids} bids, ${del.ownershipPeriods} periods removed. ${w.message}`,
+      });
+    } catch (e) {
+      setFullResetFeedback({
+        kind: "err",
+        text: e instanceof Error ? e.message : String(e),
+      });
+    } finally {
+      setFullResetBusy(false);
     }
   }
 
@@ -651,6 +680,38 @@ function AdminPanel({
 
       {debugging ? (
         <div className="mt-4 space-y-6">
+      <div className="rounded-xl border border-slate-400/40 bg-slate-900/20 p-4">
+        <h4 className="text-xs font-bold uppercase tracking-wide text-slate-200">
+          League data source
+        </h4>
+        <p className="mt-2 text-[11px] leading-relaxed text-amber-900/90">
+          Build mode:{" "}
+          <code className="rounded bg-white/80 px-1 text-[0.65rem] text-slate-900">
+            {leagueDataSourceMode()}
+          </code>
+          . Live bundle origin:{" "}
+          <strong className="text-amber-950">
+            {leagueBundleOrigin ?? "—"}
+          </strong>
+          . Firestore is canonical for the league JSON:{" "}
+          <strong className="text-amber-950">
+            {leagueFirestoreIsCanonical ? "yes" : "no"}
+          </strong>
+          .
+        </p>
+        {leagueNotice ? (
+          <p className="mt-2 text-[11px] leading-snug text-amber-950/90">{leagueNotice}</p>
+        ) : null}
+        <p className="mt-2 text-[11px] leading-relaxed text-amber-900/80">
+          After a server reset, avoid <code className="app-code-inline text-[0.65rem]">static</code> league
+          mode while Firebase is on, or the site can show old rosters/points from{" "}
+          <code className="app-code-inline text-[0.65rem]">public/.../data</code> while waivers and scores
+          follow Firestore. Production builds default to{" "}
+          <code className="app-code-inline text-[0.65rem]">VITE_LEAGUE_SOURCE=firestore</code> in the GitHub
+          Actions workflow (override with repo variable{" "}
+          <code className="app-code-inline text-[0.65rem]">VITE_LEAGUE_SOURCE</code> if needed).
+        </p>
+      </div>
       <div className="rounded-xl border border-violet-400/40 bg-violet-950/25 p-4">
         <h4 className="text-xs font-bold uppercase tracking-wide text-violet-200">
           Cloud roster repair
@@ -691,6 +752,55 @@ function AdminPanel({
             }
           >
             {migrateFeedback.text}
+          </p>
+        )}
+      </div>
+
+      <div className="rounded-xl border border-red-500/35 bg-red-950/20 p-4">
+        <h4 className="text-xs font-bold uppercase tracking-wide text-red-200">
+          Reset scoring + waivers to auction squads
+        </h4>
+        <p className="mt-2 text-xs leading-relaxed text-amber-900/90">
+          Strips <code className="rounded bg-white/80 px-1 text-[0.65rem] text-slate-900">byMatch</code> /{" "}
+          <code className="rounded bg-white/80 px-1 text-[0.65rem] text-slate-900">seasonTotal</code> on{" "}
+          <code className="rounded bg-white/80 px-1 text-[0.65rem] text-slate-900">leagueBundle</code>, clears{" "}
+          <code className="rounded bg-white/80 px-1 text-[0.65rem] text-slate-900">fantasyMatchScores</code> and{" "}
+          <code className="rounded bg-white/80 px-1 text-[0.65rem] text-slate-900">matchPlayerPoints</code>, then
+          resets waiver state and related collections to auction rosters and full budgets (same as waiver-only
+          reset). Requires Cloud Functions deploy with{" "}
+          <code className="rounded bg-white/80 px-1 text-[0.65rem] text-slate-900">
+            adminResetLeagueToAuctionBaseline
+          </code>
+          . Keep <code className="app-code-inline text-[0.65rem]">VITE_LEAGUE_SOURCE=firestore</code> (or{" "}
+          <code className="app-code-inline text-[0.65rem]">auto</code> with a published bundle) so clients do
+          not keep reading stale static JSON.
+        </p>
+        <button
+          type="button"
+          disabled={fullResetBusy || !isFirebaseConfigured()}
+          onClick={() => {
+            if (
+              !window.confirm(
+                "This permanently clears all fantasy scoring data in Firestore and all waiver / transfer activity, and restores auction squads (leagueBundle player stats, fantasyMatchScores, matchPlayerPoints, transfers, nominations, bids, waiverState, ownershipPeriods if migrated). Continue?",
+              )
+            ) {
+              return;
+            }
+            void runFullResetToAuction();
+          }}
+          className="mt-3 rounded-lg border border-red-500/50 bg-red-900/35 px-3 py-2 text-xs font-semibold text-red-100 hover:bg-red-800/45 disabled:cursor-not-allowed disabled:opacity-45"
+        >
+          {fullResetBusy ? "Resetting…" : "Reset scoring + waivers to auction"}
+        </button>
+        {fullResetFeedback && (
+          <p
+            className={
+              fullResetFeedback.kind === "ok"
+                ? "mt-2 text-xs text-emerald-800"
+                : "mt-2 text-xs text-red-700"
+            }
+          >
+            {fullResetFeedback.text}
           </p>
         )}
       </div>

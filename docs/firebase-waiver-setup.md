@@ -55,6 +55,22 @@ When all three `VITE_FIREBASE_*` variables are set:
 
 Set in `.env.local` locally or add a repository variable / secret for the build if you need a non-default value.
 
+### Single source of truth (avoid split state)
+
+When Firebase is enabled, **Firestore** should drive everything users see, except where noted:
+
+| What | Canonical store | Notes |
+|------|-----------------|--------|
+| League JSON (franchises, players, `byMatch`, `seasonTotal`, meta, rules, …) | `iplFantasy/leagueBundle` | Static files in git are the **edit template** and **Publish** input—not what other devices see once the doc exists. |
+| Match-level fantasy overlays (synced scores) | `iplFantasy/fantasyMatchScores` | Merged into the bundle in the client. Clear + republish if overlays and bundle disagree. |
+| Waiver engine (phase, rosters, budgets, noms, bids) | `iplFantasy/waiverState` | Server callables update this; clients listen. |
+| Completed waiver rounds | `completedTransfers` (+ optional `waiverNominations` / `waiverBids`) | Cleared by full reset. |
+| Migrated mirror (optional) | `players`, `owners`, `ownershipPeriods`, `matchPlayerPoints`, `appSettings/league` | Rebuilt by **Migrate to collections** from bundle + waiver + scores; full reset strips bundle stats and clears match rows before resetting waivers. |
+
+**Production recommendation:** set `VITE_LEAGUE_SOURCE=firestore` (the GitHub Pages workflow defaults to this; override with repository variable `VITE_LEAGUE_SOURCE` if you need `auto` until the first publish). Do **not** use `static` for league data while Firebase is on, or the UI can show **stale squads/points from `public/.../data`** while waivers and scores follow Firestore—especially confusing after a reset.
+
+The app shows a **Home** banner when the league bundle is not loaded from Firestore but Firebase is configured (`auto` fallback to empty doc, or explicit `static` mode).
+
 ## 4. First-time: seed league in Firestore
 
 1. Deploy the site with Firebase env vars so the app can talk to Firestore.
@@ -118,6 +134,10 @@ The GitHub Actions service account needs permission to deploy Cloud Functions. S
 | `iplFantasy` | `leagueBundle` | `payload` (object: full league bundle), `updatedAt` (server timestamp) |
 | `iplFantasy` | `waiverState` | `payload` (object: same shape as localStorage waiver state), `updatedAt` (server timestamp) |
 | `iplFantasy` | `fantasyMatchScores` | `matches` (map: `matchKey` → `{ matchKey, matchLabel, matchDate, status?, playerPoints }`) — read in the app; written by the `adminSyncMatchScores` callable (Admin SDK) |
+| `matchPlayerPoints` | *(doc per row)* | Per-player match breakdowns; rebuilt by **Migrate to collections** |
+| `completedTransfers`, `waiverNominations`, `waiverBids` | *(docs)* | Waiver history; cleared by full reset-to-auction |
+| `players`, `owners`, `ownershipPeriods` | *(docs)* | Optional migrated mirror for server waivers / scoring |
+| `appSettings` | `league` | `isWaiverWindowOpen`, `waiverPhase` when using migrated path |
 
 ## 8. Troubleshooting
 
