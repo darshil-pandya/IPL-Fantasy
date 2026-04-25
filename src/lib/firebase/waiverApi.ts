@@ -161,6 +161,30 @@ export async function callAdminDeleteWaiverNomination(params: {
   return res.data as { ok: true };
 }
 
+export interface AdminCommissionerTransferResult {
+  ok: true;
+  transferId: string;
+  appliedAt: string;
+}
+
+/** Commissioner / admin roster swap: ₹0, any waiver phase (Cloud Function). */
+export async function callAdminCommissionerTransfer(params: {
+  targetOwnerName: string;
+  playerInId: string;
+  playerOutId: string;
+  effectiveAfterColumnId?: string | null;
+}): Promise<AdminCommissionerTransferResult> {
+  const fn = await callable("adminCommissionerTransfer");
+  const res = await fn({
+    adminSecret: ADMIN_SCORE_SYNC_SECRET,
+    targetOwnerName: params.targetOwnerName,
+    playerInId: params.playerInId,
+    playerOutId: params.playerOutId,
+    effectiveAfterColumnId: params.effectiveAfterColumnId ?? undefined,
+  });
+  return res.data as AdminCommissionerTransferResult;
+}
+
 // ─── Read endpoints ───
 
 export interface PlayerEntry {

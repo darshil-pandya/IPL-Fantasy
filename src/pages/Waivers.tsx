@@ -18,6 +18,7 @@ import type { Franchise, LeagueBundle, Player } from "../types";
 import type { CompletedTransfer, WaiverBid, WaiverNomination, WaiverSession } from "../lib/waiver/types";
 import { isFirebaseConfigured, leagueDataSourceMode } from "../lib/firebase/client";
 import {
+  callAdminCommissionerTransfer,
   callAdminDeleteWaiverBid,
   callAdminDeleteWaiverNomination,
   callMigrateToCollections,
@@ -126,6 +127,7 @@ export function Waivers() {
     variant: "success" | "error";
     message: string;
   } | null>(null);
+  const [transferListRefresh, setTransferListRefresh] = useState(0);
 
   useEffect(() => {
     if (!bidToast) return;
@@ -379,6 +381,22 @@ export function Waivers() {
         />
       )}
 
+      {session?.role === "admin" && (
+        <AdminCommissionerTransferPanel
+          franchises={displayFranchises}
+          availableIds={availableIds}
+          pmap={pmap}
+          onSuccess={() => {
+            setTransferListRefresh((n) => n + 1);
+            setBidToast({
+              variant: "success",
+              message:
+                "Commissioner transfer applied. Rosters and budget updated in Firestore.",
+            });
+          }}
+        />
+      )}
+
       {session?.role === "owner" && ownerFranchise && (
         <OwnerWaiverPanel
           sessionOwner={session.owner}
@@ -449,7 +467,7 @@ export function Waivers() {
 
       <SuccessfulTransfers
         pmap={pmap}
-        refreshDep={state.rosterHistory.length}
+        refreshDep={state.rosterHistory.length + transferListRefresh}
       />
 
       <section className="app-card p-4">
@@ -461,6 +479,130 @@ export function Waivers() {
       </section>
       <BidToast toast={bidToast} />
     </div>
+  );
+}
+
+function AdminCommissionerTransferPanel({
+  franchises,
+  availableIds,
+  pmap,
+  onSuccess,
+}: {
+  franchises: Franchise[];
+  availableIds: string[];
+  pmap: Map<string, Player>;
+  onSuccess: () => void;
+}) {
+  const [targetOwner, setTargetOwner] = useState("");
+  const [nomIn, setNomIn] = useState("");
+  const [nomOut, setNomOut] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const franchise = useMemo(
+    () => franchises.find((f) => f.owner === targetOwner) ?? null,
+    [franchises, targetOwner],
+  );
+
+  if (!isFirebaseConfigured()) {
+    return (
+      <section className="app-card p-5">
+        <h3 className="text-lg font-bold text-white">Commissioner transfer (₹0)</h3>
+        <p className="mt-2 text-sm text-slate-500">
+          This tool requires Firestore. Set all <code className="app-code-inline">VITE_FIREBASE_*</code>{" "}
+          build variables (see <code className="app-code-inline">docs/firebase-waiver-setup.md</code>).
+        </p>
+      </section>
+    );
+  }
+
+  return (
+    <section className="app-card p-5">
+      <h3 className="text-lg font-bold text-white">Commissioner transfer (₹0)</h3>
+      <p className="mt-1 text-xs text-slate-500">
+        Select an owner, then pick a player in from the available pool and a player out from that
+        owner&apos;s squad. Remaining budget is unchanged. You can use this in any waiver phase,
+        even when the nomination window is closed.
+      </p>
+      <form
+        className="mt-4 grid gap-4 sm:grid-cols-2"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          setErr(null);
+          if (!targetOwner || !nomIn || !nomOut) return;
+          setBusy(true);
+          try {
+            await callAdminCommissionerTransfer({
+              targetOwnerName: targetOwner,
+              playerInId: nomIn,
+              playerOutId: nomOut,
+            });
+            setNomIn("");
+            setNomOut("");
+            onSuccess();
+          } catch (unknownErr: unknown) {
+            const msg =
+              unknownErr && typeof unknownErr === "object" && "message" in unknownErr
+                ? String((unknownErr as { message: unknown }).message)
+                : String(unknownErr);
+            setErr(msg || "Transfer failed.");
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        <label className="flex flex-col gap-1 text-sm text-slate-200 sm:col-span-2">
+          <span className="text-xs uppercase text-slate-500">Target owner</span>
+          <select
+            value={targetOwner}
+            onChange={(e) => {
+              setTargetOwner(e.target.value);
+              setNomOut("");
+            }}
+            className="app-input py-2"
+          >
+            <option value="">Select owner…</option>
+            {franchises.map((f) => (
+              <option key={f.owner} value={f.owner}>
+                {f.owner}
+              </option>
+            ))}
+          </select>
+        </label>
+        <WaiverPlayerPicker
+          label="Nominee (available)"
+          value={nomIn}
+          onChange={setNomIn}
+          playerIds={availableIds}
+          pmap={pmap}
+          placeholder="Type player name, then pick from the list…"
+        />
+        <WaiverPlayerPicker
+          label="Player out"
+          value={nomOut}
+          onChange={setNomOut}
+          playerIds={franchise?.playerIds ?? []}
+          pmap={pmap}
+          placeholder="Type player name, then pick from the list…"
+          disabled={!franchise}
+        />
+        <div className="sm:col-span-2 text-sm text-slate-500">
+          Effective bid: <span className="font-medium tabular-nums text-amber-400">{money(0)}</span>
+          <span className="text-slate-600"> · </span>
+          <span>Does not reduce the owner&apos;s remaining budget</span>
+        </div>
+        <div className="flex flex-wrap items-end gap-2 sm:col-span-2">
+          <button
+            type="submit"
+            disabled={busy || !targetOwner || !nomIn || !nomOut}
+            className="app-btn-primary disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {busy ? "Applying…" : "Apply commissioner transfer"}
+          </button>
+        </div>
+        {err && <p className="text-sm text-red-400 sm:col-span-2">{err}</p>}
+      </form>
+    </section>
   );
 }
 
@@ -1311,6 +1453,11 @@ function SuccessfulTransfers({
                   <span className="rounded-full bg-emerald-600/20 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-400">
                     Processed
                   </span>
+                  {t.roundId === 0 ? (
+                    <span className="rounded-full bg-violet-600/20 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-violet-300">
+                      Commissioner
+                    </span>
+                  ) : null}
                   <button
                     type="button"
                     onClick={() => setExpandedId(isExpanded ? null : t.id)}

@@ -25,6 +25,10 @@ import {
   type WaiverCommitRevealInput,
 } from "./api/waiverReveal.js";
 import {
+  handleAdminCommissionerTransfer,
+  type AdminCommissionerTransferInput,
+} from "./api/adminCommissionerTransfer.js";
+import {
   handleGetPlayers,
   handleGetPlayerHistory,
   type GetPlayerHistoryInput,
@@ -184,6 +188,14 @@ export const adminDeleteWaiverNomination = onCall(
   async (request) => {
     const data = request.data as AdminDeleteNominationInput;
     return await handleAdminDeleteWaiverNomination(data, ADMIN_SCORE_SYNC_SECRET);
+  },
+);
+
+export const adminCommissionerTransfer = onCall(
+  CALLABLE_OPTS,
+  async (request) => {
+    const data = request.data as AdminCommissionerTransferInput;
+    return await handleAdminCommissionerTransfer(data, ADMIN_SCORE_SYNC_SECRET);
   },
 );
 

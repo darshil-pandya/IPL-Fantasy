@@ -20,7 +20,7 @@ function parseWaiverPayload(data: FirebaseFirestore.DocumentData | undefined): R
   return {};
 }
 
-async function resolveDefaultEffectiveAfterColumnId(
+export async function resolveDefaultEffectiveAfterColumnId(
   db: FirebaseFirestore.Firestore,
 ): Promise<string | null> {
   const snap = await db.doc(FANTASY_MATCH_SCORES_DOC).get();
