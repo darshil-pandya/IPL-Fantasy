@@ -68,6 +68,8 @@ export interface WaiverPersistentStatePort {
   nominationWindowClosedLoggedForRoundId?: number;
   rosters: Record<string, string[]>;
   budgets: Record<string, number>;
+  /** Cumulative net admin budget adjustments; preserved across reveals. */
+  budgetAdminAdjustments?: Record<string, number>;
   pointCarryover: Record<string, number>;
   joinSnapshot: Record<string, number>;
   rosterHistory: RosterChangeEventPort[];

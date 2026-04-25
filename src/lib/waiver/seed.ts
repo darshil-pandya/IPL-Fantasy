@@ -22,6 +22,7 @@ export function seedWaiverState(franchises: Franchise[]): WaiverPersistentState 
     phase: "idle",
     rosters,
     budgets,
+    budgetAdminAdjustments: {},
     pointCarryover,
     joinSnapshot,
     rosterHistory,

@@ -308,24 +308,27 @@ export function WaiverProvider({ children }: { children: ReactNode }) {
           let changed = false;
 
           // --- Budget repair ---
-          // Three sources can disagree (legacy / partial failures). Prefer the lowest remaining
-          // (most spending applied). `waiverCommitReveal` and `handleSettle` now keep owners,
-          // completedTransfers, and waiverState aligned when using Firebase.
+          // Transfer spend + `budgetAdminAdjustments` (admin add/subtract) vs Firestore owners.
+          // When owner docs exist, reconcile with `min(ledgerImplied, fromCloud)` so stale
+          // local `prevB` does not erase server-side admin credits.
           const corrected = { ...prev.budgets };
           for (const owner of franchiseOwners) {
             const prevB = corrected[owner] ?? WAIVER_BUDGET_START;
             const fromCloud = lookupOwnerRemainingBudget(cloudBudgets, owner);
             const amountSpent = spent[owner] ?? 0;
-            const fromTransfers = WAIVER_BUDGET_START - amountSpent;
-            const candidates = [prevB, fromTransfers];
+            const ledgerFromTransfers = WAIVER_BUDGET_START - amountSpent;
+            const adj = prev.budgetAdminAdjustments?.[owner] ?? 0;
+            const ledgerImplied = ledgerFromTransfers + adj;
+            let next: number;
             if (
               hasAnyOwnerDoc &&
               typeof fromCloud === "number" &&
               Number.isFinite(fromCloud)
             ) {
-              candidates.push(fromCloud);
+              next = Math.min(ledgerImplied, fromCloud);
+            } else {
+              next = Math.min(ledgerImplied, prevB);
             }
-            const next = Math.min(...candidates);
             if (corrected[owner] !== next) {
               corrected[owner] = next;
               changed = true;

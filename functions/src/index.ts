@@ -29,6 +29,10 @@ import {
   type AdminCommissionerTransferInput,
 } from "./api/adminCommissionerTransfer.js";
 import {
+  handleAdminAdjustOwnerBudget,
+  type AdminAdjustOwnerBudgetInput,
+} from "./api/adminAdjustOwnerBudget.js";
+import {
   handleGetPlayers,
   handleGetPlayerHistory,
   type GetPlayerHistoryInput,
@@ -196,6 +200,14 @@ export const adminCommissionerTransfer = onCall(
   async (request) => {
     const data = request.data as AdminCommissionerTransferInput;
     return await handleAdminCommissionerTransfer(data, ADMIN_SCORE_SYNC_SECRET);
+  },
+);
+
+export const adminAdjustOwnerBudget = onCall(
+  CALLABLE_OPTS,
+  async (request) => {
+    const data = request.data as AdminAdjustOwnerBudgetInput;
+    return await handleAdminAdjustOwnerBudget(data, ADMIN_SCORE_SYNC_SECRET);
   },
 );
 

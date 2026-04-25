@@ -18,11 +18,13 @@ import type { Franchise, LeagueBundle, Player } from "../types";
 import type { CompletedTransfer, WaiverBid, WaiverNomination, WaiverSession } from "../lib/waiver/types";
 import { isFirebaseConfigured, leagueDataSourceMode } from "../lib/firebase/client";
 import {
+  callAdminAdjustOwnerBudget,
   callAdminCommissionerTransfer,
   callAdminDeleteWaiverBid,
   callAdminDeleteWaiverNomination,
   callMigrateToCollections,
   callResetLeagueToAuctionBaseline,
+  type AdminAdjustOwnerBudgetResult,
 } from "../lib/firebase/waiverApi";
 import { seedLeagueFromStaticToFirestore } from "../lib/firebase/leagueRemote";
 import { loadCompletedTransfers } from "../lib/firebase/waiverRemote";
@@ -397,6 +399,21 @@ export function Waivers() {
         />
       )}
 
+      {session?.role === "admin" && (
+        <AdminBudgetAdjustPanel
+          franchises={displayFranchises}
+          ownerBudgets={state.budgets}
+          onSuccess={(r: AdminAdjustOwnerBudgetResult) => {
+            setBidToast({
+              variant: "success",
+              message: r.noOp
+                ? "No change to budget (already at boundary or zero effect)."
+                : `Budget updated for owner. Remaining ${money(r.newRemainingBudget)} (applied Δ ${r.appliedDelta >= 0 ? "+" : ""}${r.appliedDelta.toFixed(0)}).`,
+            });
+          }}
+        />
+      )}
+
       {session?.role === "owner" && ownerFranchise && (
         <OwnerWaiverPanel
           sessionOwner={session.owner}
@@ -479,6 +496,120 @@ export function Waivers() {
       </section>
       <BidToast toast={bidToast} />
     </div>
+  );
+}
+
+function AdminBudgetAdjustPanel({
+  franchises,
+  ownerBudgets,
+  onSuccess,
+}: {
+  franchises: Franchise[];
+  ownerBudgets: Record<string, number>;
+  onSuccess: (r: AdminAdjustOwnerBudgetResult) => void;
+}) {
+  const [targetOwner, setTargetOwner] = useState("");
+  const [deltaStr, setDeltaStr] = useState("5000");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const currentBudget = useMemo(() => {
+    if (!targetOwner) return null;
+    const n = ownerBudgets[targetOwner];
+    return typeof n === "number" && Number.isFinite(n) ? n : WAIVER_BUDGET_START;
+  }, [targetOwner, ownerBudgets]);
+
+  if (!isFirebaseConfigured()) {
+    return (
+      <section className="app-card p-5">
+        <h3 className="text-lg font-bold text-white">Adjust owner budget</h3>
+        <p className="mt-2 text-sm text-slate-500">
+          Requires Firestore. Set <code className="app-code-inline">VITE_FIREBASE_*</code> env vars.
+        </p>
+      </section>
+    );
+  }
+
+  return (
+    <section className="app-card p-5">
+      <h3 className="text-lg font-bold text-white">Adjust owner budget</h3>
+      <p className="mt-1 text-xs text-slate-500">
+        Add or subtract rupees from an owner&apos;s remaining waiver budget (same as{" "}
+        <code className="app-code-inline">owners.remainingBudget</code> and waiver state). Use a
+        negative number to reduce; budget never goes below ₹0.
+      </p>
+      <form
+        className="mt-4 flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          setErr(null);
+          if (!targetOwner) return;
+          const delta = Number(deltaStr);
+          if (!Number.isFinite(delta) || delta === 0) {
+            setErr("Enter a non-zero number (e.g. 5000 or -5000).");
+            return;
+          }
+          setBusy(true);
+          try {
+            const r = await callAdminAdjustOwnerBudget({
+              targetOwnerName: targetOwner,
+              delta,
+            });
+            onSuccess(r);
+            if (!r.noOp) setDeltaStr("");
+          } catch (unknownErr: unknown) {
+            const msg =
+              unknownErr && typeof unknownErr === "object" && "message" in unknownErr
+                ? String((unknownErr as { message: unknown }).message)
+                : String(unknownErr);
+            setErr(msg || "Request failed.");
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        <label className="flex flex-col gap-1 text-sm text-slate-200">
+          <span className="text-xs uppercase text-slate-500">Owner</span>
+          <select
+            value={targetOwner}
+            onChange={(e) => setTargetOwner(e.target.value)}
+            className="app-input py-2"
+          >
+            <option value="">Select owner…</option>
+            {franchises.map((f) => (
+              <option key={f.owner} value={f.owner}>
+                {f.owner}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1 text-sm text-slate-200">
+          <span className="text-xs uppercase text-slate-500">Delta (₹)</span>
+          <input
+            type="number"
+            inputMode="numeric"
+            step={1}
+            value={deltaStr}
+            onChange={(e) => setDeltaStr(e.target.value)}
+            className="app-input min-w-[10rem] py-2"
+            placeholder="e.g. 5000 or -2000"
+          />
+        </label>
+        <button
+          type="submit"
+          disabled={busy || !targetOwner}
+          className="app-btn-primary disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {busy ? "Applying…" : "Apply budget change"}
+        </button>
+        {currentBudget != null && targetOwner ? (
+          <p className="w-full text-sm text-slate-500 sm:basis-full">
+            Current (waiver state): <span className="tabular-nums text-amber-400">{money(currentBudget)}</span>
+          </p>
+        ) : null}
+        {err && <p className="w-full text-sm text-red-400 sm:basis-full">{err}</p>}
+      </form>
+    </section>
   );
 }
 

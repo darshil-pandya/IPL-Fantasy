@@ -604,6 +604,7 @@ export function alignStateWithFranchises(
 
   const rosters = { ...migrated.rosters };
   const budgets = { ...migrated.budgets };
+  const budgetAdminAdjustments = { ...(migrated.budgetAdminAdjustments ?? {}) };
   const pointCarryover = { ...migrated.pointCarryover };
   const joinSnapshot = { ...migrated.joinSnapshot };
   const rosterHistory = [...migrated.rosterHistory];
@@ -627,6 +628,7 @@ export function alignStateWithFranchises(
     phase,
     rosters,
     budgets,
+    budgetAdminAdjustments,
     pointCarryover,
     joinSnapshot,
     rosterHistory,

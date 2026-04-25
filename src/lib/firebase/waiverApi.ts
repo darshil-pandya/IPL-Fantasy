@@ -185,6 +185,28 @@ export async function callAdminCommissionerTransfer(params: {
   return res.data as AdminCommissionerTransferResult;
 }
 
+export interface AdminAdjustOwnerBudgetResult {
+  ok: true;
+  newRemainingBudget: number;
+  appliedDelta: number;
+  requestedDelta: number;
+  noOp?: boolean;
+}
+
+/** Add or subtract owner remaining budget (Firebase; clamped at 0). */
+export async function callAdminAdjustOwnerBudget(params: {
+  targetOwnerName: string;
+  delta: number;
+}): Promise<AdminAdjustOwnerBudgetResult> {
+  const fn = await callable("adminAdjustOwnerBudget");
+  const res = await fn({
+    adminSecret: ADMIN_SCORE_SYNC_SECRET,
+    targetOwnerName: params.targetOwnerName,
+    delta: params.delta,
+  });
+  return res.data as AdminAdjustOwnerBudgetResult;
+}
+
 // ─── Read endpoints ───
 
 export interface PlayerEntry {

@@ -64,6 +64,11 @@ export interface WaiverPersistentState {
   /** Full squad per owner (live roster). */
   rosters: Record<string, string[]>;
   budgets: Record<string, number>;
+  /**
+   * Cumulative net rupees from admin add/subtract budget (Firebase adminAdjustOwnerBudget).
+   * Used in client budget repair with transfer spend sums.
+   */
+  budgetAdminAdjustments?: Record<string, number>;
   /** @deprecated Retained for migration; not added on new reveals. Attribution uses rosterHistory. */
   pointCarryover: Record<string, number>;
   /** @deprecated Unused; retained for older persisted state. */
