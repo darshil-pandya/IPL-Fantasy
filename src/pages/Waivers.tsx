@@ -512,7 +512,7 @@ function AdminBudgetAdjustPanel({
     return (
       <section className="app-card p-5">
         <h3 className="text-lg font-bold text-white">Adjust owner budget</h3>
-        <p className="mt-2 text-sm text-slate-500">
+        <p className="mt-2 text-sm text-slate-300">
           Requires Firestore. Set <code className="app-code-inline">VITE_FIREBASE_*</code> env vars.
         </p>
       </section>
@@ -522,7 +522,7 @@ function AdminBudgetAdjustPanel({
   return (
     <section className="app-card p-5">
       <h3 className="text-lg font-bold text-white">Adjust owner budget</h3>
-      <p className="mt-1 text-xs text-slate-500">
+      <p className="mt-1 text-sm leading-relaxed text-slate-300">
         Add or subtract rupees from an owner&apos;s remaining waiver budget (same as{" "}
         <code className="app-code-inline">owners.remainingBudget</code> and waiver state). Use a
         negative number to reduce; budget never goes below ₹0.
@@ -558,7 +558,7 @@ function AdminBudgetAdjustPanel({
         }}
       >
         <label className="flex flex-col gap-1 text-sm text-slate-200">
-          <span className="text-xs uppercase text-slate-500">Owner</span>
+          <span className="text-xs font-medium uppercase tracking-wide text-slate-400">Owner</span>
           <select
             value={targetOwner}
             onChange={(e) => setTargetOwner(e.target.value)}
@@ -573,7 +573,7 @@ function AdminBudgetAdjustPanel({
           </select>
         </label>
         <label className="flex flex-col gap-1 text-sm text-slate-200">
-          <span className="text-xs uppercase text-slate-500">Delta (₹)</span>
+          <span className="text-xs font-medium uppercase tracking-wide text-slate-400">Delta (₹)</span>
           <input
             type="number"
             inputMode="numeric"
@@ -592,7 +592,7 @@ function AdminBudgetAdjustPanel({
           {busy ? "Applying…" : "Apply budget change"}
         </button>
         {currentBudget != null && targetOwner ? (
-          <p className="w-full text-sm text-slate-500 sm:basis-full">
+          <p className="w-full text-sm text-slate-300 sm:basis-full">
             Current (waiver state): <span className="tabular-nums text-amber-400">{money(currentBudget)}</span>
           </p>
         ) : null}
@@ -628,7 +628,7 @@ function AdminCommissionerTransferPanel({
     return (
       <section className="app-card p-5">
         <h3 className="text-lg font-bold text-white">Commissioner transfer (₹0)</h3>
-        <p className="mt-2 text-sm text-slate-500">
+        <p className="mt-2 text-sm text-slate-300">
           This tool requires Firestore. Set all <code className="app-code-inline">VITE_FIREBASE_*</code>{" "}
           build variables (see <code className="app-code-inline">docs/firebase-waiver-setup.md</code>).
         </p>
@@ -639,7 +639,7 @@ function AdminCommissionerTransferPanel({
   return (
     <section className="app-card p-5">
       <h3 className="text-lg font-bold text-white">Commissioner transfer (₹0)</h3>
-      <p className="mt-1 text-xs text-slate-500">
+      <p className="mt-1 text-sm leading-relaxed text-slate-300">
         Select an owner, then pick a player in from the available pool and a player out from that
         owner&apos;s squad. Remaining budget is unchanged. You can use this in any waiver phase,
         even when the nomination window is closed.
@@ -672,7 +672,7 @@ function AdminCommissionerTransferPanel({
         }}
       >
         <label className="flex flex-col gap-1 text-sm text-slate-200 sm:col-span-2">
-          <span className="text-xs uppercase text-slate-500">Target owner</span>
+          <span className="text-xs font-medium uppercase tracking-wide text-slate-400">Target owner</span>
           <select
             value={targetOwner}
             onChange={(e) => {
@@ -706,9 +706,9 @@ function AdminCommissionerTransferPanel({
           placeholder="Type player name, then pick from the list…"
           disabled={!franchise}
         />
-        <div className="sm:col-span-2 text-sm text-slate-500">
+        <div className="sm:col-span-2 text-sm text-slate-300">
           Effective bid: <span className="font-medium tabular-nums text-amber-400">{money(0)}</span>
-          <span className="text-slate-600"> · </span>
+          <span className="text-slate-500"> · </span>
           <span>Does not reduce the owner&apos;s remaining budget</span>
         </div>
         <div className="flex flex-wrap items-end gap-2 sm:col-span-2">
