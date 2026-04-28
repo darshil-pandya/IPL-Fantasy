@@ -380,15 +380,11 @@ export function Waivers() {
           revealEffectiveColumnIdOverride={revealEffectiveColumnIdOverride}
           setRevealEffectiveColumnIdOverride={setRevealEffectiveColumnIdOverride}
           onRevealRound={tryRevealRound}
-        />
-      )}
-
-      {session?.role === "admin" && (
-        <AdminCommissionerTransferPanel
           franchises={displayFranchises}
           availableIds={availableIds}
           pmap={pmap}
-          onSuccess={() => {
+          ownerBudgets={state.budgets}
+          onCommissionerTransferSuccess={() => {
             setTransferListRefresh((n) => n + 1);
             setBidToast({
               variant: "success",
@@ -396,14 +392,7 @@ export function Waivers() {
                 "Commissioner transfer applied. Rosters and budget updated in Firestore.",
             });
           }}
-        />
-      )}
-
-      {session?.role === "admin" && (
-        <AdminBudgetAdjustPanel
-          franchises={displayFranchises}
-          ownerBudgets={state.budgets}
-          onSuccess={(r: AdminAdjustOwnerBudgetResult) => {
+          onBudgetAdjustSuccess={(r: AdminAdjustOwnerBudgetResult) => {
             setBidToast({
               variant: "success",
               message: r.noOp
@@ -745,6 +734,12 @@ function AdminPanel({
   revealEffectiveColumnIdOverride,
   setRevealEffectiveColumnIdOverride,
   onRevealRound,
+  franchises,
+  availableIds,
+  pmap,
+  ownerBudgets,
+  onCommissionerTransferSuccess,
+  onBudgetAdjustSuccess,
 }: {
   dispatch: (a: WaiverEngineAction) => void;
   error: string | null;
@@ -753,6 +748,12 @@ function AdminPanel({
   revealEffectiveColumnIdOverride: string | null;
   setRevealEffectiveColumnIdOverride: (columnId: string | null) => void;
   onRevealRound: () => Promise<void>;
+  franchises: Franchise[];
+  availableIds: string[];
+  pmap: Map<string, Player>;
+  ownerBudgets: Record<string, number>;
+  onCommissionerTransferSuccess: () => void;
+  onBudgetAdjustSuccess: (r: AdminAdjustOwnerBudgetResult) => void;
 }) {
   const { leagueBundleOrigin, leagueFirestoreIsCanonical, leagueNotice } = useLeague();
   const [pubBusy, setPubBusy] = useState(false);
@@ -947,12 +948,24 @@ function AdminPanel({
           Debugging
         </label>
         <p className="mt-1 text-[11px] leading-snug text-amber-900/75">
-          When off, cloud roster repair, reset waiver season, and April backfill stay hidden.
+          When off, commissioner transfer, budget adjust, cloud roster repair, reset waiver season,
+          and April backfill stay hidden.
         </p>
       </div>
 
       {debugging ? (
         <div className="mt-4 space-y-6">
+          <AdminCommissionerTransferPanel
+            franchises={franchises}
+            availableIds={availableIds}
+            pmap={pmap}
+            onSuccess={onCommissionerTransferSuccess}
+          />
+          <AdminBudgetAdjustPanel
+            franchises={franchises}
+            ownerBudgets={ownerBudgets}
+            onSuccess={onBudgetAdjustSuccess}
+          />
       <div className="rounded-xl border border-slate-400/40 bg-slate-900/20 p-4">
         <h4 className="text-xs font-bold uppercase tracking-wide text-slate-200">
           League data source

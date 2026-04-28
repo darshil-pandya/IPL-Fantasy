@@ -297,7 +297,9 @@ export function WaiverProvider({ children }: { children: ReactNode }) {
         for (const t of transfers) {
           const won = t.bids.find((b) => b.result === "WON");
           if (won) {
-            spent[won.owner] = (spent[won.owner] ?? 0) + won.amount;
+            const amt = Number(won.amount);
+            if (!Number.isFinite(amt)) continue;
+            spent[won.owner] = (spent[won.owner] ?? 0) + amt;
           }
         }
 
@@ -313,12 +315,17 @@ export function WaiverProvider({ children }: { children: ReactNode }) {
           // local `prevB` does not erase server-side admin credits.
           const corrected = { ...prev.budgets };
           for (const owner of franchiseOwners) {
-            const prevB = corrected[owner] ?? WAIVER_BUDGET_START;
+            const prevBRaw = corrected[owner] ?? WAIVER_BUDGET_START;
+            const prevB = Number.isFinite(Number(prevBRaw))
+              ? Number(prevBRaw)
+              : WAIVER_BUDGET_START;
             const fromCloud = lookupOwnerRemainingBudget(cloudBudgets, owner);
-            const amountSpent = spent[owner] ?? 0;
+            const amountSpent = Number(spent[owner] ?? 0);
             const ledgerFromTransfers = WAIVER_BUDGET_START - amountSpent;
-            const adj = prev.budgetAdminAdjustments?.[owner] ?? 0;
-            const ledgerImplied = ledgerFromTransfers + adj;
+            const adj = Number(prev.budgetAdminAdjustments?.[owner] ?? 0);
+            const ledgerImplied =
+              (Number.isFinite(ledgerFromTransfers) ? ledgerFromTransfers : WAIVER_BUDGET_START) +
+              (Number.isFinite(adj) ? adj : 0);
             let next: number;
             if (
               hasAnyOwnerDoc &&
@@ -329,6 +336,7 @@ export function WaiverProvider({ children }: { children: ReactNode }) {
             } else {
               next = Math.min(ledgerImplied, prevB);
             }
+            if (!Number.isFinite(next)) next = fromCloud ?? prevB ?? WAIVER_BUDGET_START;
             if (corrected[owner] !== next) {
               corrected[owner] = next;
               changed = true;

@@ -12,10 +12,13 @@ import type { FranchiseStanding, Player } from "../types";
 
 function OwnerSummaryTable({
   columns,
+  columnOrderDesc,
   perOwnerPerMatch,
   standings,
 }: {
   columns: MatchColumn[];
+  /** Column indices (into `columns`), newest match first. */
+  columnOrderDesc: number[];
   perOwnerPerMatch: Record<string, number[]>;
   standings: FranchiseStanding[];
 }) {
@@ -33,6 +36,8 @@ function OwnerSummaryTable({
   }, [owners, perOwnerPerMatch]);
 
   if (columns.length === 0 || owners.length === 0) return null;
+
+  const rowIndices = columnOrderDesc.length > 0 ? columnOrderDesc : columns.map((_, j) => j);
 
   return (
     <section className="space-y-2">
@@ -57,7 +62,8 @@ function OwnerSummaryTable({
             </tr>
           </thead>
           <tbody>
-            {columns.map((c, j) => {
+            {rowIndices.map((j) => {
+              const c = columns[j]!;
               const vals = owners.map((o) => (perOwnerPerMatch[o] ?? [])[j] ?? 0);
               const maxVal = Math.max(...vals);
               return (
@@ -123,6 +129,7 @@ function OwnerSummaryTable({
 function FranchiseMatchTable({
   standing,
   columns,
+  columnOrderDesc,
   scoringMode,
   perOwnerRounds,
   rostersAtStartOfMatch,
@@ -130,6 +137,7 @@ function FranchiseMatchTable({
 }: {
   standing: FranchiseStanding;
   columns: MatchColumn[];
+  columnOrderDesc: number[];
   scoringMode: FranchiseScoringMode;
   perOwnerRounds: number[];
   rostersAtStartOfMatch: Record<string, string[]>[] | null;
@@ -179,7 +187,9 @@ function FranchiseMatchTable({
             >
               Type
             </th>
-            {columns.map((c) => (
+            {columnOrderDesc.map((j) => {
+              const c = columns[j]!;
+              return (
               <th
                 key={c.id}
                 scope="col"
@@ -190,7 +200,8 @@ function FranchiseMatchTable({
                   {formatMatchDate(c.date)}
                 </span>
               </th>
-            ))}
+              );
+            })}
             <th
               scope="col"
               className="px-3 py-3 text-right text-[10px] font-semibold uppercase tracking-wide text-amber-400"
@@ -205,6 +216,7 @@ function FranchiseMatchTable({
               key={p.id}
               player={p}
               columns={columns}
+              columnOrderDesc={columnOrderDesc}
               owner={owner}
               scoringMode={scoringMode}
               rostersAtStartOfMatch={rostersAtStartOfMatch}
@@ -217,11 +229,14 @@ function FranchiseMatchTable({
             >
               Franchise match total
             </td>
-            {columns.map((c, j) => (
+            {columnOrderDesc.map((j) => {
+              const c = columns[j]!;
+              return (
               <td key={c.id} className="px-2 py-3 text-right tabular-nums text-slate-300">
                 {Math.round(perOwnerRounds[j] ?? 0)}
               </td>
-            ))}
+              );
+            })}
             <td className="px-3 py-3 text-right tabular-nums text-amber-400">
               {Math.round(franchiseMatchTotal)}
             </td>
@@ -242,6 +257,7 @@ function FranchiseMatchTable({
                 key={f.player.id}
                 player={f.player}
                 columns={columns}
+                columnOrderDesc={columnOrderDesc}
                 attributedPoints={f.attributedPoints}
               />
             ))}
@@ -255,12 +271,14 @@ function FranchiseMatchTable({
 function PlayerRow({
   player,
   columns,
+  columnOrderDesc,
   owner,
   scoringMode,
   rostersAtStartOfMatch,
 }: {
   player: Player;
   columns: MatchColumn[];
+  columnOrderDesc: number[];
   owner: string;
   scoringMode: FranchiseScoringMode;
   rostersAtStartOfMatch: Record<string, string[]>[] | null;
@@ -295,7 +313,8 @@ function PlayerRow({
           {player.nationality ?? "—"}
         </span>
       </td>
-      {columns.map((c, j) => {
+      {columnOrderDesc.map((j) => {
+        const c = columns[j]!;
         const onRoster =
           scoringMode === "current" ||
           (rostersAtStartOfMatch != null &&
@@ -323,10 +342,12 @@ function PlayerRow({
 function FormerPlayerRow({
   player,
   columns,
+  columnOrderDesc,
   attributedPoints,
 }: {
   player: Player;
   columns: MatchColumn[];
+  columnOrderDesc: number[];
   attributedPoints: number;
 }) {
   return (
@@ -345,7 +366,8 @@ function FormerPlayerRow({
           {player.nationality ?? "—"}
         </span>
       </td>
-      {columns.map((c) => {
+      {columnOrderDesc.map((j) => {
+        const c = columns[j]!;
         const pts = pointsInMatch(player, c.id);
         return (
           <td
@@ -373,6 +395,11 @@ export function MatchPoints() {
   }, [displaySummary]);
 
   const columns: MatchColumn[] = displaySummary?.columns ?? [];
+
+  const columnOrderDesc = useMemo(
+    () => columns.map((_, j) => j).reverse(),
+    [columns],
+  );
 
   const filteredStandings = useMemo(() => {
     if (franchise === "all") return standings;
@@ -413,6 +440,7 @@ export function MatchPoints() {
 
       <OwnerSummaryTable
         columns={columns}
+        columnOrderDesc={columnOrderDesc}
         perOwnerPerMatch={displaySummary.perOwnerPerMatch}
         standings={standings}
       />
@@ -433,6 +461,7 @@ export function MatchPoints() {
             <FranchiseMatchTable
               standing={s}
               columns={columns}
+              columnOrderDesc={columnOrderDesc}
               scoringMode={scoringMode}
               perOwnerRounds={displaySummary.perOwnerPerMatch[s.owner] ?? []}
               rostersAtStartOfMatch={displaySummary.rostersAtStartOfMatch}

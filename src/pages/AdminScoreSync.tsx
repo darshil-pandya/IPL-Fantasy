@@ -1,12 +1,4 @@
 import { useMemo, useState } from "react";
-
-function todayYmdLocal(): string {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
 import { Link } from "react-router-dom";
 import { useLeague } from "../context/LeagueContext";
 import { useWaiver } from "../context/WaiverContext";
@@ -17,6 +9,14 @@ import {
 } from "../lib/firebase/adminScoreSyncCall";
 import { isFirebaseConfigured } from "../lib/firebase/client";
 import type { Player } from "../types";
+
+function todayYmdLocal(): string {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
 
 export function AdminScoreSync() {
   const { bundle, refresh } = useLeague();
@@ -30,6 +30,7 @@ export function AdminScoreSync() {
   const [resetBusy, setResetBusy] = useState(false);
   const [resetErr, setResetErr] = useState<string | null>(null);
   const [resetOk, setResetOk] = useState<string | null>(null);
+  const [showBackendResetMatchPoints, setShowBackendResetMatchPoints] = useState(false);
 
   const pmap = useMemo(() => {
     const m = new Map<string, Player>();
@@ -135,33 +136,6 @@ export function AdminScoreSync() {
         </p>
       </div>
 
-      <div className="app-panel space-y-3 border-red-500/25 bg-red-950/15 p-5 ring-1 ring-red-500/15">
-        <h3 className="text-sm font-semibold text-red-200">Reset backend match points</h3>
-        <p className="text-sm text-slate-400">
-          Removes every stored match overlay in{" "}
-          <code className="app-code-inline">iplFantasy/fantasyMatchScores</code>. The site then uses
-          static <code className="app-code-inline">byMatch</code> /{" "}
-          <code className="app-code-inline">seasonTotal</code> from JSON (and whatever is in{" "}
-          <code className="app-code-inline">leagueBundle</code> in Firestore). After clearing, use{" "}
-          <strong className="text-slate-200">Waivers → Publish league to Firestore</strong> if the
-          live bundle should match your repo JSON.
-        </p>
-        <button
-          type="button"
-          disabled={resetBusy}
-          onClick={() => void onResetFirestoreOverlays()}
-          className="rounded-lg border border-red-500/40 bg-red-950/40 px-4 py-2 text-sm font-semibold text-red-100 hover:bg-red-900/50 disabled:opacity-50"
-        >
-          {resetBusy ? "Clearing…" : "Clear Firestore match overlays"}
-        </button>
-        {resetErr ? (
-          <p className="text-sm text-red-300">{resetErr}</p>
-        ) : null}
-        {resetOk ? (
-          <p className="text-sm text-emerald-300">{resetOk}</p>
-        ) : null}
-      </div>
-
       <form
         onSubmit={(e) => void onSubmit(e)}
         className="app-panel space-y-4 border-amber-500/20 p-5 ring-1 ring-amber-500/10"
@@ -198,6 +172,50 @@ export function AdminScoreSync() {
           {busy ? "Running…" : "Run sync"}
         </button>
       </form>
+
+      <div className="app-panel border-slate-600/40 p-4 ring-1 ring-slate-600/20">
+        <label className="flex cursor-pointer items-start gap-3 text-sm text-slate-300">
+          <input
+            type="checkbox"
+            className="mt-1 size-4 shrink-0 rounded border-cyan-500/40 bg-slate-950 text-amber-500 focus:ring-amber-400/50"
+            checked={showBackendResetMatchPoints}
+            onChange={(e) => setShowBackendResetMatchPoints(e.target.checked)}
+          />
+          <span>
+            Show dangerous option — <strong className="text-slate-200">Reset backend match points</strong>{" "}
+            (clear Firestore match overlays)
+          </span>
+        </label>
+      </div>
+
+      {showBackendResetMatchPoints ? (
+        <div className="app-panel space-y-3 border-red-500/25 bg-red-950/15 p-5 ring-1 ring-red-500/15">
+          <h3 className="text-sm font-semibold text-red-200">Reset backend match points</h3>
+          <p className="text-sm text-slate-400">
+            Removes every stored match overlay in{" "}
+            <code className="app-code-inline">iplFantasy/fantasyMatchScores</code>. The site then uses
+            static <code className="app-code-inline">byMatch</code> /{" "}
+            <code className="app-code-inline">seasonTotal</code> from JSON (and whatever is in{" "}
+            <code className="app-code-inline">leagueBundle</code> in Firestore). After clearing, use{" "}
+            <strong className="text-slate-200">Waivers → Publish league to Firestore</strong> if the
+            live bundle should match your repo JSON.
+          </p>
+          <button
+            type="button"
+            disabled={resetBusy}
+            onClick={() => void onResetFirestoreOverlays()}
+            className="rounded-lg border border-red-500/40 bg-red-950/40 px-4 py-2 text-sm font-semibold text-red-100 hover:bg-red-900/50 disabled:opacity-50"
+          >
+            {resetBusy ? "Clearing…" : "Clear Firestore match overlays"}
+          </button>
+          {resetErr ? (
+            <p className="text-sm text-red-300">{resetErr}</p>
+          ) : null}
+          {resetOk ? (
+            <p className="text-sm text-emerald-300">{resetOk}</p>
+          ) : null}
+        </div>
+      ) : null}
 
       {err ? (
         <p className="rounded-xl border border-red-500/40 bg-red-950/50 px-4 py-3 text-sm text-red-200">
