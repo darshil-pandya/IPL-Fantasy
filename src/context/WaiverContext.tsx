@@ -310,9 +310,13 @@ export function WaiverProvider({ children }: { children: ReactNode }) {
           let changed = false;
 
           // --- Budget repair ---
-          // Transfer spend + `budgetAdminAdjustments` (admin add/subtract) vs Firestore owners.
-          // When owner docs exist, reconcile with `min(ledgerImplied, fromCloud)` so stale
-          // local `prevB` does not erase server-side admin credits.
+          // When Firestore `owners` documents exist (migrated/production), **`remainingBudget`
+          // is authoritative** — updated atomically by reveals, commissioner transfer, admin
+          // ±budget, cloud repair. Older logic used **`min(transferLedger, fromCloud)`**, which
+          // could UNDER-shoot **`owners.remainingBudget`** (e.g. missed edge in ledger math), then a
+          // debounced `pushWaiverRemote` overwrote **`waiverState.payload.budgets`**, oscillating vs
+          // the real server value on each snapshot ("flickering" between two amounts).
+          // Without owner docs (static/offline-only), approximate from ledger + embedded adjustments.
           const corrected = { ...prev.budgets };
           for (const owner of franchiseOwners) {
             const prevBRaw = corrected[owner] ?? WAIVER_BUDGET_START;
@@ -332,7 +336,7 @@ export function WaiverProvider({ children }: { children: ReactNode }) {
               typeof fromCloud === "number" &&
               Number.isFinite(fromCloud)
             ) {
-              next = Math.min(ledgerImplied, fromCloud);
+              next = fromCloud;
             } else {
               next = Math.min(ledgerImplied, prevB);
             }

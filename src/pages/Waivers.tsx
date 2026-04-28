@@ -281,7 +281,8 @@ export function Waivers() {
           </h3>
           <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7">
             {displayFranchises.map((f) => {
-              const remaining = state.budgets[f.owner] ?? WAIVER_BUDGET_START;
+              const remainingRaw = state.budgets[f.owner] ?? WAIVER_BUDGET_START;
+              const remaining = Math.max(0, Number.isFinite(Number(remainingRaw)) ? Number(remainingRaw) : WAIVER_BUDGET_START);
               const isYou =
                 session?.role === "owner" && session.owner === f.owner;
               return (
@@ -412,7 +413,7 @@ export function Waivers() {
           myNominations={myNominations}
           nominatedInIds={nominatedInIds}
           availableIds={availableIds}
-          budgetRemaining={state.budgets[session.owner] ?? 0}
+          budgetRemaining={Math.max(0, state.budgets[session.owner] ?? 0)}
           pmap={pmap}
           tryDispatch={runDispatch}
           error={actionErr}
@@ -443,7 +444,7 @@ export function Waivers() {
                 }
                 budgetRemaining={
                   session?.role === "owner"
-                    ? (state.budgets[session.owner] ?? 0)
+                    ? Math.max(0, state.budgets[session.owner] ?? 0)
                     : 0
                 }
                 submitBid={submitBidWithToast}
